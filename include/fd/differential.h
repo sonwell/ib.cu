@@ -4,7 +4,6 @@
 
 #include "lwps/types.h"
 #include "lwps/matrix.h"
-#include "lwps/operators.h"
 #include "util/launch.h"
 #include "util/functional.h"
 
@@ -100,7 +99,21 @@ namespace fd {
 		};
 	}
 
-	static constexpr struct __differential_functor {
+	template <typename domain_type, typename view_type, typename dir_type>
+	auto
+	differential(const domain_type& domain, const view_type& view, const dir_type& dir)
+	{
+		using operators::caller;
+		using differential_impl::builder;
+		using tag_type = typename domain_type::tag_type;
+		static constexpr auto dimensions = domain_type::ndim;
+		using caller_type = caller<builder, tag_type, 0, dimensions>;
+		auto&& views = fd::dimensions(domain);
+		return caller_type::call(view, views, dir);
+	}
+
+
+	/*static constexpr struct __differential_functor {
 		template <typename Domain, typename View, typename Dir>
 		lwps::matrix
 		operator()(const Domain& domain, const View& view, const Dir& dir) const
@@ -114,5 +127,5 @@ namespace fd {
 		}
 
 		constexpr __differential_functor () {}
-	} differential;
+	} differential;*/
 }

@@ -168,7 +168,7 @@ namespace lwps {
 		for (auto row = 0; row < m.rows(); ++row) {
 			auto&& end = h_starts[row+1];
 			auto offset = h_starts[row];
-			if (row > 0) out << ',' << std::endl;
+			if (row > 0) out << ',' << std::endl << ' ';
 			out << '[';
 			for (auto col = 0; col < m.cols(); ++col) {
 				if (col > 0) out << ", ";

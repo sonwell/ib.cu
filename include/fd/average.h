@@ -5,7 +5,6 @@
 
 #include "lwps/types.h"
 #include "lwps/matrix.h"
-#include "lwps/operators.h"
 #include "util/launch.h"
 #include "util/functional.h"
 
@@ -93,6 +92,8 @@ namespace fd {
 					using namespace util::functional;
 
 					auto&& components = splat(sequence(), views, view);
+					auto p = [] (const lwps::matrix& m) { std::cout << m << std::endl; };
+					map(p, components);
 					auto&& multikron = partial(foldl, lwps::kron);
 					auto&& reversed = reverse(std::move(components));
 					return apply(multikron, std::move(reversed));
@@ -100,7 +101,20 @@ namespace fd {
 		};
 	}
 
-	static constexpr struct __average_functor {
+	template <typename domain_type, typename view_type, typename dir_type>
+	auto
+	average(const domain_type& domain, const view_type& view, const dir_type& dir)
+	{
+		using operators::caller;
+		using average_impl::builder;
+		using tag_type = typename domain_type::tag_type;
+		static constexpr auto dimensions = domain_type::ndim;
+		using caller_type = caller<builder, tag_type, 0, dimensions>;
+		auto&& views = fd::dimensions(domain);
+		return caller_type::call(view, views, dir);
+	}
+
+	/*static constexpr struct __average_functor {
 		template <typename Domain, typename View, typename Dir>
 		lwps::matrix
 		operator()(const Domain& domain, const View& view, const Dir& dir) const
@@ -114,5 +128,5 @@ namespace fd {
 		}
 
 		constexpr __average_functor () {}
-	} average;
+	} average;*/
 }

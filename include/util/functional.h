@@ -7,7 +7,7 @@
 
 namespace util {
 	template <typename Tpl>
-	using sequence_matching_tuple = std::make_index_sequence<std::tuple_size<std::decay_t<Tpl>>::value>;
+	using sequence_matching_tuple = std::make_index_sequence<std::tuple_size_v<std::decay_t<Tpl>>>;
 
 	namespace functional_impl {
 		template <bool ...>
@@ -21,6 +21,9 @@ namespace util {
 
 		template <bool ... Bs>
 		struct any { static constexpr bool value = !all<!Bs...>::value; };
+
+		template <bool ... Bs> inline constexpr auto any_v = any<Bs...>::value;
+		template <bool ... Bs> inline constexpr auto all_v = all<Bs...>::value;
 
 		template <typename Fn, typename ... Args>
 		struct is_invocable {
@@ -71,17 +74,14 @@ namespace util {
 			private:
 				template <std::size_t ... Ns, typename ... Tpls>
 				static constexpr auto
-				call(const std::index_sequence<Ns...>&, Tpls&& ... tpls) ->
-					decltype(std::make_tuple(__zip<Ns>(std::forward<Tpls>(tpls)...)...))
+				call(const std::index_sequence<Ns...>&, Tpls&& ... tpls)
 				{
 					return std::make_tuple(__zip<Ns>(std::forward<Tpls>(tpls)...)...);
 				}
 			public:
 				template <typename Tpl, typename ... Tpls>
 				constexpr auto
-				operator()(Tpl&& tpl, Tpls&& ... tpls) const ->
-					decltype(call(sequence_matching_tuple<Tpl>(),
-								std::forward<Tpl>(tpl), std::forward<Tpls>(tpls)...))
+				operator()(Tpl&& tpl, Tpls&& ... tpls) const
 				{
 					using sequence = sequence_matching_tuple<Tpl>;
 					return call(sequence(), std::forward<Tpl>(tpl), std::forward<Tpls>(tpls)...);
@@ -115,29 +115,20 @@ namespace util {
 			return __wrap<T>(std::forward<T>(t));
 		}
 
+		void __swallow(...) {}
+
 		template <std::size_t ... Ns, typename Fn, typename Tpl>
 		constexpr auto
 		__map(const std::index_sequence<Ns...>&, Fn&& fn, Tpl&& tpl)
 		{
-			return std::make_tuple(wrap(fn(std::get<Ns>(std::forward<Tpl>(tpl))))...);
-		}
-
-		template <typename Fn, typename Arg>
-		constexpr int
-		__ignore(Fn&& fn, Arg&& arg)
-		{
-			return (apply(std::forward<Fn>(fn), std::forward_as_tuple(std::forward<Arg>(arg))), 0);
-		}
-
-		template <typename ... Ts>
-		constexpr int __swallow(Ts&& ...) { return 0; }
-
-		template <typename Fn, typename Tpl, std::size_t ... Ns>
-		constexpr auto
-		__map(const std::index_sequence<Ns...>&, Fn&& fn, Tpl&& tpl) ->
-			typename std::enable_if<any<std::is_void<decltype(fn(std::get<Ns>(std::forward<Tpl>(tpl))))>::value...>::value, std::tuple<>>::type
-		{
-			return (__swallow(__ignore(std::forward<Fn>(fn), std::get<Ns>(std::forward<Tpl>(tpl)))...), std::tuple<>());
+			using arg_tuple = std::decay_t<Tpl>;
+			constexpr bool returns_void = any_v<std::is_void_v<invoke_result<Fn, std::tuple_element_t<Ns, arg_tuple>>>...>;
+			if constexpr (!returns_void) {
+				using tuple_type = std::tuple<invoke_result<Fn, std::tuple_element_t<Ns, arg_tuple>>...>;
+				return tuple_type{fn(std::get<Ns>(std::forward<Tpl>(tpl)))...};
+			}
+			else
+				return __swallow((fn(std::get<Ns>(std::forward<Tpl>(tpl))), 0)...);
 		}
 
 		static constexpr struct __map_functor {

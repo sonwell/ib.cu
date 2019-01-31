@@ -3,7 +3,6 @@
 #include <cmath>
 #include "gershgorin.h"
 #include "preconditioner.h"
-#include "cuda/device.h"
 
 namespace algo {
 	namespace impl {
@@ -90,6 +89,7 @@ namespace algo {
 	class chebyshev {
 	private:
 		impl::chebw<4> chebw;
+	protected:
 		const lwps::matrix& op;
 
 		lwps::vector
@@ -103,16 +103,8 @@ namespace algo {
 			if constexpr(num_weights > 1) {
 				lwps::vector z(size(r));
 				for (int i = 1; i < num_weights; ++i) {
-					cuda::event start, middle, stop;
-					start.record();
 					lwps::gemv(-1, op, y, 0, z);
-					middle.record();
 					lwps::axpy(weights[i] / denominator, r, z);
-					stop.record();
-					std::cout << '(' << i << ") " <<
-						"gemv: " << (middle - start) << "ms " <<
-						"axpy: " << (stop - middle) << "ms" <<
-					std::endl;
 					lwps::swap(y, z);
 				}
 			}

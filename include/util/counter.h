@@ -77,38 +77,40 @@ namespace util {
 		}
 
 		template <>
-		class counter<std::size_t, 0> {
-			public:
-				static constexpr std::size_t id = 0;
-				static const counter cntr;
+		struct counter<std::size_t, 0> {
+			using type = std::size_t;
+			static constexpr std::size_t id = 0;
+			const std::size_t start;
+			const std::size_t by;
 
-				const std::size_t start;
-				const std::size_t by;
-
-				constexpr counter() : start(0), by(1) {}
-			friend constexpr std::size_t
-				adl_flag(flag<id, 0>) { return 0; }
+			constexpr counter() : start(0), by(1) {}
+		friend constexpr std::size_t
+			adl_flag(flag<id, 0>) { return 0; }
 		};
 
-		template <typename> struct zero { static constexpr std::size_t value = 0; };
+		template <typename>
+		struct zero {
+			static constexpr auto value = 0ull;
+		};
 
 		template <typename counter_type, std::size_t counter_id =
-			next(counter_impl::counter<std::size_t, zero<counter_type>::value>())>
-		class counter {
-			public:
-				using type = counter_type;
-				static constexpr std::size_t id = counter_id;
+			next(counter<std::size_t, zero<counter_type>::value>())>
+		struct counter {
+			using type = counter_type;
+			static constexpr std::size_t id = counter_id;
+			const type start;
+			const type by;
 
-				const type start;
-				const type by;
-
-				constexpr counter(type start = 0, type by = 1) :
-					start(start), by(by) {}
+			constexpr counter(type start = 0, type by = 1) :
+				start(start), by(by) {}
 		};
 
-		template <typename type> counter(type, type) -> counter<type>;
-		template <typename type> counter(type) -> counter<type>;
-		counter() -> counter<std::size_t>;
+		// XXX can't get the deduction guides to actually advance the counter
+		/*
+		template <typename type> counter(type, type) -> counter<type, next(counter<std::size_t, zero<type>::value>())>;
+		template <typename type> counter(type) -> counter<type, next(counter<std::size_t, zero<type>::value>())>;
+		template <typename type=void> counter() -> counter<std::size_t, next(counter<std::size_t, zero<type>::value>())>;
+		*/
 	}
 
 	using counter_impl::counter;

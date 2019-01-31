@@ -73,7 +73,31 @@ namespace fd {
 		};
 	}
 
-	static constexpr struct __identity_functor {
+	template <typename domain_type, typename view_type, std::size_t n = 0>
+	auto
+	identity(const domain_type& domain, const view_type& view,
+			const boundary::correction::order<n>& correction = boundary::correction::zeroth_order)
+	{
+		using operators::caller;
+		using identity_impl::builder;
+		using tag_type = typename domain_type::tag_type;
+		static constexpr auto dimensions = domain_type::ndim;
+		using caller_type = caller<builder, tag_type, 0, dimensions>;
+		auto&& views = fd::dimensions(domain);
+		return caller_type::call(view, views, correction);
+	}
+
+	template <typename domain_type, std::size_t n = 0>
+	auto
+	identity(const domain_type& domain,
+			const boundary::correction::order<n>& correction = boundary::correction::zeroth_order)
+	{
+		static_assert(grid::is_uniform_v<domain_type::tag_type>,
+				"the 2-argument variant of fd::identity requires a uniform grid (cell- or vertex-centered)");
+		return identity(domain, std::get<0>(dimensions(domain)), correction);
+	}
+
+	/*static constexpr struct __identity_functor {
 		template <std::size_t N> using order = boundary::correction::order<N>;
 		static constexpr auto default_order = boundary::correction::zeroth_order;
 
@@ -99,5 +123,5 @@ namespace fd {
 		}
 
 		constexpr __identity_functor () {}
-	} identity;
+	} identity;*/
 }

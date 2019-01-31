@@ -101,7 +101,29 @@ namespace fd {
 		};
 	}
 
-	static constexpr struct __laplacian_functor {
+	template <typename domain_type, typename view_type>
+	auto
+	laplacian(const domain_type& domain, const view_type& view)
+	{
+		using operators::caller;
+		using laplacian_impl::builder;
+		using tag_type = typename domain_type::tag_type;
+		static constexpr auto dimensions = domain_type::ndim;
+		using caller_type = caller<builder, tag_type, 0, dimensions>;
+		auto&& views = fd::dimensions(domain);
+		return caller_type::call(view, views);
+	}
+
+	template <typename domain_type>
+	auto
+	laplacian(const domain_type& domain)
+	{
+		static_assert(grid::is_uniform_v<domain_type::tag_type>,
+				"the 1-argument variant of fd::laplacian requires a uniform grid (cell- or vertex-centered)");
+		return laplacian(domain, std::get<0>(dimensions(domain)));
+	}
+
+	/*static constexpr struct __laplacian_functor {
 		template <typename Domain, typename View>
 		lwps::matrix
 		operator()(const Domain& domain, const View& view) const
@@ -122,5 +144,5 @@ namespace fd {
 		}
 
 		constexpr __laplacian_functor () {}
-	} laplacian;
+	} laplacian;*/
 }

@@ -8,16 +8,15 @@
 
 namespace fd {
 	namespace dimension_impl {
+		// a bit of misdirection for the constexpr counter
+		// see note in include/util/counter.h
+		struct counter_base { static constexpr util::counter<unsigned> value; };
+		template <unsigned> struct counter : counter_base { using counter_base::value; };
+
 		class base_dimension {
 		private:
-			// a bit of misdirection for the constexpr counter
-			// see note in include/util/counter.h
-			struct counter_base { static constexpr util::counter value{0u}; };
-			template <unsigned> struct counter : counter_base { using counter_base::value; };
-
 			const unsigned _id;
 			const double _size;
-
 		public:
 			constexpr auto id() const { return _id; }
 			constexpr auto size() const { return _size; }
@@ -26,12 +25,11 @@ namespace fd {
 			constexpr bool operator!=(const base_dimension& other) const
 				{ return _id != other._id; }
 		protected:
-			template <unsigned n = 0, unsigned id = next(counter<n>::value)>
-			constexpr base_dimension(double size) :
+			constexpr base_dimension(double size, unsigned id) :
 				_id(id), _size(size) {}
 		};
 
-		template <typename lower_bdy, typename upper_bdy>
+		template <typename lower_bdy, typename upper_bdy = lower_bdy>
 		class dimension : public base_dimension {
 		static_assert(boundary::is_valid_combination_v<lower_bdy, upper_bdy>,
 					"A dimension must either be periodic at both ends or neither end.");
@@ -41,47 +39,36 @@ namespace fd {
 		private:
 			const lower_boundary_type _lower;
 			const upper_boundary_type _upper;
+
+			constexpr dimension(double size, const lower_boundary_type& lower,
+					const upper_boundary_type& upper, unsigned id) :
+				base_dimension(size, id), _lower(lower), _upper(upper) {}
 		public:
-			static constexpr bool solid_boundary = !std::is_same<
-				lower_boundary_type, boundary::periodic>::value;
+			static constexpr bool solid_boundary = !std::is_same_v<
+				lower_boundary_type, boundary::periodic>;
 
 			const lower_boundary_type& lower() const { return _lower; }
 			const upper_boundary_type& upper() const { return _upper; }
 
+			template <unsigned n = 0, unsigned id = next(counter<n>::value)>
 			constexpr dimension(double size, const lower_boundary_type& lower,
 					const upper_boundary_type& upper) :
-				base_dimension(size), _lower(lower), _upper(upper) {}
+				dimension(size, lower, upper, id) {}
+
+			// unfortunately we need to duplicate this redirection here
+			template <unsigned n = 0, unsigned id = next(counter<n>::value)>
+			constexpr dimension(double size, const lower_boundary_type& lower) :
+				dimension(size, lower, lower, id)
+			{
+				static_assert(std::is_same_v<lower_boundary_type, upper_boundary_type>,
+						"dimension constructor requires 2 boundaries");
+			}
 
 			template <typename OldLower, typename OldUpper>
 			constexpr dimension(const dimension<OldLower, OldUpper>& other,
 					const lower_boundary_type& lower,
 					const upper_boundary_type& upper) :
 				base_dimension(other), _lower(lower), _upper(upper) {}
-		};
-
-		template <typename boundary_type>
-		class dimension<boundary_type, boundary_type> : public base_dimension {
-			// The following message should never show, but we want the
-			// side-effects of instantiating the template.
-			static_assert(boundary::is_valid_combination_v<boundary_type, boundary_type>);
-		private:
-			const boundary_type _boundary;
-		public:
-			using lower_boundary_type = boundary_type;
-			using upper_boundary_type = boundary_type;
-			static constexpr bool solid_boundary = !std::is_same<
-				boundary_type, boundary::periodic>::value;
-
-			const boundary_type& lower() const { return _boundary; }
-			const boundary_type& upper() const { return _boundary; }
-
-			constexpr dimension(double size, const boundary_type& boundary) :
-				base_dimension(size), _boundary(boundary) {}
-
-			template <typename OldLower, typename OldUpper>
-			constexpr dimension(const dimension<OldLower, OldUpper>& other,
-					const boundary_type& boundary) :
-				base_dimension(other), _boundary(boundary) {}
 		};
 
 		// Deduction help for single-parameter-type boundary

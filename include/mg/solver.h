@@ -41,7 +41,7 @@ namespace mg {
 		protected:
 			using base_solver::op;
 
-			virtual lwps::vector nested_iteration(const lwps::vector& v) const { return 0 * v; }
+			virtual lwps::vector nested_iteration(const lwps::vector& v) const { return operator()(v, 0); }
 			virtual lwps::vector vcycle(const lwps::vector& v) const { return operator()(v, 0); }
 			virtual lwps::vector operator()(const lwps::vector& v, int) const { return algo::krylov::cg(op, v, 1e-8); }
 			virtual lwps::vector operator()(const lwps::vector& v) const { return operator()(v, 0); }
@@ -61,12 +61,41 @@ namespace mg {
 			solver_ptr coarse;
 
 			lwps::vector
-			smooth(const lwps::vector& x, const lwps::vector& b) const
+			smooth(const lwps::vector& b) const
 			{
-				return (*sm)(x, b);
+				return solve(*sm, b);
 			}
 
-			lwps::vector smooth(const lwps::vector& b) const { return (*sm)(b); }
+			lwps::vector
+			smooth(const lwps::vector& x, const lwps::vector& b) const
+			{
+				return smooth(residual(x, b)) + x;
+			}
+
+			inline lwps::vector
+			residual(const lwps::vector& x, const lwps::vector& b) const
+			{
+				/* Writing the operations in this order requires only
+				 * a single buffer vector. */
+				return -(op * x) + b;
+			}
+
+			template <typename pred_type>
+			auto
+			iterate(const lwps::vector& b, pred_type pred) const
+			{
+				int iteration = 0;
+				auto&& fine = init(b);
+				std::cout << "---" << std::endl;
+				auto&& r = residual(fine, b);
+				// short-circuit to avoid calling abs
+				while (pred(iteration++) && abs(r) > 1e-8) {
+					fine += vcycle(r);
+					r = residual(fine, b);
+				}
+				return std::move(fine);
+			}
+
 		protected:
 			using base_solver::op;
 
@@ -82,46 +111,37 @@ namespace mg {
 			virtual lwps::vector
 			nested_iteration(const lwps::vector& b) const
 			{
+				return 0 * b;
+				/*return vcycle(b);
 				auto&& fine = init(b);
-				auto&& residual = op * fine - b;
-				fine -= vcycle(residual);
-				return std::move(fine);
+				auto&& r = residual(fine, b);
+				std::cout << size(r) << std::endl;
+				fine += vcycle(r);
+				return smooth(fine, b);
+				return std::move(fine);*/
 			}
 
 			virtual lwps::vector
 			vcycle(const lwps::vector& b) const
 			{
 				auto&& fine = smooth(b);
-				auto&& residual = op * fine - b;
-				auto&& restricted = restriction * residual;
+				auto&& r = residual(fine, b);
+				auto&& restricted = restriction * r;
 				auto&& approx = coarse->vcycle(restricted);
-				fine -= interpolation * approx;
+				fine += interpolation * approx;
 				return smooth(fine, b);
 			}
 
 			virtual lwps::vector
 			operator()(const lwps::vector& b) const
 			{
-				auto&& fine = init(b);
-				auto&& residual = op * fine - b;
-				while (abs(residual) > 1e-8) {
-					fine -= vcycle(residual);
-					residual = op * fine - b;
-				}
-				return std::move(fine);
+				return iterate(b, [] (int) { return true; });
 			}
 
 			virtual lwps::vector
-			operator()(const lwps::vector& b, int iterations) const
+			operator()(const lwps::vector& b, int its) const
 			{
-				int iteration = 0;
-				auto&& fine = init(b);
-				auto&& residual = op * fine - b;
-				while (abs(residual) > 1e-8 && iteration++ < iterations) {
-					fine -= vcycle(residual);
-					residual = op * fine - b;
-				}
-				return std::move(fine);
+				return iterate(b, [=] (int it) { return it < its; });
 			}
 
 			template <typename domain_type, typename op_func, typename sm_func>

@@ -96,32 +96,4 @@ namespace fd {
 				"the 2-argument variant of fd::identity requires a uniform grid (cell- or vertex-centered)");
 		return identity(domain, std::get<0>(dimensions(domain)), correction);
 	}
-
-	/*static constexpr struct __identity_functor {
-		template <std::size_t N> using order = boundary::correction::order<N>;
-		static constexpr auto default_order = boundary::correction::zeroth_order;
-
-		template <typename Domain, typename View, std::size_t N = 0>
-		lwps::matrix
-		operator()(const Domain& domain, const View& view,
-				const order<N>& correction = default_order) const
-		{
-			using operators::caller;
-			using identity_impl::builder;
-			using tag_type = typename Domain::tag_type;
-			using caller_type = caller<builder, tag_type, 0, Domain::ndim>;
-			auto&& views = dimensions(domain);
-			return caller_type::call(view, views, correction);
-		}
-
-		template <typename Domain, std::size_t N = 0>
-		std::enable_if_t<Domain::tag_type::is_uniform, lwps::matrix>
-		operator()(const Domain& domain,
-				const order<N>& correction = default_order) const
-		{
-			return operator()(domain, std::get<0>(dimensions(domain)), correction);
-		}
-
-		constexpr __identity_functor () {}
-	} identity;*/
 }

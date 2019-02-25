@@ -6,6 +6,7 @@ namespace fd {
 		class no_such_dimension : public std::runtime_error {
 			public:
 				no_such_dimension() : std::runtime_error("No such dimension.") {}
+				no_such_dimension(const char* what_arg) : std::runtime_error(what_arg) {}
 		};
 
 		template <template <typename> class builder_template,
@@ -36,7 +37,7 @@ namespace fd {
 			call(const view_type&, const views_type& views, arg_types&& ... args)
 			{
 				using return_type = decltype(builder_type::build(views, std::forward<arg_types>(args)...));
-				return (throw no_such_dimension(), return_type{});
+				return (throw no_such_dimension(__PRETTY_FUNCTION__), return_type{});
 			}
 		};
 	}

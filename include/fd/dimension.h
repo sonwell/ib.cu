@@ -47,8 +47,8 @@ namespace fd {
 			static constexpr bool solid_boundary = !std::is_same_v<
 				lower_boundary_type, boundary::periodic>;
 
-			const lower_boundary_type& lower() const { return _lower; }
-			const upper_boundary_type& upper() const { return _upper; }
+			const auto& lower() const { return _lower; }
+			const auto& upper() const { return _upper; }
 
 			template <unsigned n = 0, unsigned id = next(counter<n>::value)>
 			constexpr dimension(double size, const lower_boundary_type& lower,
@@ -64,8 +64,8 @@ namespace fd {
 						"dimension constructor requires 2 boundaries");
 			}
 
-			template <typename OldLower, typename OldUpper>
-			constexpr dimension(const dimension<OldLower, OldUpper>& other,
+			template <typename old_lower, typename old_upper>
+			constexpr dimension(const dimension<old_lower, old_upper>& other,
 					const lower_boundary_type& lower,
 					const upper_boundary_type& upper) :
 				base_dimension(other), _lower(lower), _upper(upper) {}

@@ -3,6 +3,7 @@
 #include <type_traits>
 #include <utility>
 #include <tuple>
+#include <array>
 #include "debug.h"
 
 namespace util {
@@ -94,26 +95,27 @@ namespace util {
 				}
 		} zip;
 
-		template <typename T>
-		constexpr auto
-		__wrap(typename std::remove_reference<T>::type& t)
-		{
-			return std::ref(t);
-		}
+		template <typename ...> struct all_same;
+		template <typename ... types>
+		inline constexpr bool all_same_v = all_same<types...>::value;
 
-		template <typename T>
-		constexpr T
-		__wrap(typename std::remove_reference<T>::type&& t)
-		{
-			return std::move(t);
-		}
+		template <> struct all_same<> : std::true_type {};
+		template <typename first> struct all_same<first> : std::true_type {};
+		template <typename first, typename ... types>
+		struct all_same<first, types...> : all<std::is_same_v<first, types>...> {};
 
-		template <typename T>
-		constexpr auto
-		wrap(T&& t)
-		{
-			return __wrap<T>(std::forward<T>(t));
-		}
+		template <bool, typename ...> struct map_tuple_type;
+		template <typename first, typename ... types>
+		struct map_tuple_type<true, first, types...> {
+			using type = std::array<first, 1 + sizeof...(types)>;
+		};
+		template <typename ... types>
+		struct map_tuple_type<false, types...> {
+			using type = std::tuple<types...>;
+		};
+		template <bool b> struct map_tuple_type<b> { using type = std::tuple<>; };
+		template <typename ... types>
+		using map_tuple = typename map_tuple_type<all_same_v<types...>, types...>::type;
 
 		void __swallow(...) {}
 
@@ -124,7 +126,7 @@ namespace util {
 			using arg_tuple = std::decay_t<Tpl>;
 			constexpr bool returns_void = any_v<std::is_void_v<invoke_result<Fn, std::tuple_element_t<Ns, arg_tuple>>>...>;
 			if constexpr (!returns_void) {
-				using tuple_type = std::tuple<invoke_result<Fn, std::tuple_element_t<Ns, arg_tuple>>...>;
+				using tuple_type = map_tuple<invoke_result<Fn, std::tuple_element_t<Ns, arg_tuple>>...>;
 				return tuple_type{fn(std::get<Ns>(std::forward<Tpl>(tpl)))...};
 			}
 			else
@@ -223,6 +225,9 @@ namespace util {
 		template <typename Fn, typename T0, typename ... Ts>
 		struct __foldr_result : __invoke_result<Fn, T0, typename __foldr_result<Fn, Ts...>::type> {};
 
+		template <typename Fn, typename T0>
+		struct __foldr_result<Fn, T0> { using type = T0; };
+
 		template <typename Fn, typename T0, typename T1>
 		struct __foldr_result<Fn, T0, T1> : __invoke_result<Fn, T0, T1> {};
 
@@ -265,8 +270,8 @@ namespace util {
 		{
 			using tuple_type = std::decay_t<Tpl>;
 			constexpr auto size = std::tuple_size_v<tuple_type>;
-			using return_type = std::tuple<std::tuple_element_t<size-1-Ns, tuple_type>...>;
-			return return_type(std::get<size-1-Ns>(std::forward<Tpl>(tpl))...);
+			using return_type = map_tuple<std::tuple_element_t<size-1-Ns, tuple_type>...>;
+			return return_type{std::get<size-1-Ns>(std::forward<Tpl>(tpl))...};
 		}
 
 		static constexpr struct __reverse_functor {

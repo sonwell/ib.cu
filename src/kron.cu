@@ -24,6 +24,10 @@ namespace lwps {
 		auto rows = lrows * rrows;
 		auto cols = lcols * rcols;
 		auto nnz = lnnz * rnnz;
+
+		if (!nnz)
+			return matrix{rows, cols};
+
 		matrix result{rows, cols, nnz};
 		auto* starts = result.starts();
 		auto* indices = result.indices();
@@ -87,7 +91,6 @@ namespace lwps {
 
 		util::transform<nt, vt>(r, rows);
 		util::transform<nt, vt>(v, nnz);
-		cudaDeviceSynchronize();
 		return std::move(result);
 	}
 }

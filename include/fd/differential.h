@@ -45,7 +45,7 @@ namespace fd {
 			auto* starts = result.starts();
 			auto* indices = result.indices();
 			auto* values = result.values();
-			const auto scale = 1.0 / n;
+			const auto scale = n;
 
 			auto k = [=] __device__ (int tid)
 			{

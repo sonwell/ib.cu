@@ -5,6 +5,7 @@ namespace algo {
 	struct preconditioner {
 		struct identity;
 		virtual lwps::vector operator()(const lwps::vector&) const = 0;
+		virtual ~preconditioner() {}
 	};
 
 	struct preconditioner::identity : preconditioner {

@@ -122,27 +122,4 @@ namespace fd {
 				"the 1-argument variant of fd::laplacian requires a uniform grid (cell- or vertex-centered)");
 		return laplacian(domain, std::get<0>(dimensions(domain)));
 	}
-
-	/*static constexpr struct __laplacian_functor {
-		template <typename Domain, typename View>
-		lwps::matrix
-		operator()(const Domain& domain, const View& view) const
-		{
-			using operators::caller;
-			using laplacian_impl::builder;
-			using tag_type = typename Domain::tag_type;
-			using caller_type = caller<builder, tag_type, 0, Domain::ndim>;
-			auto&& views = fd::dimensions(domain);
-			return caller_type::call(view, views);
-		}
-
-		template <typename Domain>
-		typename std::enable_if<Domain::tag_type::is_uniform, lwps::matrix>::type
-		operator()(const Domain& domain) const
-		{
-			return operator()(domain, std::get<0>(fd::dimensions(domain)));
-		}
-
-		constexpr __laplacian_functor () {}
-	} laplacian;*/
 }

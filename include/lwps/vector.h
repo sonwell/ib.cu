@@ -1,6 +1,7 @@
 #pragma once
 #include "base.h"
 #include "fill.h"
+#include "io.h"
 #include "device_ptr.h"
 #include "cuda/copy.h"
 
@@ -78,12 +79,16 @@ namespace lwps {
 	inline std::ostream&
 	operator<<(std::ostream& out, const vector& v)
 	{
+		auto* style = lwps::io::get_style();
 		double* h_values = new double[v.rows()];
 		cuda::dtoh(h_values, v.values(), v.rows());
-		out << '[' << h_values[0];
-		for (int i = 1; i < v.rows(); ++i)
-			out << ", " << h_values[i];
-		out << ']';
+		style->prepare(out);
+		out << style->begin_vector;
+		for (int i = 0; i < v.rows(); ++i) {
+			if (i) out << style->vector_entry_delimiter;
+			style->value(out, h_values[i]);
+		}
+		out << style->end_vector;
 		delete[] h_values;
 		return out;
 	}

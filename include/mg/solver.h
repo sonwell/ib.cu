@@ -40,15 +40,20 @@ namespace mg {
 		class direct_solver : public base_solver {
 		protected:
 			using base_solver::op;
+			smoother_ptr sm;
 
 			virtual lwps::vector nested_iteration(const lwps::vector& v) const { return operator()(v, 0); }
 			virtual lwps::vector vcycle(const lwps::vector& v) const { return operator()(v, 0); }
-			virtual lwps::vector operator()(const lwps::vector& v, int) const { return algo::krylov::cg(op, v, 1e-8); }
+			virtual lwps::vector
+			operator()(const lwps::vector& v, int) const
+			{
+				return solve(*sm, v);
+			}
 			virtual lwps::vector operator()(const lwps::vector& v) const { return operator()(v, 0); }
 
-			template <typename domain_type, typename op_func>
-			direct_solver(const domain_type& domain, op_func op) :
-				base_solver(domain, op) {}
+			template <typename domain_type, typename op_func, typename sm_func>
+			direct_solver(const domain_type& domain, op_func op, sm_func sm) :
+				base_solver(domain, op), sm(sm(domain, base_solver::op)) {}
 		friend class mg::solver;
 		friend class iterative_solver;
 		};
@@ -73,11 +78,10 @@ namespace mg {
 			}
 
 			inline lwps::vector
-			residual(const lwps::vector& x, const lwps::vector& b) const
+			residual(const lwps::vector& x, lwps::vector b) const
 			{
-				/* Writing the operations in this order requires only
-				 * a single buffer vector. */
-				return -(op * x) + b;
+				lwps::gemv(-1.0, op, x, 1.0, b);
+				return std::move(b);
 			}
 
 			template <typename pred_type>
@@ -85,8 +89,7 @@ namespace mg {
 			iterate(const lwps::vector& b, pred_type pred) const
 			{
 				int iteration = 0;
-				auto&& fine = init(b);
-				std::cout << "---" << std::endl;
+				auto&& fine = nested_iteration(b);
 				auto&& r = residual(fine, b);
 				// short-circuit to avoid calling abs
 				while (pred(iteration++) && abs(r) > 1e-8) {
@@ -95,6 +98,15 @@ namespace mg {
 				}
 				return std::move(fine);
 			}
+
+			template <typename domain_type, typename view_type, typename op_func, typename sm_func>
+			iterative_solver(const domain_type& domain, const view_type& view, op_func op, sm_func sm,
+					solver_ptr&& coarse) :
+				base_solver(domain, op), sm(sm(domain, base_solver::op)),
+				restriction(mg::restriction(domain, view)),
+				interpolation(mg::interpolation(domain, view)),
+				coarse(std::move(coarse)) {}
+
 
 		protected:
 			using base_solver::op;
@@ -111,14 +123,10 @@ namespace mg {
 			virtual lwps::vector
 			nested_iteration(const lwps::vector& b) const
 			{
-				return 0 * b;
-				/*return vcycle(b);
 				auto&& fine = init(b);
 				auto&& r = residual(fine, b);
-				std::cout << size(r) << std::endl;
 				fine += vcycle(r);
-				return smooth(fine, b);
-				return std::move(fine);*/
+				return std::move(fine);
 			}
 
 			virtual lwps::vector
@@ -141,15 +149,12 @@ namespace mg {
 			virtual lwps::vector
 			operator()(const lwps::vector& b, int its) const
 			{
-				return iterate(b, [=] (int it) { return it < its; });
+				return iterate(b, [&] (int it) { return it < its; });
 			}
 
 			template <typename domain_type, typename op_func, typename sm_func>
 			iterative_solver(const domain_type& domain, op_func op, sm_func sm, solver_ptr&& coarse) :
-				base_solver(domain, op), sm(sm(domain, base_solver::op)),
-				restriction(mg::restriction(domain, std::get<0>(fd::dimensions(domain)))),
-				interpolation(mg::interpolation(domain, std::get<0>(fd::dimensions(domain)))),
-				coarse(std::move(coarse)) {}
+				iterative_solver(domain, std::get<0>(fd::dimensions(domain)), op, sm, std::move(coarse)) {}
 			friend class mg::solver;
 		};
 
@@ -158,7 +163,7 @@ namespace mg {
 		refined(const domain_type& domain)
 		{
 			using namespace util::functional;
-			auto k = [] (unsigned pts) { return !(pts & 1); };
+			auto k = [] (unsigned pts) { return !(pts & 1) && pts > 2; };
 			auto reduce = partial(foldl, std::logical_and<bool>(), true);
 			const auto& view = std::get<0>(fd::dimensions(domain));
 			return apply(reduce, map(k, fd::sizes(domain, view)));
@@ -167,6 +172,7 @@ namespace mg {
 
 	class solver {
 	private:
+		using vector = lwps::vector;
 		impl::solver_ptr slv;
 
 		template <typename domain_type, typename op_func, typename sm_func>
@@ -183,7 +189,7 @@ namespace mg {
 				auto solver = construct(coarse, op, sm);
 				return impl::solver_ptr(new impl::iterative_solver(domain, op, sm, std::move(solver)));
 			}
-			return impl::solver_ptr(new impl::direct_solver(domain, op));
+			return impl::solver_ptr(new impl::direct_solver(domain, op, sm));
 		}
 
 		solver&
@@ -193,8 +199,8 @@ namespace mg {
 			return *this;
 		}
 	public:
-		lwps::vector operator()(const lwps::vector& x) const { return (*slv)(x); }
-		lwps::vector operator()(const lwps::vector& x, std::size_t it) const { return (*slv)(x, it); }
+		vector operator()(const vector& x) const { return (*slv)(x); }
+		vector operator()(const vector& x, std::size_t it) const { return (*slv)(x, it); }
 
 		template <typename domain_type, typename op_func, typename sm_func>
 		solver(const domain_type& domain, op_func op, sm_func sm) :

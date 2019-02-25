@@ -28,22 +28,25 @@ namespace fd {
 			const auto rows = corrector.gridpts();
 			const auto weight = corrector.boundary_weight(tag);
 			const auto start = Tag::value;
+			const auto nonzero = weight && solid_boundary;
 
-			lwps::matrix result{rows, solid_boundary, solid_boundary};
+			if (!nonzero)
+				return lwps::matrix{rows, solid_boundary};
+
+			lwps::matrix result{rows, solid_boundary, nonzero};
 			auto* starts = result.starts();
 			auto* indices = result.indices();
 			auto* values = result.values();
+			auto index = start * (rows-1);
 
-			auto k = [=] __device__ (int tid)
+			auto k = [=] __device__ (int tid, auto fill)
 			{
 				starts[tid] = tid ? start : 0;
 
 				if (!tid) {
-					starts[rows] = 1;
-					if constexpr(solid_boundary) {
-						indices[0] = lwps::indexing_base;
-						values[0] = weight;
-					}
+					starts[rows] = solid_boundary;
+					indices[0] = index + lwps::indexing_base;
+					values[0] = weight;
 				}
 			};
 			util::transform<128, 7>(k, rows);
@@ -52,36 +55,43 @@ namespace fd {
 
 		using identity_impl::identity;
 
-		template <typename Grid>
+		template <typename grid_type>
 		class builder {
-			private:
-				using grid_type = Grid;
-				using sequence = std::make_index_sequence<std::tuple_size<grid_type>::value>;
-				template <std::size_t N> using collocation = std::tuple_element_t<N, grid_type>;
-				template <std::size_t N> using order = boundary::correction::order<N>;
+		private:
+			static constexpr auto dimensions = std::tuple_size_v<grid_type>;
+			using sequence = std::make_index_sequence<dimensions>;
+			template <std::size_t N> using order = boundary::correction::order<N>;
 
-				template <std::size_t ... Ns, typename Views, typename View,
-						 typename Tag, std::size_t N>
-				static auto
-				splat(const std::index_sequence<Ns...>&, const Views& views,
-						const View& view, const Tag& tag, const order<N>& correction)
+			template <std::size_t ... ns, typename Views, typename View,
+					 typename Tag, std::size_t N>
+			static auto
+			splat(const std::index_sequence<ns...>&, const Views& views,
+					const View& view, const Tag& tag, const order<N>& correction)
+			{
+				auto k = [&] (auto n, const auto& view_n)
 				{
-					return std::make_tuple((std::get<Ns>(views) == view ?
-								boundary<collocation<Ns>>(std::get<Ns>(views), tag) :
-								identity<collocation<Ns>>(std::get<Ns>(views), correction))...);
-				}
-			public:
-				template <typename Views, typename View, typename Tag, std::size_t N>
-				static lwps::matrix
-				build(const Views& views, const View& view, const Tag& tag, const order<N>& correction)
-				{
-					using namespace util::functional;
+					static constexpr auto id = decltype(n)::value;
+					using colloc = std::tuple_element_t<id, grid_type>;
 
-					auto&& components = splat(sequence(), views, view, tag, correction);
-					auto&& multikron = partial(foldl, lwps::kron);
-					auto&& reversed = reverse(std::move(components));
-					return apply(multikron, std::move(reversed));
-				}
+					return view_n == view ?
+						boundary<colloc>(view_n, tag) :
+						identity<colloc>(view_n, correction);
+				};
+
+				return std::make_tuple(k(std::integral_constant<std::size_t, ns>(),
+							std::get<ns>(views))...);
+			}
+		public:
+			template <typename Views, typename View, typename Tag, std::size_t N>
+			static lwps::matrix
+			build(const Views& views, const View& view, const Tag& tag, const order<N>& correction)
+			{
+				using namespace util::functional;
+				auto&& components = splat(sequence(), views, view, tag, correction);
+				auto&& multikron = partial(foldl, lwps::kron);
+				auto&& reversed = reverse(std::move(components));
+				return apply(multikron, std::move(reversed));
+			}
 		};
 	}
 

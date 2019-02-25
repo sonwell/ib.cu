@@ -155,42 +155,43 @@ namespace mg {
 
 		template <typename grid_type>
 		class builder {
-			private:
-				using sequence = std::make_index_sequence<std::tuple_size<grid_type>::value>;
-				template <std::size_t N> using collocation = std::tuple_element_t<N, grid_type>;
+		private:
+			using sequence = std::make_index_sequence<std::tuple_size<grid_type>::value>;
+			template <std::size_t N> using collocation = std::tuple_element_t<N, grid_type>;
 
-				template <typename collocation_type, typename view_type>
-				static inline auto
-				one(const view_type& view, const interpolation_tag&)
-				{
-					return interpolater<collocation_type>(view);
-				}
 
-				template <typename collocation_type, typename view_type>
-				static inline auto
-				one(const view_type& view, const restriction_tag&)
-				{
-					return restricter<collocation_type>(view);
-				}
+			template <typename collocation_type, typename view_type>
+			static inline auto
+			one(const view_type& view, const interpolation_tag&)
+			{
+				return interpolater<collocation_type>(view);
+			}
 
-				template <std::size_t ... ns, typename view_types, typename tag_type>
-				static auto
-				splat(const std::index_sequence<ns...>&, const view_types& views, const tag_type& tag)
-				{
-					return std::make_tuple(one<collocation<ns>>(std::get<ns>(views), tag)...);
-				}
-			public:
-				template <typename view_types, typename tag_type>
-				static auto
-				build(const view_types& views, const tag_type& tag)
-				{
-					using namespace util::functional;
+			template <typename collocation_type, typename view_type>
+			static inline auto
+			one(const view_type& view, const restriction_tag&)
+			{
+				return restricter<collocation_type>(view);
+			}
 
-					auto&& multikron = partial(foldl, lwps::kron);
-					auto&& components = splat(sequence(), views, tag);
-					auto&& reversed = reverse(std::move(components));
-					return apply(multikron, std::move(reversed));
-				}
+			template <std::size_t ... ns, typename view_types, typename tag_type>
+			static auto
+			splat(const std::index_sequence<ns...>&, const view_types& views, const tag_type& tag)
+			{
+				return std::make_tuple(one<collocation<ns>>(std::get<ns>(views), tag)...);
+			}
+		public:
+			template <typename view_types, typename tag_type>
+			static auto
+			build(const view_types& views, const tag_type& tag)
+			{
+				using namespace util::functional;
+
+				auto&& multikron = partial(foldl, lwps::kron);
+				auto&& components = splat(sequence(), views, tag);
+				auto&& reversed = reverse(std::move(components));
+				return apply(multikron, std::move(reversed));
+			}
 		};
 	}
 

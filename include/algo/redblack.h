@@ -94,7 +94,7 @@ namespace impl {
 		}
 	}
 
-	template <typename domain_type, typename grid_dim>
+	template <typename domain_type>
 	class permuter {
 	private:
 		static constexpr auto dimensions = domain_type::ndim;
@@ -102,7 +102,7 @@ namespace impl {
 		int colors;
 		int sizes[dimensions];
 	protected:
-		template <std::size_t ... ns>
+		template <std::size_t ... ns, typename grid_dim>
 		permuter(std::index_sequence<ns...>, const domain_type& domain,
 				const grid_dim& dim) :
 			colors(impl::colors(domain)),
@@ -124,6 +124,7 @@ namespace impl {
 		operator()(int tid, int* starts) const
 		{ return entry(sequence(), tid, starts); }
 
+		template <typename grid_dim>
 		permuter(const domain_type& domain, const grid_dim& dim) :
 			permuter(sequence(), domain, dim) {}
 	};

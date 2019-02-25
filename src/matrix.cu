@@ -4,41 +4,43 @@
 #include <iomanip>
 #include "lwps/matrix.h"
 #include "lwps/blas.h"
+#include "lwps/io.h"
 #include "util/launch.h"
+#include "cuda/copy.h"
 
 namespace lwps {
 	matrix::matrix() :
 		matrix_base(0, 0),
 		_nonzero(0),
-		_starts(1),
+		_starts(nullptr),
 		_indices(nullptr),
 		_values(nullptr) {}
 
 	matrix::matrix(const matrix_base& base) :
 		matrix_base(base),
 		_nonzero(0),
-		_starts(rows() + 1),
+		_starts(nullptr),
 		_indices(nullptr),
 		_values(nullptr) {}
 
 	matrix::matrix(index_type rows, index_type cols) :
 		matrix_base(rows, cols),
 		_nonzero(0),
-		_starts(rows + 1),
+		_starts(nullptr),
 		_indices(nullptr),
 		_values(nullptr) {}
 
 	matrix::matrix(const matrix_base& base, index_type nonzero) :
 		matrix_base(base),
 		_nonzero(nonzero),
-		_starts(rows() + 1),
+		_starts(rows() && nonzero ? rows() + 1 : 0),
 		_indices(nonzero),
 		_values(nonzero) {}
 
 	matrix::matrix(index_type rows, index_type cols, index_type nonzero) :
 		matrix_base(rows, cols),
 		_nonzero(nonzero),
-		_starts(rows + 1),
+		_starts(rows && nonzero ? rows + 1 : 0),
 		_indices(nonzero),
 		_values(nonzero) {}
 
@@ -98,8 +100,6 @@ namespace lwps {
 			}
 		};
 		util::transform<128, 11>(k, std::max(rows+1, nnz));
-
-		std::cout << "matrix copy" << std::endl;
 	}
 
 	void
@@ -156,34 +156,46 @@ namespace lwps {
 	std::ostream&
 	operator<<(std::ostream& out, const lwps::matrix& m)
 	{
-		lwps::index_type* h_starts = new lwps::index_type[m.rows() + 1];
-		lwps::index_type* h_indices = new lwps::index_type[m.nonzero()];
-		lwps::value_type* h_values = new lwps::value_type[m.nonzero()];
+		auto* style = lwps::io::get_style();
+		index_type* h_starts = new index_type[m.rows() + 1];
+		index_type* h_indices = new index_type[m.nonzero()];
+		value_type* h_values = new value_type[m.nonzero()];
 
-		cudaMemcpy(h_starts, m.starts(), (m.rows() + 1) * sizeof(lwps::index_type), cudaMemcpyDeviceToHost);
-		cudaMemcpy(h_indices, m.indices(), m.nonzero() * sizeof(lwps::index_type), cudaMemcpyDeviceToHost);
-		cudaMemcpy(h_values, m.values(), m.nonzero() * sizeof(lwps::value_type), cudaMemcpyDeviceToHost);
+		if (m.nonzero())
+			cuda::dtoh(h_starts, m.starts(), m.rows() + 1);
+		else
+			std::memset(h_starts, 0, sizeof(index_type) * (m.rows() + 1));
+		cuda::dtoh(h_indices, m.indices(), m.nonzero());
+		cuda::dtoh(h_values, m.values(), m.nonzero());
 
-		out << '[';
+		auto row_padding = style->begin_matrix.size() -
+			style->begin_matrix_row.size();
+
+		style->prepare(out);
+		out << style->begin_matrix
+			<< style->begin_matrix_row;
 		for (auto row = 0; row < m.rows(); ++row) {
 			auto&& end = h_starts[row+1];
 			auto offset = h_starts[row];
-			if (row > 0) out << ',' << std::endl << ' ';
-			out << '[';
+			if (row) {
+				out << style->end_matrix_row
+					<< style->matrix_row_delimiter;
+				for (auto i = 0; i < row_padding; ++i) out << ' ';
+				out << style->begin_matrix_row;
+			}
 			for (auto col = 0; col < m.cols(); ++col) {
-				if (col > 0) out << ", ";
-				if (col == h_indices[offset] && offset < end) {
-					out << std::setw(7) << h_values[offset];
-					++offset;
-				} else {
-					out << std::setw(7) << 0;
-				}
+				if (col)
+					out << style->matrix_entry_delimiter;
+				if (offset < end && col == h_indices[offset])
+					style->value(out, h_values[offset++]);
+				else
+					style->value(out, 0);
 			}
 			if (offset != end)
 				out << " ...";
-			out << ']';
 		}
-		out << ']';
+		out << style->end_matrix_row
+			<< style->end_matrix;
 
 		delete[] h_starts;
 		delete[] h_indices;

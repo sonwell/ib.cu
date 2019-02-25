@@ -61,6 +61,8 @@ namespace lwps {
 		(void) (size(y) + a * size(x));
 		auto rows = x.rows();
 		auto cols = x.cols();
+		if (x.nonzero() == 0) return;
+		if (y.nonzero() == 0) { y = a * x; return; };
 
 		mem::device_ptr<index_type> fstarts(rows+1);
 		mem::device_ptr<index_type> index_buffer(x.nonzero() + y.nonzero());

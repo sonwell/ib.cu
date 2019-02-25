@@ -31,7 +31,7 @@ namespace util {
 		memory& operator=(std::nullptr_t) { this->~memory(); return *this; }
 
 		memory(std::size_t size = 0, const allocator_type& alloc = allocator_type()) :
-			_alloc(alloc), _size(size), _ptr(_alloc.allocate(_size)) {}
+			_alloc(alloc), _size(size), _ptr(size ? _alloc.allocate(_size) : nullptr) {}
 		memory(std::nullptr_t, const allocator_type& alloc = allocator_type()) :
 			_alloc(alloc), _size(0), _ptr(nullptr) {}
 		memory(memory&& o) : _size(0), _ptr(nullptr) { swap(o); }

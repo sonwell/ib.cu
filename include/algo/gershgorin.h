@@ -43,7 +43,6 @@ namespace algo
 		auto min = thrust::min_element(exec, ldata, ldata+rows);
 		cuda::dtoh(&max_val, max, 1);
 		cuda::dtoh(&min_val, min, 1);
-
 		return {min_val, max_val};
 	};
 }

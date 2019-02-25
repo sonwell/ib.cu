@@ -3,6 +3,8 @@
 #include <cmath>
 #include "gershgorin.h"
 #include "preconditioner.h"
+#include "lwps/matrix.h"
+#include "lwps/vector.h"
 
 namespace algo {
 	namespace impl {

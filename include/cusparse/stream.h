@@ -5,17 +5,21 @@
 #include "handle.h"
 
 namespace cusparse {
-	cuda::stream
-	get_stream(handle& h)
-	{
-		cuda::stream_t stream;
-		throw_if_error(cusparseGetStream(h, &stream));
-		return cuda::stream(stream);
-	}
 
-	void
-	set_stream(handle& h, cuda::stream& s)
-	{
-		throw_if_error(cusparseSetStream(h, stream));
-	}
-};
+using cuda::stream;
+
+stream
+get_stream(handle& h)
+{
+	stream_t s;
+	throw_if_error(cusparseGetStream(h, &s));
+	return stream(s);
+}
+
+void
+set_stream(handle& h, stream& s)
+{
+	throw_if_error(cusparseSetStream(h, s));
+}
+
+} // namespace cusparse

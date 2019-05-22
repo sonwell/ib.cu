@@ -10,7 +10,7 @@ namespace std { template <> struct is_error_code_enum<cusparse::status_t> : std:
 namespace cusparse {
 #define codes(transform) \
 			transform(SUCCESS, "no error") \
-			transform(NOT_INITIALIZED, "cuda runtime initialization failed") \
+			transform(NOT_INITIALIZED, "cusparse library initialization failed") \
 			transform(ALLOC_FAILED, "resources could not be allocated") \
 			transform(INVALID_VALUE, "invalid value") \
 			transform(ARCH_MISMATCH, "architecture mismatch") \

@@ -1,19 +1,52 @@
 #pragma once
+#include "util/adaptor.h"
+#include "util/getset.h"
 #include "types.h"
 #include "exceptions.h"
 
 namespace cusparse {
-	enum class hyb_partition : std::underlying_type_t<hyb_partition_t> {
-		automatic = CUSPARSE_HYB_PARTITION_AUTO,
-		user = CUSPARSE_HYB_PARTITION_USER,
-		maximum = CUSPARSE_HYB_PARTITION_MAX
-	};
 
-	class hyb_matrix : public type_wrapper<hyb_mat_t> {
-	protected:
-		using type_wrapper<hyb_mat_t>::data;
-	public:
-		hyb_matrix() { throw_if_error(cusparseCreateHybMat(&data)); }
-		~hyb_matrix() { throw_if_error(cusparseDestroyHybMat(data)); }
-	};
+enum class hyb_partition { automatic, user, maximum };
+using hyb_partition_adaptor = util::adaptor<
+	util::enum_container<hyb_partition_t,
+			CUSPARSE_HYB_PARTITION_AUTO,
+			CUSPARSE_HYB_PARTITION_USER,
+			CUSPARSE_HYB_PARTITION_MAX>,
+	util::enum_container<hyb_partition,
+			hyb_partition::automatic,
+			hyb_partition::user,
+			hyb_partition::max>>;
+
+inline void
+create(hyb_mat_t& matrix)
+{
+	throw_if_error(cusparseCreateHybMat(&matrix));
+}
+
+inline void
+destroy(hyb_mat_t& matrix)
+{
+	throw_if_error(cusparseDestroyHybMat(matrix));
+}
+
+class hyb_matrix : public type_wrapper<hyb_mat_t> {
+private:
+	using hp_a = hyb_partition_adaptor;
+	hyb_partition _partition;
+
+	hp_a hp() const { return _partition; }
+	void hp(const hp_a& v) { return _partition = v; }
+protected:
+	using type_wrapper<hyb_mat_t>::data;
+public:
+	util::cached<hp_a> partition;
+
+	hyb_matrix() :
+		base(), _partition(hyb_partition::automatic),
+		partition([&] () { return hp(); }, [&] (const hp_a& v) { hp(v); }) {}
+	explicit hyb_matrix(hyb_mat_t& matrix) :
+		base(matrix), _partition(hyb_partition::automatic),
+		partition([&] () { return hp(); }, [&] (const hp_a& v) { hp(v); }) {}
+};
+
 }

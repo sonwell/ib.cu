@@ -1,23 +1,16 @@
 #pragma once
 
 namespace cuda {
+	class device;
+	void set_device(const device&);
+	device& get_device();
+
 	class scope {
 	private:
-		int last_id;
-
-		static int get()
-		{
-			int id;
-			throw_if_error(cudaGetDevice(&id));
-			return id;
-		}
-
-		static void set(int id)
-		{
-			throw_if_error(cudaSetDevice(id));
-		}
+		const device& d;
 	public:
-		scope(int id) : last_id(get()) { set(id); }
-		~scope() { set(last_id); }
+		scope(const device& dev) :
+			d(get_device()) { set_device(dev); }
+		~scope() { set_device(d); }
 	};
 }

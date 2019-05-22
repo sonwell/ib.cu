@@ -3,11 +3,19 @@
 #include "exceptions.h"
 
 namespace cusparse {
-	class prune_info : public type_wrapper<prune_info_t> {
-	protected:
-		using type_wrapper<prune_info_t>::data;
-	public:
-		prune_info() { throw_if_error(cusparseCreatePruneInfo(&data)); }
-		~prune_info() { throw_if_error(cusparseDestroyPruneInfo(data)); }
-	};
+
+inline void
+create(prune_info_t& info)
+{
+	throw_if_error(cusparseCreatePruneInfo(&info));
 }
+
+inline void
+destroy(prune_info_t& info)
+{
+	throw_if_error(cusparseDestroyPruneInfo(info));
+}
+
+using prune_info = type_wrapper<prune_info_t>;
+
+} // namespace cusparse

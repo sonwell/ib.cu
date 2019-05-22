@@ -1,9 +1,16 @@
 #pragma once
+#include "util/adaptor.h"
 #include "types.h"
 
 namespace cusparse {
-	enum class action : std::underlying_type_t<action_t> {
-		symbolic = CUSPARSE_ACTION_SYMBOLIC,
-		numeric = CUSPARSE_ACTION_NUMERIC
-	};
+
+enum class action { symbolic, numeric };
+using action_adaptor = util::adaptor<
+	util::enum_container<action_t,
+			CUSPARSE_ACTION_SYMBOLIC,
+			CUSPARSE_ACTION_NUMERIC>,
+	util::enum_container<action,
+			action::symbolic,
+			action::numeric>>;
+
 }

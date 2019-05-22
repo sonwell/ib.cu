@@ -1,12 +1,21 @@
 #pragma once
 #include "types.h"
+#include "excpeptions.h"
 
 namespace cusparse {
-	class csrsm2_info : public type_wrapper<csrsm2_info_t> {
-	protected:
-		using type_wrapper<csrsm2_info_t>::data;
-	public:
-		csrsm2_info() { throw_if_error(cusparseCreateCsrsm2Info(&data)); }
-		~csrsm2_info() { throw_if_error(cusparseDestroyCsrsm2Info(data)); }
-	};
+
+inline void
+create(csrsm2_info_t& info)
+{
+	throw_if_error(cusparseCreateCsrsm2Info(&info));
 }
+
+inline void
+destroy(csrsm2_info_t& info)
+{
+	throw_if_error(cusparseDestroyCsrsm2Info(info));
+}
+
+using csrsm2_info = type_wrapper<csrsm2_info_t>;
+
+} // namespace cusparse

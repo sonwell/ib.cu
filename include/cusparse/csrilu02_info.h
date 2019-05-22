@@ -1,12 +1,21 @@
 #pragma once
 #include "types.h"
+#include "exceptions.h"
 
 namespace cusparse {
-	class csrilu02_info : public type_wrapper<csrilu02_info_t> {
-	protected:
-		using type_wrapper<csrilu02_info_t>::data;
-	public:
-		csrilu02_info() { throw_if_error(cusparseCreateCsrilu02Info(&data)); }
-		~csrilu02_info() { throw_if_error(cusparseDestroyCsrilu02Info(data)); }
-	};
+
+inline void
+create(csrilu02_info_t& info)
+{
+	throw_if_error(cusparseCreateCsrilu02Info(&info));
 }
+
+inline void
+destroy(csrilu02_info_t& info)
+{
+	throw_if_error(cusparseDestroyCsrilu02Info(info));
+}
+
+using csrilu02_info = type_wrapper<csrilu02_info_t>;
+
+} // namespace cusparse

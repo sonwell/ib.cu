@@ -1,25 +1,26 @@
 #pragma once
-#include "lwps/vector.h"
+#include "types.h"
 
 namespace algo {
-	struct preconditioner {
-		struct identity;
-		virtual lwps::vector operator()(const lwps::vector&) const = 0;
-		virtual ~preconditioner() {}
-	};
 
-	struct preconditioner::identity : preconditioner {
-		virtual lwps::vector
-		operator()(const lwps::vector& v) const
-		{
-			return v;
-		}
-	};
+struct preconditioner {
+	struct identity;
+	virtual vector operator()(const vector&) const = 0;
+	virtual ~preconditioner() {}
+};
 
-	inline auto
-	solve(const preconditioner& pr, const lwps::vector& v)
+struct preconditioner::identity : preconditioner {
+	virtual vector
+	operator()(const vector& v) const
 	{
-		return pr(v);
+		return v;
 	}
+};
+
+inline auto
+solve(const preconditioner& pr, const vector& v)
+{
+	return pr(v);
 }
 
+} // namespace algo

@@ -1,18 +1,13 @@
 #pragma once
-#include "lwps/vector.h"
+#include "types.h"
 
 namespace mg {
-	struct smoother {
-		/*virtual lwps::vector
-			operator()(const lwps::vector&, const lwps::vector&) const = 0;*/
-		virtual lwps::vector
-			operator()(const lwps::vector&) const = 0;
-		virtual ~smoother() = default;
-	};
 
-	inline auto
-	solve(const smoother& sm, const lwps::vector& b)
-	{
-		return sm(b);
-	}
-}
+struct smoother {
+	virtual vector operator()(const vector&) const = 0;
+	virtual ~smoother() = default;
+};
+
+inline auto solve(const smoother& sm, const vector& b) { return sm(b); }
+
+} // namespace mg

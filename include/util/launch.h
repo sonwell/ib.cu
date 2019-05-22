@@ -35,7 +35,6 @@ transform(func_t f, int count, arg_t&& ... args)
 	};
 
 	launch<nt, vt>(k, num_ctas);
-	cuda::throw_if_error(cudaGetLastError());
 }
 
 }

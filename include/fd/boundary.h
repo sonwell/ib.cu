@@ -2,104 +2,67 @@
 #include <cstddef>
 #include <utility>
 #include <type_traits>
+#include "util/array.h"
 
 namespace fd {
-	namespace boundary_impl {
-		template <typename> class params_container;
+namespace boundary {
+namespace impl {
 
-		template <std::size_t ... N>
-		class params_container<std::index_sequence<N...>> {
-			public:
-				static constexpr std::size_t order = sizeof...(N);
-				using container_type = double[order];
-			private:
-				container_type _params;
-			protected:
-				constexpr params_container(const container_type& params) :
-					_params{params[N]...} {}
-			public:
-				constexpr const container_type& params() const { return _params; }
-		};
+class base {
+private:
+	using container = util::array<double, 2>;
+	container _params;
+protected:
+	constexpr base(const container& p) : _params{p} {}
+public:
+	constexpr const container& params() const { return _params; }
+};
 
-		template <std::size_t N>
-		using base_boundary = params_container<std::make_index_sequence<N>>;
+inline constexpr struct lower_tag : std::integral_constant<std::size_t, 1> {} lower;
+inline constexpr struct upper_tag : std::integral_constant<std::size_t, 0> {} upper;
 
-		class robin : public base_boundary<2ull> {
-			private:
-				using base = base_boundary<2ull>;
-			public:
-				static constexpr std::size_t width = 1;
-				static constexpr char lower_repr = 'x';
-				static constexpr char upper_repr = 'x';
+} // namespace impl
 
-				constexpr robin(double a, double b) : base{{a, b}} {}
-		};
+struct robin : impl::base {
+	static constexpr auto solid = true;
+	constexpr robin(double a, double b) : base{{a, b}} {}
+};
 
-		class periodic {
-			public:
-				using container_type = double[2];
-				static constexpr std::size_t width = 0;
-				static constexpr char lower_repr = '<';
-				static constexpr char upper_repr = '>';
-			private:
-				static constexpr container_type _params = {0, 0};
-			public:
-				constexpr const container_type& params() const { return _params; }
-				constexpr periodic() {}
-		};
+struct periodic : impl::base {
+	static constexpr auto solid = false;
+	constexpr periodic() : base{{0, 0}} {}
+};
 
-		class dirichlet : public robin {
-			public:
-				static constexpr char lower_repr = '|';
-				static constexpr char upper_repr = '|';
+struct dirichlet : robin { constexpr dirichlet() : robin(1, 0) {} };
+struct neumann : robin { constexpr neumann() : robin(0, 1) {} };
 
-				constexpr dirichlet() : robin(1, 0) {}
-		};
+template <typename T> struct is_boundary :
+	std::integral_constant<bool, std::is_base_of_v<robin, T> ||
+	                             std::is_base_of_v<periodic, T>> {};
+template <typename T> inline constexpr bool is_boundary_v =
+	is_boundary<T>::value;
 
-		class neumann : public robin {
-			public:
-				static constexpr char lower_repr = '(';
-				static constexpr char upper_repr = ')';
+template <typename lower, typename upper>
+struct is_valid_combination {
+private:
+	static constexpr bool lower_is_solid = lower::solid;
+	static constexpr bool upper_is_solid = upper::solid;
+	static_assert(is_boundary_v<lower>, "invalid boundary type");
+	static_assert(is_boundary_v<upper>, "invalid boundary type");
+public:
+	static constexpr bool value = !(lower_is_solid ^ upper_is_solid);
+};
 
-				constexpr neumann() : robin(0, 1) {}
-		};
+template <typename L, typename U>
+inline constexpr bool is_valid_combination_v =
+	is_valid_combination<L, U>::value;
 
-		template <typename T> struct is_boundary_type :
-			std::integral_constant<bool, std::is_base_of<robin, T>::value ||
-			                             std::is_base_of<periodic, T>::value> {};
-		template <typename T> inline constexpr bool is_boundary_type_v =
-			is_boundary_type<T>::value;
+using impl::lower;
+using impl::upper;
 
-		template <typename Lower, typename Upper>
-		struct is_valid_combination : std::true_type {
-			static_assert(is_boundary_type_v<Lower>, "invalid boundary type");
-			static_assert(is_boundary_type_v<Upper>, "invalid boundary type");
-		};
-		template <> struct is_valid_combination<periodic, periodic> : std::true_type {};
-		template <typename Lower>
-		struct is_valid_combination<Lower, periodic> : std::false_type {
-			static_assert(is_boundary_type_v<Lower>, "invalid boundary type");
-		};
-		template <typename Upper>
-		struct is_valid_combination<periodic, Upper> : std::false_type {
-			static_assert(is_boundary_type_v<Upper>, "invalid boundary type");
-		};
+} // namespace boundary
 
-		template <typename L, typename U> inline constexpr bool is_valid_combination_v =
-			is_valid_combination<L, U>::value;
+using boundary::is_boundary;
+using boundary::is_boundary_v;
 
-		static constexpr struct lower_tag : std::integral_constant<std::size_t, 1> {} lower;
-		static constexpr struct upper_tag : std::integral_constant<std::size_t, 0> {} upper;
-	}
-
-	namespace boundary {
-		using boundary_impl::robin;
-		using boundary_impl::periodic;
-		using boundary_impl::dirichlet;
-		using boundary_impl::neumann;
-		using boundary_impl::is_boundary_type;
-		using boundary_impl::is_boundary_type_v;
-		using boundary_impl::is_valid_combination;
-		using boundary_impl::is_valid_combination_v;
-	}
-}
+} // namespace fd

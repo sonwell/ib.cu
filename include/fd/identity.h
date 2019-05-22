@@ -2,98 +2,109 @@
 #include <type_traits>
 #include <utility>
 #include <tuple>
-#include "grid.h"
-#include "boundary_corrector.h"
-#include "domain.h"
-#include "operators.h"
-#include "lwps/matrix.h"
-#include "lwps/kron.h"
 #include "util/launch.h"
 #include "util/functional.h"
 
+#include "types.h"
+#include "grid.h"
+#include "correction.h"
+#include "domain.h"
+#include "operators.h"
+
 namespace fd {
-	namespace identity_impl {
-		using fd::boundary::correction::order;
+namespace impl {
 
-		template <typename Collocation, typename View, std::size_t N>
-		lwps::matrix
-		identity(const View& view, const order<N>& correction)
-		{
-			using lower_boundary_type = typename View::lower_boundary_type;
-			using upper_boundary_type = typename View::upper_boundary_type;
-			using corrector_type = boundary::corrector<Collocation,
-				  lower_boundary_type, upper_boundary_type>;
-			corrector_type corrector(view);
-			const auto rows = corrector.gridpts();
-			lwps::matrix result{rows, rows, rows};
+using fd::boundary::correction::order;
 
-			lwps::index_type* starts = result.starts();
-			lwps::index_type* indices = result.indices();
-			lwps::value_type* values = result.values();
-			auto [lw, uw] = corrector.identity_weights(correction);
+template <typename corrector_type, std::size_t n>
+matrix
+identity(const corrector_type& corrector, const order<n>& correction)
+{
+	const auto rows = corrector.points();
+	matrix result{rows, rows, rows};
 
-			auto k = [=, lw = lw, uw = uw] __device__ (int tid)
-			{
-				starts[tid] = tid;
-				indices[tid] = tid + lwps::indexing_base;
-				values[tid] = 1.0 + (tid > 0 ? (tid < rows-1 ? 0 : uw) : lw);
-				if (!tid) starts[rows] = rows;
-			};
-			util::transform<128, 7>(k, rows);
-			return std::move(result);
-		}
+	index_type* starts = result.starts();
+	index_type* indices = result.indices();
+	value_type* values = result.values();
+	auto [lw, uw] = corrector.identity(correction);
 
-		template <typename Grid>
-		class builder {
-			private:
-				using grid_type = Grid;
-				using sequence = std::make_index_sequence<std::tuple_size<grid_type>::value>;
-				template <std::size_t N> using collocation = std::tuple_element_t<N, grid_type>;
-
-				template <std::size_t ... Ns, typename Views, std::size_t N>
-				static auto
-				splat(const std::index_sequence<Ns...>&, const Views& views,
-						const order<N>& correction)
-				{
-					return std::make_tuple(identity<collocation<Ns>>(
-								std::get<Ns>(views), correction)...);
-				}
-			public:
-				template <typename Views, std::size_t N>
-				static lwps::matrix
-				build(const Views& views, const order<N>& correction)
-				{
-					using namespace util::functional;
-
-					auto&& identities = splat(sequence(), views, correction);
-					auto&& multikron = partial(foldl, lwps::kron);
-					auto&& reversed = reverse(std::move(identities));
-					return apply(multikron, std::move(reversed));
-				}
-		};
-	}
-
-	template <typename domain_type, typename view_type, std::size_t n = 0>
-	auto
-	identity(const domain_type& domain, const view_type& view,
-			const boundary::correction::order<n>& correction = boundary::correction::zeroth_order)
+	auto k = [=, lw = lw, uw = uw] __device__ (int tid)
 	{
-		using operators::caller;
-		using identity_impl::builder;
-		using tag_type = typename domain_type::tag_type;
-		static constexpr auto dimensions = domain_type::ndim;
-		using caller_type = caller<builder, tag_type, 0, dimensions>;
-		auto&& views = fd::dimensions(domain);
-		return caller_type::call(view, views, correction);
-	}
-
-	template <typename domain_type, std::size_t n = 0>
-	auto
-	identity(const domain_type& domain,
-			const boundary::correction::order<n>& correction = boundary::correction::zeroth_order)
-	{
-		static_assert(grid::is_uniform_v<domain_type::tag_type>,
-				"the 2-argument variant of fd::identity requires a uniform grid (cell- or vertex-centered)");
-		return identity(domain, std::get<0>(dimensions(domain)), correction);
-	}
+		starts[tid] = tid;
+		indices[tid] = tid + indexing_base;
+		values[tid] = 1.0 + (tid > 0 ? (tid < rows-1 ? 0 : uw) : lw);
+		if (!tid) starts[rows] = rows;
+	};
+	util::transform<128, 7>(k, rows);
+	return result;
 }
+
+template <typename Grid>
+class identity_builder {
+private:
+	using grid_type = Grid;
+	using sequence = std::make_index_sequence<std::tuple_size<grid_type>::value>;
+	template <std::size_t n> using iteration = std::integral_constant<std::size_t, n>;
+
+	template <std::size_t ... ns, typename Views, std::size_t n>
+	static auto
+	splat(const std::index_sequence<ns...>&, const Views& views,
+			const order<n>& correction)
+	{
+		auto k = [&] (auto m)
+		{
+			static constexpr auto id = decltype(m)::value;
+			using colloc = std::tuple_element_t<id, grid_type>;
+			const auto& dir = std::get<id>(views);
+			using dir_type = std::decay_t<decltype(dir)>;
+			using corrector_type = boundary::corrector<colloc, dir_type>;
+			corrector_type corrector(dir);
+			return identity(corrector, correction);
+		};
+
+		return std::make_tuple(k(iteration<ns>{})...);
+	}
+public:
+	template <typename Views, std::size_t N>
+	static matrix
+	build(const Views& views, const order<N>& correction)
+	{
+		using namespace util::functional;
+
+		auto unikron = [] (const matrix& l, const matrix& r) { return kron(l, r); };
+		auto multikron = partial(foldl, unikron);
+		auto&& identities = splat(sequence(), views, correction);
+		auto&& reversed = reverse(std::move(identities));
+		return apply(multikron, std::move(reversed));
+	}
+};
+
+} // namespace impl
+
+template <typename domain_type, typename view_type, std::size_t n = 0,
+		 typename = std::enable_if_t<is_domain_v<domain_type>>>
+auto
+identity(const domain_type& domain, const view_type& view,
+		const boundary::correction::order<n>& correction = boundary::correction::zeroth_order)
+{
+	static_assert(is_domain_v<domain_type>);
+	using operators::caller;
+	using impl::identity_builder;
+	using tag_type = typename domain_type::tag_type;
+	using caller_type = caller<identity_builder, tag_type>;
+	auto&& views = fd::dimensions(domain);
+	return caller_type::call(view, views, correction);
+}
+
+template <typename domain_type, std::size_t n = 0,
+		 typename = std::enable_if_t<is_domain_v<domain_type>>>
+auto
+identity(const domain_type& domain,
+		const boundary::correction::order<n>& correction = boundary::correction::zeroth_order)
+{
+	static_assert(is_domain_v<domain_type>);
+	static_assert(grid::is_uniform_v<domain_type::tag_type>,
+			"the 2-argument variant of fd::identity requires a uniform grid (cell- or vertex-centered)");
+	return identity(domain, std::get<0>(dimensions(domain)), correction);
+}
+} // namespace fd

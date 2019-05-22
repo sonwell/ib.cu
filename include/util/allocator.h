@@ -1,33 +1,50 @@
 #pragma once
+#include <type_traits>
 #include <cstddef>
 #include "memory_resource.h"
-#include "device.h"
 
 namespace util {
-	template <typename type>
-	class allocator {
-	public:
-		using value_type = type;
+namespace detail {
 
-		virtual type*
-		allocate(std::size_t count)
-		{
-			auto* ptr = memory->allocate(count * sizeof(type), alignof(type));
-			return static_cast<type*>(ptr);
-		}
+template <typename type>
+struct memory_traits {
+	static constexpr auto size = sizeof(type);
+	static constexpr auto align = alignof(type);
+};
 
-		virtual void
-		deallocate(type* ptr, std::size_t count)
-		{
-			return memory->deallocate(static_cast<void*>(ptr),
-					count * sizeof(type), alignof(type));
-		}
+template <>
+struct memory_traits<void> : memory_traits<std::byte> {};
 
-		memory_resource* resource() const { return memory; }
+} // namespace detail
 
-		allocator(memory_resource* memory = get_default_resource()) :
-			memory(memory) {}
-	private:
-		memory_resource* memory;
-	};
-}
+template <typename type>
+class allocator {
+public:
+	using value_type = type;
+
+	virtual type*
+	allocate(std::size_t count)
+	{
+		auto* ptr = memory->allocate(count * type_size, type_align);
+		return static_cast<type*>(ptr);
+	}
+
+	virtual void
+	deallocate(type* ptr, std::size_t count)
+	{
+		return memory->deallocate(static_cast<void*>(ptr),
+				count * type_size, type_align);
+	}
+
+	memory_resource* resource() const { return memory; }
+
+	__host__ allocator(memory_resource* memory = get_default_resource()) :
+		memory(memory) {}
+private:
+	using memory_traits = detail::memory_traits<type>;
+	static constexpr std::size_t type_size = memory_traits::size;
+	static constexpr std::size_t type_align = memory_traits::align;
+	memory_resource* memory;
+};
+
+} // namespace util

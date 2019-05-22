@@ -1,16 +1,15 @@
 #pragma once
 #include <utility>
 #include <ostream>
+#include "util/launch.h"
+#include "util/memory.h"
+#include "types.h"
 #include "preconditioner.h"
 #include "coloring.h"
-#include "device_ptr.h"
-#include "lwps/matrix.h"
-#include "lwps/vector.h"
-#include "util/launch.h"
 
 namespace algo {
-__host__ __device__
-double
+
+__host__ __device__ double
 spdot(double* vl, int* il, int jl,
 		double* vr, int* ir, int jr, double* d)
 {
@@ -32,12 +31,12 @@ class symmilu : public preconditioner {
 private:
 	using coloring_ptr = std::unique_ptr<coloring>;
 	coloring_ptr colorer;
-	mem::device_ptr<int> offsets;
-	const lwps::matrix lu;
+	util::memory<int> offsets;
+	const matrix lu;
 protected:
 	void
-	update(lwps::matrix& m, int row, int col,
-			mem::device_ptr<double>& diagonals) const
+	update(matrix& m, int row, int col,
+			util::memory<double>& diagonals) const
 	{
 		auto* sdata = m.starts();
 		auto* idata = m.indices();
@@ -74,22 +73,18 @@ protected:
 		util::transform(k, rend - rstart);
 	}
 
-	lwps::matrix
-	factor(const lwps::matrix& m) const
+	matrix
+	factor(const matrix& m) const
 	{
 		auto lu = colorer->permute(m);
 		auto rows = lu.rows();
-		mem::device_ptr<double> diagonals(rows);
+		util::memory<double> diagonals(rows);
 
-		auto* cdata = colorer->starts();
 		auto colors = colorer->colors();
 		auto* sdata = lu.starts();
 		auto* vdata = lu.values();
 		auto* idata = offsets.data();
 		auto* ddata = diagonals.data();
-
-		auto start = cdata[0];
-		auto end = cdata[1];
 
 		auto k = [=] __device__ (int tid)
 		{
@@ -102,11 +97,11 @@ protected:
 		for (int col = 0; col < colors; ++col)
 			for (int row = 1; row < colors; ++row)
 				update(lu, row, col, diagonals);
-		return std::move(lu);
+		return lu;
 	}
 
-	lwps::vector
-	solve(lwps::vector& v) const
+	vector
+	solve(vector& v) const
 	{
 		auto* cdata = colorer->starts();
 		auto colors = colorer->colors();
@@ -133,7 +128,6 @@ protected:
 		auto down = [=] __device__ (int tid, int cstart)
 		{
 			auto offset = jdata[cstart + tid];
-			auto start = sdata[cstart + tid];
 			auto end = sdata[cstart + tid+1];
 			double value = wdata[cstart + tid];
 			double diagonal = vdata[offset];
@@ -153,29 +147,23 @@ protected:
 			auto cend = cdata[col+1];
 			util::transform(down, cend - cstart, cstart);
 		}
-
-		return std::move(v);
+		return v;
 	}
 public:
-	virtual lwps::vector
-	operator()(const lwps::vector& b) const
+	virtual vector
+	operator()(const vector& b) const
 	{
 		auto&& p = colorer->permute(b);
 		auto&& y = solve(p);
 		return colorer->unpermute(y);
 	}
 
-	symmilu(const lwps::matrix& m, coloring_ptr colorer) :
+	symmilu(const matrix& m, coloring_ptr colorer) :
 		colorer(std::move(colorer)), offsets(m.rows()), lu(factor(m)) {}
-	symmilu(const lwps::matrix& m, coloring* colorer) :
+	symmilu(const matrix& m, coloring* colorer) :
 		symmilu(m, coloring_ptr(colorer)) {}
 
 	friend std::ostream& operator<<(std::ostream&, const symmilu&);
 };
 
-inline std::ostream&
-operator<<(std::ostream& out, const symmilu& ilu)
-{
-	return out << ilu.lu;
-}
-}
+} // namespace algo

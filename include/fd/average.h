@@ -1,132 +1,120 @@
 #pragma once
 #include <type_traits>
-#include <iostream>
 #include <utility>
 
-#include "lwps/types.h"
-#include "lwps/matrix.h"
 #include "util/launch.h"
 #include "util/functional.h"
 
+#include "types.h"
 #include "operators.h"
 #include "domain.h"
 #include "identity.h"
 
 namespace fd {
-	namespace average_impl {
-		template <typename Collocation, typename View>
-		lwps::matrix
-		average(View& view)
-		{
-			using lower_boundary_type = typename View::lower_boundary_type;
-			using upper_boundary_type = typename View::upper_boundary_type;
-			using corrector_type = boundary::corrector<Collocation,
-				  lower_boundary_type, upper_boundary_type>;
-			static constexpr auto solid_boundary = corrector_type::solid_boundary;
-			static constexpr auto on_boundary = corrector_type::on_boundary;
-			static constexpr auto backward = solid_boundary ^ !on_boundary;
-			corrector_type corrector(view);
+namespace impl {
 
+template <typename corrector_type>
+matrix
+average(const corrector_type& corrector)
+{
+	static constexpr auto solid_boundary = corrector_type::solid_boundary;
+	static constexpr auto on_boundary = corrector_type::on_boundary;
+	static constexpr auto backward = solid_boundary ^ !on_boundary;
 
-			const auto gridpts = view.gridpts();
-			const auto cols = gridpts - solid_boundary * on_boundary;
-			const auto rows = gridpts - solid_boundary * !on_boundary;
+	const auto cells = corrector.cells();
+	const auto cols = cells - solid_boundary * on_boundary;
+	const auto rows = cells - solid_boundary * !on_boundary;
 
-			auto nonzero = rows + cols - 1;
-			lwps::matrix result{rows, cols, nonzero};
+	auto nonzero = rows + cols - 1;
+	matrix result{rows, cols, nonzero};
 
-			// Periodic boundary
-			// <-x-|-x-|-x-|-x-> --> x-o-x-o-x-o-x-o-> : backward, nxn, 2n-1 nonzero
-			// x-o-x-o-x-o-x-o-> --> <-x-|-x-|-x-|-x-> : forward, nxn, 2n-1 nonzero
-			//
-			// Solid boundary
-			// >-x-|-x-|-x-|-x-< --> >-o-x-o-x-o-x-o-< : forward, (n-1)xn, 2n-2 nonzero
-			// >-o-x-o-x-o-x-o-< --> >-x-o-x-o-x-o-x-< : backward, nx(n-1), 2n-2 nonzero
+	// Periodic boundary
+	// <-x-|-x-|-x-|-x-> --> x-o-x-o-x-o-x-o-> : backward, nxn, 2n-1 nonzero
+	// x-o-x-o-x-o-x-o-> --> <-x-|-x-|-x-|-x-> : forward, nxn, 2n-1 nonzero
+	//
+	// Solid boundary
+	// >-x-|-x-|-x-|-x-< --> >-o-x-o-x-o-x-o-< : forward, (n-1)xn, 2n-2 nonzero
+	// >-o-x-o-x-o-x-o-< --> >-x-o-x-o-x-o-x-< : backward, nx(n-1), 2n-2 nonzero
 
-			auto* starts = result.starts();
-			auto* indices = result.indices();
-			auto* values = result.values();
+	auto* starts = result.starts();
+	auto* indices = result.indices();
+	auto* values = result.values();
 
-			auto k = [=] __device__ (int tid)
-			{
-				if (tid < rows) starts[tid] = tid ? 2 * tid - backward : 0;
-				auto loc = (tid + backward) % 2;
-				auto row = (tid + backward) / 2;
-				auto col = loc + row - backward;
-				indices[tid] = col + lwps::indexing_base;
-				values[tid] = 0.5;
-				if (!tid) starts[rows] = nonzero;
-			};
-			util::transform<128, 7>(k, nonzero);
-
-			if (backward)
-				result += corrector.lower_stencil(rows, cols, 0.5);
-			if (on_boundary)
-				result += corrector.upper_stencil(rows, cols, 0.5);
-			return std::move(result);
-		}
-
-		using identity_impl::identity;
-
-		template <typename Grid>
-		class builder {
-			private:
-				using grid_type = Grid;
-				using sequence = std::make_index_sequence<std::tuple_size<grid_type>::value>;
-				template <std::size_t N> using collocation = std::tuple_element_t<N, grid_type>;
-				static constexpr auto& order = boundary::correction::zeroth_order;
-
-				template <std::size_t ... Ns, typename Views, typename View>
-				static auto
-				splat(const std::index_sequence<Ns...>&, const Views& views, const View& view)
-				{
-					return std::make_tuple((std::get<Ns>(views) == view ?
-								average<collocation<Ns>>(std::get<Ns>(views)) :
-								identity<collocation<Ns>>(std::get<Ns>(views), order))...);
-				}
-			public:
-				template <typename Views, typename View>
-				static lwps::matrix
-				build(const Views& views, const View& view)
-				{
-					using namespace util::functional;
-
-					auto&& components = splat(sequence(), views, view);
-					auto p = [] (const lwps::matrix& m) { std::cout << m << std::endl; };
-					map(p, components);
-					auto&& multikron = partial(foldl, lwps::kron);
-					auto&& reversed = reverse(std::move(components));
-					return apply(multikron, std::move(reversed));
-				}
-		};
-	}
-
-	template <typename domain_type, typename view_type, typename dir_type>
-	auto
-	average(const domain_type& domain, const view_type& view, const dir_type& dir)
+	auto k = [=] __device__ (int tid)
 	{
-		using operators::caller;
-		using average_impl::builder;
-		using tag_type = typename domain_type::tag_type;
-		static constexpr auto dimensions = domain_type::ndim;
-		using caller_type = caller<builder, tag_type, 0, dimensions>;
-		auto&& views = fd::dimensions(domain);
-		return caller_type::call(view, views, dir);
-	}
+		if (tid < rows) starts[tid] = tid ? 2 * tid - backward : 0;
+		auto loc = (tid + backward) % 2;
+		auto row = (tid + backward) / 2;
+		auto col = loc + row - backward;
+		indices[tid] = col + indexing_base;
+		values[tid] = 0.5;
+		if (!tid) starts[rows] = nonzero;
+	};
+	util::transform<128, 7>(k, nonzero);
 
-	/*static constexpr struct __average_functor {
-		template <typename Domain, typename View, typename Dir>
-		lwps::matrix
-		operator()(const Domain& domain, const View& view, const Dir& dir) const
-		{
-			using operators::caller;
-			using average_impl::builder;
-			using tag_type = typename Domain::tag_type;
-			using caller_type = caller<builder, tag_type, 0, Domain::ndim>;
-			auto&& views = fd::dimensions(domain);
-			return caller_type::call(view, views, dir);
-		}
-
-		constexpr __average_functor () {}
-	} average;*/
+	if constexpr (backward)
+		result += corrector.interior(rows, cols, 0.5, boundary::lower);
+	if constexpr (on_boundary)
+		result += corrector.interior(rows, cols, 0.5, boundary::upper);
+	return result;
 }
+
+template <typename Grid>
+class average_builder {
+private:
+	using grid_type = Grid;
+	using sequence = std::make_index_sequence<std::tuple_size<grid_type>::value>;
+	template <std::size_t n> using iteration = std::integral_constant<std::size_t, n>;
+	static constexpr auto& order = boundary::correction::zeroth_order;
+
+	template <std::size_t ... ns, typename Views, typename view_type>
+	static auto
+	splat(const std::index_sequence<ns...>&, const Views& views, const view_type& view)
+	{
+		auto k = [&] (auto m)
+		{
+			static constexpr auto id = decltype(m)::value;
+			using colloc = std::tuple_element_t<id, grid_type>;
+			const auto& dir = std::get<id>(views);
+			using dir_type = std::decay_t<decltype(dir)>;
+			using corrector_type = boundary::corrector<colloc, dir_type>;
+			corrector_type corrector(dir);
+
+			return view == dir ?
+				average(corrector) :
+				identity(corrector, order);
+		};
+
+		return std::make_tuple(k(iteration<ns>{})...);
+	}
+public:
+	template <typename Views, typename View>
+	static matrix
+	build(const Views& views, const View& view)
+	{
+		using namespace util::functional;
+
+		auto unikron = [] (const matrix& l, const matrix& r) { return kron(l, r); };
+		auto multikron = partial(foldl, unikron);
+		auto&& components = splat(sequence(), views, view);
+		auto&& reversed = reverse(std::move(components));
+		return apply(multikron, std::move(reversed));
+	}
+};
+
+} // namespace impl
+
+template <typename domain_type, typename view_type, typename dir_type,
+		 typename = std::enable_if_t<is_domain_v<domain_type>>>
+auto
+average(const domain_type& domain, const view_type& view, const dir_type& dir)
+{
+	using operators::caller;
+	using impl::average_builder;
+	using tag_type = typename domain_type::tag_type;
+	using caller_type = caller<average_builder, tag_type>;
+	auto&& views = fd::dimensions(domain);
+	return caller_type::call(view, views, dir);
+}
+
+} // namespace fd

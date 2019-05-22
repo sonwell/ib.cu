@@ -2,111 +2,131 @@
 #include <cstddef>
 #include <stdexcept>
 #include <cmath>
-#include "boundary.h"
-#include "lwps/types.h"
 #include "util/counter.h"
+#include "util/math.h"
+#include "units.h"
+#include "types.h"
+#include "exceptions.h"
+#include "boundary.h"
 
 namespace fd {
-	namespace dimension_impl {
-		// a bit of misdirection for the constexpr counter
-		// see note in include/util/counter.h
-		struct counter_base { static constexpr util::counter<unsigned> value; };
-		template <unsigned> struct counter : counter_base { using counter_base::value; };
+namespace impl {
 
-		class base_dimension {
-		private:
-			const unsigned _id;
-			const double _size;
-		public:
-			constexpr auto id() const { return _id; }
-			constexpr auto size() const { return _size; }
-			constexpr bool operator==(const base_dimension& other) const
-				{ return _id == other._id; }
-			constexpr bool operator!=(const base_dimension& other) const
-				{ return _id != other._id; }
-		protected:
-			constexpr base_dimension(double size, unsigned id) :
-				_id(id), _size(size) {}
-		};
+// a bit of misdirection for the constexpr counter
+// see note in include/util/counter.h
+struct counter_base { static constexpr util::counter<unsigned> value; };
+template <unsigned> struct counter : counter_base { using counter_base::value; };
 
-		template <typename lower_bdy, typename upper_bdy = lower_bdy>
-		class dimension : public base_dimension {
-		static_assert(boundary::is_valid_combination_v<lower_bdy, upper_bdy>,
-					"A dimension must either be periodic at both ends or neither end.");
-		public:
-			using lower_boundary_type = lower_bdy;
-			using upper_boundary_type = upper_bdy;
-		private:
-			const lower_boundary_type _lower;
-			const upper_boundary_type _upper;
+class base_dimension {
+private:
+	const unsigned _id;
+	const units::distance _size;
+public:
+	constexpr auto id() const { return _id; }
+	constexpr auto length() const { return _size; }
+	constexpr bool operator==(const base_dimension& other) const
+		{ return _id == other._id; }
+	constexpr bool operator!=(const base_dimension& other) const
+		{ return _id != other._id; }
+protected:
+	constexpr base_dimension(units::distance size, unsigned id) :
+		_id(id), _size(size)
+	{
+		if ((double) size < 0)
+			throw bad_grid_points("dimension size must be positive");
+	}
+};
 
-			constexpr dimension(double size, const lower_boundary_type& lower,
-					const upper_boundary_type& upper, unsigned id) :
-				base_dimension(size, id), _lower(lower), _upper(upper) {}
-		public:
-			static constexpr bool solid_boundary = !std::is_same_v<
-				lower_boundary_type, boundary::periodic>;
+} // namespace impl
 
-			const auto& lower() const { return _lower; }
-			const auto& upper() const { return _upper; }
+template <typename lower_bdy, typename upper_bdy = lower_bdy>
+class dimension : public impl::base_dimension {
+static_assert(boundary::is_valid_combination_v<lower_bdy, upper_bdy>,
+			"A dimension must either be periodic at both ends or neither end");
+public:
+	using lower_boundary_type = lower_bdy;
+	using upper_boundary_type = upper_bdy;
 
-			template <unsigned n = 0, unsigned id = next(counter<n>::value)>
-			constexpr dimension(double size, const lower_boundary_type& lower,
-					const upper_boundary_type& upper) :
-				dimension(size, lower, upper, id) {}
+	static constexpr bool solid_boundary = !std::is_same_v<
+		lower_boundary_type, boundary::periodic>;
 
-			// unfortunately we need to duplicate this redirection here
-			template <unsigned n = 0, unsigned id = next(counter<n>::value)>
-			constexpr dimension(double size, const lower_boundary_type& lower) :
-				dimension(size, lower, lower, id)
-			{
-				static_assert(std::is_same_v<lower_boundary_type, upper_boundary_type>,
-						"dimension constructor requires 2 boundaries");
-			}
-
-			template <typename old_lower, typename old_upper>
-			constexpr dimension(const dimension<old_lower, old_upper>& other,
-					const lower_boundary_type& lower,
-					const upper_boundary_type& upper) :
-				base_dimension(other), _lower(lower), _upper(upper) {}
-		};
-
-		// Deduction help for single-parameter-type boundary
-		template <typename boundary_type>
-		dimension(double, const boundary_type&) -> dimension<boundary_type, boundary_type>;
-
-		struct bad_grid_points : std::runtime_error
-		{
-			bad_grid_points() : std::runtime_error(
-					"Non-integer number of grid points in dimension. Make sure "
-					"the size of the dimension * the resolution is an integer.") {}
-		};
-
-		template <typename lower_bdy, typename upper_bdy>
-		class view : public dimension<lower_bdy, upper_bdy> {
-		private:
-			const lwps::index_type _resolution;
-		public:
-			using dimension_type = dimension<lower_bdy, upper_bdy>;
-			using typename dimension_type::lower_boundary_type;
-			using typename dimension_type::upper_boundary_type;
-
-			using dimension_type::size;
-			using dimension_type::lower;
-			using dimension_type::upper;
-
-			constexpr lwps::index_type gridpts() const { return size() * _resolution; }
-			constexpr const lwps::index_type& resolution() const { return _resolution; }
-
-			constexpr view(lwps::index_type resolution, const dimension_type& dimension) :
-				dimension_type(dimension), _resolution(resolution)
-			{
-				double grid_points = dimension.size() * resolution;
-				if (grid_points < 0 || grid_points - ((lwps::index_type) grid_points) != 0.0)
-					throw bad_grid_points();
-			}
-		};
+	constexpr const auto& lower() const { return _lower; }
+	constexpr const auto& upper() const { return _upper; }
+	constexpr double
+	clamp(double x) const
+	{
+		auto length = impl::base_dimension::length();
+		if constexpr (solid_boundary)
+			return util::math::max(0, util::math::min(length, x));
+		return util::math::modulo(x, length);
 	}
 
-	using dimension_impl::dimension;
-}
+	template <unsigned n = 0, unsigned id = next(impl::counter<n>::value)>
+	constexpr dimension(units::distance size, const lower_boundary_type& lower,
+			const upper_boundary_type& upper) :
+		dimension(size, lower, upper, id) {}
+
+	constexpr dimension(units::distance size, const lower_boundary_type& lower) :
+		dimension(size, lower, lower)
+	{
+		static_assert(std::is_same_v<lower_boundary_type, upper_boundary_type>,
+				"dimension constructor requires 2 boundaries");
+	}
+
+	template <typename old_lower, typename old_upper>
+	constexpr dimension(const dimension<old_lower, old_upper>& other,
+			const lower_boundary_type& lower,
+			const upper_boundary_type& upper) :
+		base_dimension(other), _lower(lower), _upper(upper) {}
+
+	template <typename old_lower, typename old_upper>
+	constexpr dimension(const dimension<old_lower, old_upper>& other,
+			const lower_boundary_type& lower) :
+		base_dimension(other), _lower(lower), _upper(lower)
+	{
+		static_assert(std::is_same_v<lower_boundary_type, upper_boundary_type>,
+				"dimension constructor requires 2 boundaries");
+	}
+private:
+	const lower_boundary_type _lower;
+	const upper_boundary_type _upper;
+
+	constexpr dimension(units::distance size, const lower_boundary_type& lower,
+			const upper_boundary_type& upper, unsigned id) :
+		base_dimension(size, id), _lower(lower), _upper(upper) {}
+};
+
+// Deduction help for single-parameter-type boundary
+template <typename boundary_type>
+dimension(units::distance, const boundary_type&) -> dimension<boundary_type, boundary_type>;
+
+template <typename old_lower, typename old_upper, typename boundary_type>
+dimension(const dimension<old_lower, old_upper>&, const boundary_type&) ->
+	dimension<boundary_type, boundary_type>;
+
+template <typename lower, typename upper>
+class view : public dimension<lower, upper> {
+private:
+	using dimension_type = dimension<lower, upper>;
+	const double _resolution;
+	const int _cells;
+public:
+	constexpr auto cells() const { return _cells; }
+	constexpr auto resolution() const { return _resolution; }
+
+	constexpr view(const dimension_type& dimension, index_type refinement, double base) :
+		dimension_type(dimension), _resolution(refinement / base),
+		// add 0.5 to ensure we get the correct integer result;
+		// length() / base should be (close to) an integer.
+		_cells((double) dimension_type::length() * _resolution + 0.5) {}
+};
+
+template <typename lower, typename upper>
+view(const dimension<lower, upper>&, index_type, double) -> view<lower, upper>;
+
+template <typename dimension_type>
+struct is_dimension : std::is_base_of<impl::base_dimension, dimension_type> {};
+template <typename dimension_type>
+inline constexpr auto is_dimension_v = is_dimension<dimension_type>::value;
+
+} // namespace fd

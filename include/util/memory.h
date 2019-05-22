@@ -6,7 +6,8 @@ namespace util {
 	template <typename type>
 	class memory {
 	protected:
-		memory& swap(memory& o)
+		memory&
+		swap(memory& o)
 		{
 			std::swap(_alloc, o._alloc);
 			std::swap(_size, o._size);
@@ -19,8 +20,8 @@ namespace util {
 		using pointer = value_type*;
 		using size_type = std::size_t;
 		using difference_type = std::ptrdiff_t;
-		using reference = value_type&;
-		using const_reference = const value_type&;
+		//using reference = value_type&;
+		//using const_reference = const value_type&;
 
 		allocator_type get_allocator() const { return _alloc; }
 
@@ -47,4 +48,10 @@ namespace util {
 		size_type _size;
 		pointer _ptr;
 	};
+
+	template <typename type> memory(std::size_t, const allocator<type>&) -> memory<type>;
+	template <typename type> memory(std::nullptr_t, const allocator<type>&) -> memory<type>;
+	memory(std::size_t) -> memory<void>;
+	memory(std::nullptr_t) -> memory<void>;
+	memory() -> memory<void>;
 }

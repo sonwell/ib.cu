@@ -2,11 +2,11 @@
 #include <thrust/execution_policy.h>
 #include <thrust/sort.h>
 #include <thrust/scan.h>
-#include "lwps/matrix.h"
-#include "lwps/vector.h"
 #include "util/launch.h"
+#include "types.h"
 
 namespace algo {
+
 class coloring {
 private:
 	int sz;
@@ -14,31 +14,31 @@ private:
 	util::memory<int> cstarts;
 protected:
 	template <typename p_iterator>
-	lwps::vector
-	permute_with(const lwps::vector& v, p_iterator pdata) const
+	vector
+	permute_with(const vector& v, p_iterator pdata) const
 	{
-		auto size = sz;
-		if (size == 0) return v;
-		(void) (lwps::size(v) + lwps::matrix_size{size, 1});
-		lwps::vector permuted(size);
+		using algo::size;
+		auto n = sz;
+		(void) (size(v) + size{n, 1});
+		vector permuted(n);
 		auto* fdata = v.values();
 		auto* gdata = permuted.values();
 
 		auto k = [=] __device__ (int tid) { gdata[pdata[tid]] = fdata[tid]; };
-		util::transform<128, 7>(k, sz);
-		return std::move(permuted);
+		util::transform<128, 7>(k, n);
+		return permuted;
 	}
 
 	template <typename p_iterator, typename q_iterator>
-	lwps::matrix
-	permute_with(const lwps::matrix& m, p_iterator pdata, q_iterator qdata) const
+	matrix
+	permute_with(const matrix& m, p_iterator pdata, q_iterator qdata) const
 	{
-		auto size = sz;
-		if (size == 0) return m;
-		(void) (lwps::size(m) + lwps::matrix_size{size, size});
+		using algo::size;
+		auto n = sz;
+		(void) (size(m) + size{n, n});
 		auto nonzero = m.nonzero();
 
-		lwps::matrix result{size, size, nonzero};
+		matrix result{n, n, nonzero};
 		auto* sdata = m.starts();
 		auto* vdata = m.values();
 		auto* idata = m.indices();
@@ -50,12 +50,12 @@ protected:
 		{
 			auto p = pdata[tid];
 			tdata[tid] = sdata[p+1] - sdata[p];
-			if (!tid) tdata[size] = 0;
+			if (!tid) tdata[n] = 0;
 		};
-		util::transform<128, 7>(r, size);
+		util::transform<128, 7>(r, n);
 
 		thrust::execution_policy<thrust::system::cuda::tag> exec;
-		thrust::exclusive_scan(exec, tdata, tdata + size + 1, tdata);
+		thrust::exclusive_scan(exec, tdata, tdata + n + 1, tdata);
 
 		auto v = [=] __device__ (int tid)
 		{
@@ -70,22 +70,22 @@ protected:
 			thrust::sort_by_key(thrust::seq, jdata + new_start,
 					jdata + new_start + entries, wdata + new_start);
 		};
-		util::transform(v, size);
-
-		return std::move(result);
+		util::transform(v, n);
+		return result;
 	}
 public:
-	virtual lwps::matrix permute(const lwps::matrix&) const = 0;
-	virtual lwps::vector permute(const lwps::vector&) const = 0;
-	virtual lwps::matrix unpermute(const lwps::matrix&) const = 0;
-	virtual lwps::vector unpermute(const lwps::vector&) const = 0;
+	virtual matrix permute(const matrix&) const = 0;
+	virtual vector permute(const vector&) const = 0;
+	virtual matrix unpermute(const matrix&) const = 0;
+	virtual vector unpermute(const vector&) const = 0;
 
 	int size() const { return sz; }
 	int colors() const { return ncolors; }
 	int* starts() const { return cstarts.data(); }
 
-	coloring(int size, int colors) :
-		sz(size), ncolors(colors), cstarts(colors+1) {}
+	coloring(int sz, int colors) :
+		sz(sz), ncolors(colors), cstarts(colors+1) {}
 	virtual ~coloring() {}
 };
-}
+
+} // namespace algo

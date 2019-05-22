@@ -1,0 +1,130 @@
+#pragma once
+#include "util/launch.h"
+#include "types.h"
+
+namespace bases {
+
+template <int dimensions, typename rbf>
+static auto
+fill(const matrix& xs, const matrix& xd, rbf phi, matrix& r)
+{
+	static constexpr auto patch_rows = 16;
+	static constexpr auto patch_cols = 16;
+	static constexpr auto nt = patch_rows * patch_cols;
+	static constexpr auto vt = 1;
+
+	auto ns = xs.rows();
+	auto nd = xd.rows();
+	auto rows = r.rows();
+
+	auto* sdata = xs.values();
+	auto* ddata = xd.values();
+	auto* rdata = r.values();
+
+	auto row_patches = (ns + patch_rows - 1) / patch_rows;
+	auto col_patches = (nd + patch_cols - 1) / patch_cols;
+	auto patches = row_patches * col_patches;
+	int num_ctas = (patches + vt - 1) / vt;
+
+	auto k = [=] __device__ (int tid, int cta, auto f)
+	{
+		__shared__ struct {
+			double s[dimensions * patch_rows];
+			double d[dimensions * patch_cols];
+		} shared;
+
+		auto rel_row = tid % patch_rows;
+		auto rel_col = tid / patch_rows;
+		auto patch_row = (cta % row_patches) * patch_rows;
+		auto patch_col = (cta / row_patches) * patch_cols;
+		auto row = patch_row + rel_row;
+		auto col = patch_col + rel_col;
+
+		auto shared_row = patch_row + tid;
+		auto shared_col = patch_col + tid;
+		auto r_pred = shared_row < ns;
+		auto c_pred = shared_col < nd;
+
+		for (int i = 0; i < dimensions; ++i) {
+			auto s = r_pred ? sdata[i * ns + shared_row] : 0;
+			auto d = c_pred ? ddata[i * nd + shared_col] : 0;
+			if (tid < patch_rows) shared.s[i * patch_rows + tid] = s;
+			if (tid < patch_cols) shared.d[i * patch_cols + tid] = d;
+		}
+		__syncthreads();
+
+		double sample[dimensions];
+		double data[dimensions];
+		for (int i = 0; i < dimensions; ++i) {
+			sample[i] = shared.s[i * patch_rows + rel_row];
+			data[i] = shared.d[i * patch_rows + rel_col];
+		}
+
+		auto value = f(sample, data);
+		if (row < ns && col < nd)
+			rdata[col + row * rows] = value;
+	};
+	util::launch<nt, vt>(k, num_ctas, phi);
+}
+
+template <int dimensions, typename rbf, typename poly>
+static auto
+fill(const matrix& x, rbf phi, poly p)
+{
+	using params = double[dimensions];
+	int np = decltype(p(std::declval<params>()))::size();
+	auto nd = x.rows();
+	auto rows = nd + np;
+	matrix r{rows, rows};
+	fill<dimensions>(x, x, phi, r);
+
+	auto* ddata = x.values();
+	auto* rdata = r.values();
+	auto k = [=] __device__ (int tid, auto f)
+	{
+		double sample[dimensions];
+		for (int i = 0; i < dimensions; ++i)
+			sample[i] = ddata[i * nd + tid];
+		auto values = p(sample);
+		for (int i = 0; i < np; ++i) {
+			rdata[(nd + i) * rows + tid] = values[i];
+			rdata[tid * rows + nd + i] = values[i];
+		}
+		for (int i = tid; i < np * np; i += nd) {
+			auto row = i % np;
+			auto col = i / np;
+			rdata[(nd + col) * rows + nd + row] = 0;
+		}
+	};
+	util::transform<128, 8>(k, nd, p);
+	return r;
+}
+
+template <int dimensions, typename rbf, typename poly>
+static auto
+fill(const matrix& xs, const matrix& xd, rbf phi, poly p)
+{
+	int np = decltype(p(std::declval<double[dimensions]>()))::size();
+	auto ns = xs.rows();
+	auto nd = xd.rows();
+	auto rows = nd + np;
+	auto cols = ns;
+	matrix r{rows, cols};
+	fill<dimensions>(xs, xd, phi, r);
+
+	auto* sdata = xs.values();
+	auto* rdata = r.values();
+	auto k = [=] __device__ (int tid, auto p)
+	{
+		double sample[dimensions];
+		for (int i = 0; i < dimensions; ++i)
+			sample[i] = sdata[i * ns + tid];
+		auto values = p(sample);
+		for (int i = 0; i < np; ++i)
+			rdata[tid * rows + nd + i] = values[i];
+	};
+	util::transform<128, 1>(k, ns, p);
+	return r;
+}
+
+}

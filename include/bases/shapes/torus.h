@@ -15,14 +15,14 @@ public:
 	struct metric : differentiable {
 	private:
 		template <typename ... arg_types>
-		static constexpr __host__ __device__ bool
+		static constexpr bool
 		all(arg_types ... args)
 		{
 			return (... && args);
 		}
 	public:
 		template <std::size_t n>
-		constexpr __host__ __device__ double
+		constexpr double
 		operator()(const double (&xs)[n], const double (&xd)[n],
 				partials<> p = partials<>()) const
 		{
@@ -33,7 +33,7 @@ public:
 		}
 
 		template <std::size_t n, int d, int ... ds>
-		constexpr __host__ __device__ double
+		constexpr double
 		operator()(const double (&xs)[n], const double (&xd)[n],
 				partials<d, ds...> p) const
 		{

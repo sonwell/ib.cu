@@ -1,36 +1,40 @@
 #pragma once
+#include "util/math.h"
 #include "differentiation.h"
 
 namespace bases {
 
 struct gaussian : differentiable {
-	static constexpr auto e = 2.71828182845904523536028747135266249775724709369995;
 	double gamma;
 
 	template <int d0, int d1>
-	constexpr __host__ __device__ auto
+	constexpr auto
 	eval(double r, partials<d0, d1>) const
 	{
-		return 4 * gamma * gamma * pow(e, -gamma * r * r);
+		using util::math::exp;
+		return 4 * gamma * gamma * exp(-gamma * r * r);
 	}
 
 	template <int d0>
-	constexpr __host__ __device__ auto
+	constexpr auto
 	eval(double r, partials<d0>) const
 	{
-		return -2 * gamma * pow(e, -gamma * r * r);
+		using util::math::exp;
+		return -2 * gamma * exp(-gamma * r * r);
 	}
 
-	__host__ __device__ auto
+	constexpr auto
 	eval(double r, partials<>) const
 	{
-		return pow(e, -gamma * r * r);
+		using util::math::exp;
+		return exp(-gamma * r * r);
 	}
 
 	template <int ... ds>
-	__host__ __device__ auto
+	constexpr auto
 	operator()(double r, partials<ds...> p = partials<>()) const
 	{
+		using namespace util::math;
 		return eval(r, p);
 	}
 

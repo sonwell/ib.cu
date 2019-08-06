@@ -7,9 +7,11 @@ namespace bases {
 
 template <int dims>
 struct surface {
+public:
+	static constexpr auto dimensions = dims;
 private:
-	using operators_type = operators<dims>;
-	using geometry_type = geometry<dims>;
+	using operators_type = operators<dimensions>;
+	using geometry_type = geometry<dimensions>;
 
 	typedef struct {
 		matrix data_sites;
@@ -38,23 +40,25 @@ private:
 	}
 
 	template <typename rbf, typename poly>
-	surface(sample_info info, rbf phi, poly p) :
+	surface(int nd, int ns, sample_info info, rbf phi, poly p) :
+		num_data_sites(nd), num_sample_sites(ns),
 		data_to_data(info.data_sites, info.data_sites, info.data_weights, phi, p),
 		data_to_sample(info.data_sites, info.sample_sites, info.sample_weights, phi, p),
-		ref_data_geometry(data_to_data, info.positions),
-		ref_sample_geometry(data_to_sample, info.positions) {}
+		data_geometry(data_to_data, info.positions),
+		sample_geometry(data_to_sample, info.positions) {}
 
 	template <typename traits, typename rbf, typename poly>
 	surface(int nd, int ns, traits tr, rbf phi, poly p) :
-		surface(do_sample(nd, ns, tr, phi), phi, p) {}
+		surface(nd, ns, do_sample(nd, ns, tr, phi), phi, p) {}
 public:
-	static constexpr auto dimensions = dims;
 	using params = double[dimensions];
 
+	int num_data_sites;
+	int num_sample_sites;
 	operators_type data_to_data;
 	operators_type data_to_sample;
-	geometry_type ref_data_geometry;
-	geometry_type ref_sample_geometry;
+	geometry_type data_geometry;
+	geometry_type sample_geometry;
 
 	template <typename traits, typename basic, typename metric, typename poly>
 	surface(int nd, int ns, traits tr, basic phi, metric d, poly p) :

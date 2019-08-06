@@ -2,6 +2,7 @@
 #include <memory>
 #include <functional>
 #include "fd/size.h"
+#include "fd/grid.h"
 #include "util/functional.h"
 #include "cuda/event.h"
 #include "types.h"
@@ -9,13 +10,9 @@
 #include "interpolation.h"
 
 namespace mg {
+namespace __1 {
 
 class solver;
-
-namespace impl {
-
-class direct_solver;
-class iterative_solver;
 
 class base_solver {
 protected:
@@ -28,10 +25,11 @@ protected:
 public:
 	virtual ~base_solver() {}
 protected:
-	template <typename domain_type, typename op_func>
-	base_solver(const domain_type& domain, op_func op) :
-		op(op(domain)) {}
-friend class mg::solver;
+	template <typename grid_type, typename op_func>
+	base_solver(const grid_type& grid, op_func op) :
+		op(op(grid)) {}
+
+friend class solver;
 friend class direct_solver;
 friend class iterative_solver;
 };
@@ -49,10 +47,10 @@ protected:
 	virtual vector operator()(const vector& v, int) const { return solve(*sm, v); }
 	virtual vector operator()(const vector& v) const { return operator()(v, 0); }
 
-	template <typename domain_type, typename op_func, typename sm_func>
-	direct_solver(const domain_type& domain, op_func op, sm_func sm) :
-		base_solver(domain, op), sm(sm(domain, base_solver::op)) {}
-friend class mg::solver;
+	template <typename grid_type, typename op_func, typename sm_func>
+	direct_solver(const grid_type& grid, op_func op, sm_func sm) :
+		base_solver(grid, op), sm(sm(grid, base_solver::op)) {}
+friend class solver;
 friend class iterative_solver;
 };
 
@@ -92,14 +90,6 @@ private:
 		}
 		return fine;
 	}
-
-	template <typename domain_type, typename view_type, typename op_func, typename sm_func>
-	iterative_solver(const domain_type& domain, const view_type& view, op_func op, sm_func sm,
-			solver_ptr&& coarse) :
-		base_solver(domain, op), sm(sm(domain, base_solver::op)),
-		restriction(mg::restriction(domain, view)),
-		interpolation(mg::interpolation(domain, view)),
-		coarse(std::move(coarse)) {}
 protected:
 	using base_solver::op;
 
@@ -144,44 +134,41 @@ protected:
 		return iterate(b, [&] (int it) { return it < its; });
 	}
 
-	template <typename domain_type, typename op_func, typename sm_func>
-	iterative_solver(const domain_type& domain, op_func op, sm_func sm, solver_ptr&& coarse) :
-		iterative_solver(domain, std::get<0>(fd::dimensions(domain)), op, sm, std::move(coarse)) {}
-	friend class mg::solver;
+	template <typename grid_type, typename op_func, typename sm_func>
+	iterative_solver(const grid_type& grid, op_func op, sm_func sm,
+			solver_ptr&& coarse) :
+		base_solver(grid, op), sm(sm(grid, base_solver::op)),
+		restriction(mg::restriction(grid)),
+		interpolation(mg::interpolation(grid)),
+		coarse(std::move(coarse)) {}
+	friend class solver;
 };
 
-template <typename domain_type>
+template <typename grid_type>
 constexpr bool
-refined(const domain_type& domain)
+refined(const grid_type& grid)
 {
 	using namespace util::functional;
 	auto k = [] (unsigned pts) { return !(pts & 1) && pts > 4; };
-	auto reduce = partial(foldl, std::logical_and<bool>(), true);
-	const auto& view = std::get<0>(fd::dimensions(domain));
-	return apply(reduce, map(k, fd::sizes(domain, view)));
+	auto reduce = partial(foldl, std::logical_and<void>(), true);
+	return apply(reduce, map(k, fd::__1::sizes(grid)));
 }
-
-} // namespace impl
 
 class solver {
 private:
-	impl::solver_ptr slv;
+	solver_ptr slv;
 
-	template <typename domain_type, typename op_func, typename sm_func>
-	static impl::solver_ptr
-	construct(const domain_type& domain, op_func op, sm_func sm)
+	template <typename grid_type, typename op_func, typename sm_func>
+	static solver_ptr
+	construct(const grid_type& grid, op_func op, sm_func sm)
 	{
-		using tag_type = typename domain_type::tag_type;
-		if (impl::refined(domain)) {
-			auto dims = fd::dimensions(domain);
-			auto resolution = domain.resolution() >> 1;
-			tag_type grid(resolution);
-			auto f = [&] (auto&& ... dims) { return fd::domain{grid, dims...}; };
-			auto coarse = util::functional::apply(f, dims);
+		if (refined(grid)) {
+			auto refinement = grid.refinement() >> 1;
+			auto coarse = fd::grid{grid, refinement};
 			auto solver = construct(coarse, op, sm);
-			return impl::solver_ptr(new impl::iterative_solver(domain, op, sm, std::move(solver)));
+			return solver_ptr(new iterative_solver(grid, op, sm, std::move(solver)));
 		}
-		return impl::solver_ptr(new impl::direct_solver(domain, op, sm));
+		return solver_ptr(new direct_solver(grid, op, sm));
 	}
 
 	solver&
@@ -195,10 +182,14 @@ public:
 	vector operator()(const vector& x, std::size_t it) const { return (*slv)(x, it); }
 	const matrix& op() const { return slv->op; }
 
-	template <typename domain_type, typename op_func, typename sm_func>
-	solver(const domain_type& domain, op_func op, sm_func sm) :
-		slv(construct(domain, op, sm)) {}
+	template <typename grid_type, typename op_func, typename sm_func>
+	solver(const grid_type& grid, op_func op, sm_func sm) :
+		slv(construct(grid, op, sm)) {}
 	solver(solver&& o) : slv(nullptr) { swap(o); }
 };
+
+} // namespace __1
+
+using __1::solver;
 
 } // namespace mg

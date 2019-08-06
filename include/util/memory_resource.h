@@ -36,7 +36,7 @@ public:
 		return do_is_equal(other);
 	}
 
-	memory_resource() = default;
+	memory_resource() {};
 	virtual ~memory_resource() = default;
 };
 

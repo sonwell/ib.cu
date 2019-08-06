@@ -72,7 +72,8 @@ static auto
 fill(const matrix& x, rbf phi, poly p)
 {
 	using params = double[dimensions];
-	int np = decltype(p(std::declval<params>()))::size();
+	using poly_array = decltype(p(std::declval<params>()));
+	static constexpr int np = std::tuple_size_v<poly_array>;
 	auto nd = x.rows();
 	auto rows = nd + np;
 	matrix r{rows, rows};
@@ -80,9 +81,9 @@ fill(const matrix& x, rbf phi, poly p)
 
 	auto* ddata = x.values();
 	auto* rdata = r.values();
-	auto k = [=] __device__ (int tid, auto f)
+	auto k = [=] __device__ (int tid)
 	{
-		double sample[dimensions];
+		params sample;
 		for (int i = 0; i < dimensions; ++i)
 			sample[i] = ddata[i * nd + tid];
 		auto values = p(sample);
@@ -96,7 +97,7 @@ fill(const matrix& x, rbf phi, poly p)
 			rdata[(nd + col) * rows + nd + row] = 0;
 		}
 	};
-	util::transform<128, 8>(k, nd, p);
+	util::transform<128, 8>(k, nd);
 	return r;
 }
 
@@ -104,7 +105,9 @@ template <int dimensions, typename rbf, typename poly>
 static auto
 fill(const matrix& xs, const matrix& xd, rbf phi, poly p)
 {
-	int np = decltype(p(std::declval<double[dimensions]>()))::size();
+	using params = double[dimensions];
+	using poly_array = decltype(p(std::declval<params>()));
+	static constexpr int np = std::tuple_size_v<poly_array>;
 	auto ns = xs.rows();
 	auto nd = xd.rows();
 	auto rows = nd + np;
@@ -114,16 +117,16 @@ fill(const matrix& xs, const matrix& xd, rbf phi, poly p)
 
 	auto* sdata = xs.values();
 	auto* rdata = r.values();
-	auto k = [=] __device__ (int tid, auto p)
+	auto k = [=] __device__ (int tid)
 	{
-		double sample[dimensions];
+		params sample;
 		for (int i = 0; i < dimensions; ++i)
 			sample[i] = sdata[i * ns + tid];
 		auto values = p(sample);
 		for (int i = 0; i < np; ++i)
 			rdata[tid * rows + nd + i] = values[i];
 	};
-	util::transform<128, 1>(k, ns, p);
+	util::transform<128, 1>(k, ns);
 	return r;
 }
 

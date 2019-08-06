@@ -5,24 +5,18 @@
 #include <complex>
 #include <cmath>
 
-//#ifndef __CUDA__
-//#define __host__
-//#define __device__
-//#define __forceinline__ inline
-//#endif
-
 namespace linalg {
 
 template <typename base_type> class complex;
 
 template <typename base_type>
-	__host__ __device__ constexpr base_type real(const complex<base_type>&);
+	constexpr base_type real(const complex<base_type>&);
 template <typename base_type>
-	__host__ __device__ constexpr base_type imag(const complex<base_type>&);
+	constexpr base_type imag(const complex<base_type>&);
 template <typename base_type>
-	__host__ __device__ constexpr base_type fabs(const complex<base_type>&);
+	constexpr base_type fabs(const complex<base_type>&);
 template <typename base_type>
-	__host__ __device__ constexpr complex<base_type> conj(const complex<base_type>&);
+	constexpr complex<base_type> conj(const complex<base_type>&);
 
 namespace detail {
 	template <typename> struct complex_base { using type = double; };
@@ -40,7 +34,7 @@ private:
 	base_type y;
 
 	template <typename real_type, typename imag_type>
-	__host__ __device__ constexpr complex&
+	constexpr complex&
 	assign(real_type r, imag_type i)
 	{
 		static_assert(std::is_arithmetic_v<real_type>,
@@ -58,56 +52,56 @@ public:
 	constexpr operator float() const { return real(); }
 
 	template <typename other_type>
-	__host__ __device__ constexpr complex&
+	constexpr complex&
 	operator=(other_type v) { return assign(v, 0.0); }
 
 	template <typename other_base>
-	__host__ __device__ constexpr complex&
+	constexpr complex&
 	operator=(const complex<other_base>& z) { return assign(z.x, z.y); }
 
-	__host__ __device__ constexpr value_type real() const { return x; }
-	__host__ __device__ constexpr void real(value_type v) { x = v; }
-	__host__ __device__ constexpr value_type imag() const { return y; }
-	__host__ __device__ constexpr void imag(value_type v) { y = v; }
+	constexpr value_type real() const { return x; }
+	constexpr void real(value_type v) { x = v; }
+	constexpr value_type imag() const { return y; }
+	constexpr void imag(value_type v) { y = v; }
 
 	template <typename other_type>
-	__host__ __device__ constexpr complex&
+	constexpr complex&
 	operator+=(other_type v) { return assign(x+v, y); }
 
 	template <typename other_type>
-	__host__ __device__ constexpr complex&
+	constexpr complex&
 	operator-=(other_type v) { return assign(x-v, y); }
 
 	template <typename other_type>
-	__host__ __device__ constexpr complex&
+	constexpr complex&
 	operator*=(other_type v) { return assign(x*v, y*v); }
 
 	template <typename other_type>
-	__host__ __device__ constexpr complex&
+	constexpr complex&
 	operator/=(other_type v) { return assign(x/v, y/v); }
 
 	template <typename other_base>
-	__host__ __device__ constexpr complex&
+	constexpr complex&
 	operator+=(const complex<other_base>& z) { return assign(x+z.x, y+z.y); }
 
 	template <typename other_base>
-	__host__ __device__ constexpr complex&
+	constexpr complex&
 	operator-=(const complex<other_base>& z) { return assign(x-z.x, y-z.y); }
 
 	template <typename other_base>
-	__host__ __device__ constexpr complex&
+	constexpr complex&
 	operator*=(complex<other_base> z) { return assign(x*z.x-y*z.y, x*z.y+y*z.x); }
 
 	template <typename other_base>
-	__host__ __device__ constexpr complex&
+	constexpr complex&
 	operator/=(const complex<other_base>& z) { return operator*=(conj(z)/fabs(z)); }
 
 	template <typename real_type, typename imag_type>
-	__host__ __device__ constexpr complex(const real_type& re = 0, const imag_type& im = 0) :
+	constexpr complex(const real_type& re = 0, const imag_type& im = 0) :
 		x{(value_type) re}, y{(value_type) im} {}
 
 	template <typename other_base>
-	__host__ __device__ constexpr complex(const complex<other_base>& z) :
+	constexpr complex(const complex<other_base>& z) :
 		x{(value_type) z.real()}, y{(value_type) z.imag()} {}
 
 	constexpr complex(const std::complex<value_type>& z) :
@@ -124,29 +118,29 @@ template <typename real_type>
 complex() -> complex<double>;
 
 template <typename base_type>
-__host__ __device__ __forceinline__ constexpr base_type
+constexpr base_type
 real(const complex<base_type>& z)
 { return z.real(); }
 
-__host__ __device__ __forceinline__ constexpr double
+constexpr double
 real(double x) { return x; }
 
-__host__ __device__ __forceinline__ constexpr float
+constexpr float
 real(float x) { return x; }
 
-__host__ __device__ __forceinline__ constexpr double
+constexpr double
 imag(double) { return 0; }
 
-__host__ __device__ __forceinline__ constexpr float
+constexpr float
 imag(float) { return 0; }
 
 template <typename base_type>
-__host__ __device__ __forceinline__ constexpr base_type
+constexpr base_type
 imag(const complex<base_type>& z)
 { return z.imag(); }
 
 template <typename base_type>
-__host__ __device__ __forceinline__ constexpr base_type
+constexpr base_type
 fabs(const complex<base_type>& z)
 {
 	auto re = z.real();
@@ -155,12 +149,12 @@ fabs(const complex<base_type>& z)
 }
 
 template <typename base_type>
-__host__ __device__ __forceinline__ constexpr complex<base_type>
+constexpr complex<base_type>
 conj(const complex<base_type>& z)
 { return {z.real(), -z.imag()}; }
 
 template <typename base_type, typename other_base>
-__host__ __device__ constexpr auto
+constexpr auto
 operator+(complex<base_type> z, const complex<other_base>& x)
 {
 	using result_type = decltype(real(z) + real(x));
@@ -168,17 +162,17 @@ operator+(complex<base_type> z, const complex<other_base>& x)
 }
 
 template <typename base_type, typename other_type>
-__host__ __device__ constexpr auto
+constexpr auto
 operator+(complex<base_type> z, const other_type& x)
 { return z + complex{x}; }
 
 template <typename base_type, typename other_type>
-__host__ __device__ constexpr auto
+constexpr auto
 operator+(const other_type& x, complex<base_type> z)
 { return complex{x} + z; }
 
 template <typename base_type, typename other_base>
-__host__ __device__ constexpr auto
+constexpr auto
 operator-(complex<base_type> z, const complex<other_base>& x)
 {
 	using result_type = decltype(real(z) - real(x));
@@ -186,17 +180,17 @@ operator-(complex<base_type> z, const complex<other_base>& x)
 }
 
 template <typename base_type, typename other_type>
-__host__ __device__ constexpr auto
+constexpr auto
 operator-(complex<base_type> z, const other_type& x)
 { return z - complex{x}; }
 
 template <typename base_type, typename other_type>
-__host__ __device__ constexpr auto
+constexpr auto
 operator-(const other_type& x, complex<base_type> z)
 { return complex{x} - z; }
 
 template <typename base_type, typename other_base>
-__host__ __device__ constexpr auto
+constexpr auto
 operator*(complex<base_type> z, const complex<other_base>& x)
 {
 	using result_type = decltype(real(z) * real(x));
@@ -204,17 +198,17 @@ operator*(complex<base_type> z, const complex<other_base>& x)
 }
 
 template <typename base_type, typename other_type>
-__host__ __device__ constexpr auto
+constexpr auto
 operator*(complex<base_type> z, const other_type& x)
 { return z * complex{x}; }
 
 template <typename base_type, typename other_type>
-__host__ __device__ constexpr auto
+constexpr auto
 operator*(const other_type& x, complex<base_type> z)
 { return complex{x} * z; }
 
 template <typename base_type, typename other_base>
-__host__ __device__ constexpr auto
+constexpr auto
 operator/(complex<base_type> z, const complex<other_base>& x)
 {
 	using result_type = decltype(real(z) / real(x));
@@ -222,21 +216,21 @@ operator/(complex<base_type> z, const complex<other_base>& x)
 }
 
 template <typename base_type, typename other_type>
-__host__ __device__ constexpr auto
+constexpr auto
 operator/(complex<base_type> z, const other_type& x)
 { return z / complex{x}; }
 
 template <typename base_type, typename other_type>
-__host__ __device__ constexpr auto
+constexpr auto
 operator/(const other_type& x, complex<base_type> z)
 { return complex{x} / z; }
 
 template <typename base_type>
-__host__ __device__ constexpr auto
+constexpr auto
 operator+(complex<base_type> z) { return z; }
 
 template <typename base_type>
-__host__ __device__ constexpr auto
+constexpr auto
 operator-(complex<base_type> z) { return -1 * z; }
 
 template <typename base_type>

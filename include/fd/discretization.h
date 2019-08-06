@@ -1,15 +1,52 @@
-#include "util/sequences.h"
-#include "units.h"
-#include "exceptions.h"
+#pragma once
+#include <stdexcept>
+#include <utility>
+#include "util/math.h"
+#include "util/wrapper.h"
+#include "cell.h"
 #include "domain.h"
 #include "boundary.h"
-
+#include "dimension.h"
+#include "exceptions.h"
+#include "correction.h"
+#include "types.h"
 
 namespace fd {
-namespace impl {
+namespace __1 {
+
+typedef struct { bool row_end, col_end; double value; } entry;
+
+inline matrix
+single_entry(int rows, int cols, double scale, entry e)
+{
+	enum { nt = 128, vt = 7 };
+	auto value = scale * e.value;
+	if (!rows || !cols || !value)
+		return matrix{rows, cols};
+
+	auto row = (rows && e.row_end) ? rows-1 : 0;
+	auto col = (cols && e.col_end) ? cols-1 : 0;
+	matrix result{rows, cols, 1};
+
+	auto* starts = result.starts();
+	auto* indices = result.indices();
+	auto* values = result.values();
+
+	auto k = [=] __device__ (int tid, int row, int col,
+			int* starts, int* indices, double* values)
+	{
+		starts[tid] = tid > row;
+		if (!tid) {
+			indices[0] = col + indexing_base;
+			values[0] = value;
+		}
+	};
+	util::transform<nt, vt>(k, rows+1, row, col, starts, indices, values);
+	return result;
+}
 
 struct coefficients {
-	using params = util::array<double, 2>;
+	using params = std::array<double, 2>;
 
 	// Consider a boundary condition ɑu + β∂u = ɣ. Let
 	// u₋₁ = Aɣ + Bu₀ be an approximation of the value at
@@ -42,40 +79,127 @@ private:
 		laplacian((-(p[1] * (1 - 2 * s) - p[0] * s * h * (1 - s))) / (2 * denom)) {}
 };
 
-}
 
-template <typename collocation, typename view_type>
-class discretization : public view_type {
-public:
-	using view_type::solid_boundary;
-	static constexpr auto on_boundary = collocation::on_boundary;
-	static constexpr auto shift = collocation::shift;
+typedef struct { double lower, upper; } params;
 
-	typedef struct { double lower, upper; } params;
+template <typename> struct discretization;
+using correction::order;
+
+template <typename lbt, typename ubt>
+struct discretization<fd::dimension<lbt, ubt>> : fd::dimension<lbt, ubt> {
 private:
-	static constexpr auto correction = solid_boundary && on_boundary;
-	using weight_type = impl::coefficients;
+	using entry = __1::entry;
+	using base = fd::dimension<lbt, ubt>;
 
-	weight_type weights[2];
-
-	constexpr discretization(const view_type& view, double h) :
-		view_type(view), weights{{view.lower(), h, shift}, {view.upper(), -h, 1-shift}} {}
-public:
-	constexpr params boundary() const { return {weights[0].boundary, weights[1].boundary}; }
-	constexpr params interior() const { return {weights[0].interior, weights[1].interior}; }
-	constexpr params identity() const { return {weights[0].laplacian, weights[1].laplacian}; }
-	constexpr auto points() const { return view_type::cells() - correction; }
-
-	constexpr auto
-	grid(double x) const
+	template <bool is_lower>
+	constexpr entry
+	interior(boundary::tag<is_lower>) const
 	{
-		auto y = view_type::clamp(x) * view_type::resolution();
-		auto z = util::math::min(points(), y - shift);
-		return util::math::floor(z) + shift;
+		if constexpr (!solid_boundary) return {!is_lower, is_lower, 1.0};
+		else return {!is_lower, !is_lower, weights[!is_lower].interior};
 	}
 
-	constexpr discretization(const view_type& view) :
-		discretization(view, 1.0 / view.resolution()) {}
+	template <bool is_lower>
+	constexpr entry
+	boundary(boundary::tag<is_lower>) const
+	{
+		if constexpr (!solid_boundary) return {!is_lower, is_lower, 0.0};
+		else return {!is_lower, !is_lower, weights[!is_lower].boundary};
+	}
+public:
+	using base::solid_boundary;
+	constexpr auto alignment() const { return _alignment; }
+	constexpr auto on_boundary() const { return _alignment.on_boundary(); }
+	constexpr auto shift() const { return _alignment.shift + (solid_boundary && on_boundary()); }
+	constexpr auto cells() const { return _cells; }
+	constexpr auto points() const { return _points; }
+	constexpr auto resolution() const { return _resolution; }
+	constexpr params boundary() const { return {weights[0].boundary, weights[1].boundary}; }
+	constexpr params interior() const { return {weights[0].interior, weights[1].interior}; }
+
+	template <std::size_t n = 0>
+	constexpr params
+	coefficient(order<n> = {}) const
+	{
+		static_assert(n < 3, "error coefficients only computed up to second order");
+		if constexpr (n < 2) return {0., 0.};
+		else return {weights[0].laplacian, weights[1].laplacian};
+	}
+
+	template <bool lower>
+	auto
+	interior(int rows, int cols, double scale, boundary::tag<lower> tag) const
+	{
+		return single_entry(rows, cols, scale, interior(tag));
+	}
+
+	template <bool lower>
+	auto
+	boundary(int rows, int cols, double scale, boundary::tag<lower> tag) const
+	{
+		return single_entry(rows, cols, scale, boundary(tag));
+	}
+
+	constexpr double
+	units(double x) const
+	{
+		auto s = shift();
+		auto r = resolution();
+		return base::clamp(x - s / r) * r + s;
+	}
+
+	constexpr double
+	point(int i) const
+	{
+		auto s = shift();
+		auto r = resolution();
+		return (i + s) / r;
+	}
+
+	constexpr int
+	index(int i) const
+	{
+		if constexpr (solid_boundary) return i;
+		else return (i + _cells) % _cells;
+	}
+
+	constexpr discretization(const base& dimension,
+			struct alignment al, double resolution) :
+		base(dimension), _alignment(al), _resolution(resolution),
+		_cells(dimension.length() * resolution + 0.5),
+		_points(_cells - (al.on_boundary() && solid_boundary)),
+		weights{{dimension.lower(), 1/resolution, al.shift},
+		        {dimension.upper(), -1/resolution, 1-al.shift}} {}
+
+	constexpr discretization(const discretization& disc,
+			double resolution) :
+		discretization(disc, disc.alignment(), resolution) {}
+
+	constexpr discretization(const discretization& disc,
+			struct alignment al) :
+		discretization(disc, al, disc.resolution()) {}
+private:
+	struct alignment _alignment;
+	double _resolution;
+	int _cells;
+	int _points;
+	coefficients weights[2];
 };
 
-}
+template <typename dimension_type>
+discretization(const dimension_type&, alignment, double)
+	-> discretization<dimension_type>;
+
+template <typename dimension_type>
+discretization(const discretization<dimension_type>&, alignment)
+	-> discretization<dimension_type>;
+
+template <typename dimension_type>
+discretization(const discretization<dimension_type>&, double)
+	-> discretization<dimension_type>;
+
+} // namespace __1
+
+using __1::discretization;
+
+} // namespace ib

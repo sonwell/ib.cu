@@ -1,5 +1,4 @@
 #pragma once
-#include <iostream>
 #include "dense.h"
 #include "sparse.h"
 #include "vector.h"
@@ -61,8 +60,6 @@ public:
 protected:
 	using super::copy;
 	using super::swap;
-
-	//template <typename otype> void copy(const matrix<sparse<otype>>&);
 public:
 	using super::rows;
 	using super::cols;
@@ -142,9 +139,22 @@ inline auto
 operator+(matrix<layout<ltype>> left,
 		const matrix<layout<rtype>>& right)
 {
-	//using result_type = decltype(ltype{} + rtype{});
-	//matrix<layout<result_type>> tmp{left};
-	return left += right;
+	left += right;
+	return left;
+}
+
+template <typename ltype, typename rtype>
+inline auto
+operator+(matrix<sparse<ltype>> left,
+		matrix<sparse<rtype>>&& right)
+{
+	using result_type = decltype(std::declval<ltype>() +
+			std::declval<rtype>());
+	if constexpr (std::is_same_v<result_type, rtype>)
+		if (!left.nonzero())
+			return std::move(right);
+	left += right;
+	return left;
 }
 
 template <template <typename> class layout,
@@ -153,9 +163,22 @@ inline auto
 operator-(matrix<layout<ltype>> left,
 		const matrix<layout<rtype>>& right)
 {
-	//using result_type = decltype(ltype{} - rtype{});
-	//matrix<layout<result_type>> tmp{left};
-	return left -= right;
+	left -= right;
+	return left;
+}
+
+template <typename ltype, typename rtype>
+inline auto
+operator-(matrix<sparse<ltype>> left,
+		matrix<sparse<rtype>>&& right)
+{
+	using result_type = decltype(std::declval<ltype>() +
+			std::declval<rtype>());
+	if constexpr (std::is_same_v<result_type, rtype>)
+		if (!left.nonzero())
+			return -std::move(right);
+	left -= right;
+	return left;
 }
 
 template <typename stype, template <typename> class layout,
@@ -163,9 +186,8 @@ template <typename stype, template <typename> class layout,
 inline auto
 operator*(stype a, matrix<layout<vtype>> m)
 {
-	//using result_type = decltype(a * vtype{});
-	//matrix<layout<result_type>> tmp{m};
-	return m *= a;
+	m *= a;
+	return m;
 }
 
 template <typename stype, template <typename> class layout,
@@ -173,7 +195,8 @@ template <typename stype, template <typename> class layout,
 inline auto
 operator*(matrix<layout<vtype>> m, stype a)
 {
-	return m *= a;
+	m *= a;
+	return m;
 }
 
 template <typename stype, template <typename> class layout,
@@ -181,14 +204,16 @@ template <typename stype, template <typename> class layout,
 inline auto
 operator/(matrix<layout<vtype>> m, stype a)
 {
-	return m /= a;
+	m /= a;
+	return m;
 }
 
 template <template <typename> class layout, typename vtype>
 inline auto
 operator-(matrix<layout<vtype>> m)
 {
-	 return m *= -1;
+	m *= -1;
+	return m;
 }
 
 template <template <typename> class layout, typename vtype>
@@ -238,7 +263,8 @@ operator%(matrix<dense<vtype>> left,
 		const matrix<dense<vtype>>& right)
 {
 	(void) (size(left) + size(right));
-	return left %= right;
+	left %= right;
+	return left;
 }
 
 } // namespace linalg

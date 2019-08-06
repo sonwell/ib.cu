@@ -58,26 +58,26 @@ namespace styles {
 inline const
 struct none_style : style {
 	none_style() :
-		style("", ", ", "", "", ", ", "", "", "\n ", "") {}
+		style("", ",\n ", "", "", ", ", "", "", "\n", "") {}
 } none;
 
 inline const
 struct python_style : style {
 	python_style() :
-		style("[", ", ", "]", "[", ", ", "]", "[", ",\n ", "]") {}
+		style("[", ",\n ", "]", "[", ", ", "]", "[", ",\n ", "]") {}
 } python;
 
 
 inline const
 struct numpy_style : style {
 	numpy_style() :
-		style("np.array([", ", ", "])", "np.array(\n[", ", ", "]\n)", "[", ",\n ", "]") {}
+		style("np.array([", ",\n ", "])", "np.array(\n[", ", ", "]\n)", "[", ",\n ", "]") {}
 } numpy;
 
 inline const
 struct matlab_style : style {
 	matlab_style() :
-		style("[", ", ", "]'", "[", ", ", "]", "", ";\n ", "") {}
+		style("[", ",\n ", "]'", "[", ", ", "]", "", ";\n ", "") {}
 } matlab;
 
 } // namespace styles
@@ -105,7 +105,7 @@ scalexp(int n, const vtype* data)
 	int exp = min_exp-1;
 	for (int i = 0 ; i < n; ++i) {
 		vtype datum = data[i];
-		int curr = datum == 0 ? min_exp : std::ceil(std::log10(std::fabs(datum)/2));
+		int curr = datum == 0 ? min_exp-1 : std::ceil(std::log10(std::fabs(datum)/2));
 		exp = curr > exp ? curr : exp;
 	}
 	return exp == min_exp-1 ? 0 : exp;
@@ -289,6 +289,9 @@ operator<<(std::ostream& out, const container<layout<vtype>>& c)
 }
 
 } // namespace io
+
+using io::operator<<;
+
 } // namespace linalg
 
-using linalg::io::operator<<;
+using linalg::operator<<;

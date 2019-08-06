@@ -29,25 +29,22 @@ struct partials {
 		typename detail::counter<util::make_sequence<int, n>, ns...>::type;
 
 	using type = util::sequence<int, ns...>;
-	constexpr __host__ __device__ partials(type) {}
-	constexpr __host__ __device__ partials() {}
+	constexpr partials(type) {}
+	constexpr partials() {}
 };
 
-template <int ... ns>
-__host__ __device__ partials(util::sequence<int, ns...>) -> partials<ns...>;
-
 template <int ... ns, int ... ms>
-constexpr __host__ __device__ auto
+constexpr auto
 operator*(partials<ns...> l, partials<ms...> r)
 {
-	return partials(util::sort(util::sequence<int, ns..., ms...>()));
+	return partials{util::sort(util::sequence<int, ns..., ms...>())};
 }
 
 
 template <typename base, typename partials>
 struct derivative : base {
 	template <typename ... arg_types>
-	__host__ __device__ auto
+	constexpr auto
 	operator()(arg_types&& ... args) const
 	{
 		return base::operator()(std::forward<arg_types>(args)..., partials{});

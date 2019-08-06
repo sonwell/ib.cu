@@ -32,12 +32,12 @@ get_colors(const views_type& views, int colors = 2)
 		colors : get_colors(views, colors+1);
 }
 
-template <typename domain_type>
+template <typename grid_type>
 constexpr auto
-colors(const domain_type& domain)
+colors(const grid_type& grid)
 {
-	auto&& views = fd::dimensions(domain);
-	return get_colors(views);
+	const auto& components = grid.components();
+	return get_colors(components);
 }
 
 struct level {
@@ -94,19 +94,18 @@ recurse(int i, int colors, struct level& lev, int size, arg_types ... args)
 	}
 }
 
-template <typename domain_type>
+template <typename grid_type>
 class permuter {
 private:
-	static constexpr auto dimensions = domain_type::ndim;
+	static constexpr auto dimensions = grid_type::dimensions;
 	using sequence = std::make_index_sequence<dimensions>;
 	int colors;
 	int sizes[dimensions];
 protected:
-	template <std::size_t ... ns, typename grid_dim>
-	permuter(std::index_sequence<ns...>, const domain_type& domain,
-			const grid_dim& dim) :
-		colors(impl::colors(domain)),
-		sizes{std::get<ns>(fd::sizes(domain, dim))...} {}
+	template <std::size_t ... ns>
+	permuter(std::index_sequence<ns...>, const grid_type& grid) :
+		colors(impl::colors(grid)),
+		sizes{std::get<ns>(fd::sizes(grid))...} {}
 
 	template <std::size_t ... ns>
 	__host__ __device__ int
@@ -124,9 +123,8 @@ public:
 	operator()(int tid, int* starts) const
 	{ return entry(sequence(), tid, starts); }
 
-	template <typename grid_dim>
-	permuter(const domain_type& domain, const grid_dim& dim) :
-		permuter(sequence(), domain, dim) {}
+	permuter(const grid_type& grid) :
+		permuter(sequence(), grid) {}
 };
 
 } // namespace impl
@@ -168,12 +166,12 @@ public:
 		return permute_with(v, pdata);
 	}
 
-	template <typename domain_type, typename grid_dim>
-	redblack(const domain_type& domain, const grid_dim& dim) :
-		coloring{fd::size(domain, dim), impl::colors(domain)},
+	template <typename grid_type>
+	redblack(const grid_type& grid) :
+		coloring{fd::size(grid), impl::colors(grid)},
 		permutation(coloring::size()), inverse(coloring::size())
 	{
-		impl::permuter permute{domain, dim};
+		impl::permuter permute{grid};
 		auto colors = coloring::colors();
 		auto size = coloring::size();
 		util::memory<int> starts(colors+1);

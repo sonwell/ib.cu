@@ -32,7 +32,7 @@ private:
 	using coloring_ptr = std::unique_ptr<coloring>;
 	coloring_ptr colorer;
 	util::memory<int> offsets;
-	const matrix lu;
+	matrix lu;
 protected:
 	void
 	update(matrix& m, int row, int col,
@@ -163,7 +163,11 @@ public:
 	symmilu(const matrix& m, coloring* colorer) :
 		symmilu(m, coloring_ptr(colorer)) {}
 
-	friend std::ostream& operator<<(std::ostream&, const symmilu&);
+	friend std::ostream&
+	operator<<(std::ostream& out, const symmilu& lu)
+	{
+		return out << lu.lu;
+	};
 };
 
 } // namespace algo

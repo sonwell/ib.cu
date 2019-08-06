@@ -9,7 +9,7 @@ namespace krylov {
 inline vector
 pcg(const preconditioner& pr, const matrix& m, const vector& b, double tol)
 {
-	auto&& d = solve(pr, b);
+	auto d = solve(pr, b);
 	double delta_new = dot(b, d);
 	vector r = b;
 	vector x = 0 * b;
@@ -23,7 +23,7 @@ pcg(const preconditioner& pr, const matrix& m, const vector& b, double tol)
 		auto alpha = delta_new / nu;
 		axpy(alpha, d, x);
 		axpy(-alpha, q, r);
-		if (abs(r) < tol)
+		if (abs(r) <= tol)
 			break;
 		auto s = solve(pr, r);
 		auto delta_old = delta_new;

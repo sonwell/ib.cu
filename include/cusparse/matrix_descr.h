@@ -74,4 +74,4 @@ operator<<(std::ostream& out, const matrix_description& descr)
 	           << "type: " << descr.matrix_type;
 }
 
-} // namespace cublas
+} // namespace cusparse

@@ -58,7 +58,22 @@ inline auto
 operator+(vector<layout<ltype>> left,
 		const vector<layout<rtype>>& right)
 {
-	return left += right;
+	left += right;
+	return left;
+}
+
+template <typename ltype, typename rtype>
+inline auto
+operator+(vector<sparse<ltype>> left,
+		const vector<sparse<rtype>>& right)
+{
+	using result_type = decltype(std::declval<ltype>() +
+			std::declval<rtype>());
+	if constexpr (std::is_same_v<result_type, rtype>)
+		if (!left.nonzero())
+			return std::move(right);
+	left += right;
+	return left;
 }
 
 template <template <typename> class layout,
@@ -67,7 +82,22 @@ inline auto
 operator-(vector<layout<ltype>> left,
 		const vector<layout<rtype>>& right)
 {
-	return left -= right;
+	left -= right;
+	return left;
+}
+
+template <typename ltype, typename rtype>
+inline auto
+operator-(vector<sparse<ltype>> left,
+		const vector<sparse<rtype>>& right)
+{
+	using result_type = decltype(std::declval<ltype>() +
+			std::declval<rtype>());
+	if constexpr (std::is_same_v<result_type, rtype>)
+		if (!left.nonzero())
+			return -std::move(right);
+	left -= right;
+	return left;
 }
 
 template <typename stype, template <typename> class layout,
@@ -75,7 +105,8 @@ template <typename stype, template <typename> class layout,
 inline auto
 operator*(stype a, vector<layout<vtype>> v)
 {
-	return v *= a;
+	v *= a;
+	return v;
 }
 
 template <typename stype, template <typename> class layout,
@@ -83,7 +114,8 @@ template <typename stype, template <typename> class layout,
 inline auto
 operator*(vector<layout<vtype>> v, stype a)
 {
-	return v *= a;
+	v *= a;
+	return v;
 }
 
 template <typename stype, template <typename> class layout,
@@ -91,7 +123,8 @@ template <typename stype, template <typename> class layout,
 inline auto
 operator/(vector<layout<vtype>> v, stype a)
 {
-	return v /= a;
+	v /= a;
+	return v;
 }
 
 
@@ -99,14 +132,16 @@ template <template <typename> class layout, typename vtype>
 inline auto
 operator%(vector<layout<vtype>> left, const vector<layout<vtype>>& right)
 {
-	return left %= right;
+	left %= right;
+	return left;
 }
 
 template <template <typename> class layout, typename vtype>
 inline auto
 operator-(vector<layout<vtype>> left)
 {
-	return left *= -1;
+	left *= -1;
+	return left;
 }
 
 template <template <typename> class layout, typename vtype>

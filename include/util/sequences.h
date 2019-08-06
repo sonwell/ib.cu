@@ -2,18 +2,6 @@
 #include <utility>
 
 namespace util {
-namespace detail {
-
-template <typename f, typename s>
-struct pair {
-	f first;
-	s second;
-};
-
-template <typename first, typename second>
-__host__ __device__ pair(first&&, second&&) -> pair<first, second>;
-
-} // namespace detail
 
 template <typename int_type, int_type ... ns>
 using sequence = std::integer_sequence<int_type, ns...>;
@@ -86,14 +74,14 @@ template <typename int_type>
 constexpr auto
 partition(sequence<int_type> seq)
 {
-	return detail::pair{seq, seq};
+	return std::make_pair(seq, seq);
 }
 
 template <typename int_type, int_type n>
 constexpr auto
 partition(sequence<int_type, n> seq)
 {
-	return detail::pair{seq, sequence<int_type>()};
+	return std::make_pair(seq, sequence<int_type>());
 }
 
 template <typename int_type, int_type n, int_type m, int_type ... ns>
@@ -101,10 +89,10 @@ constexpr auto
 partition(sequence<int_type, n, m, ns...>)
 {
 	auto [l, r] = partition(sequence<int_type, ns...>());
-	return detail::pair{
+	return std::make_pair(
 		concat(sequence<int_type, n>(), l),
 		concat(sequence<int_type, m>(), r)
-	};
+	);
 }
 
 template <typename int_type>

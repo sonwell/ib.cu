@@ -11,9 +11,8 @@ class filler {
 private:
 	fill_type fill;
 public:
-	template <typename ... arg_types,
-			 typename = std::enable_if_t<std::is_invocable_v<fill_type, arg_types...>>>
-	auto __host__ __device__
+	template <typename ... arg_types>
+	constexpr auto
 	operator()(arg_types&& ... args) const
 	{
 		return fill(std::forward<arg_types>(args)...);
@@ -29,14 +28,14 @@ private:
 public:
 	template <typename cast_type, typename = std::enable_if_t<
 			 std::is_convertible_v<value_type, cast_type>>>
-	constexpr __host__ __device__ explicit operator cast_type() { return value; }
+	constexpr explicit operator cast_type() { return value; }
 	template <typename cast_type, typename = std::enable_if_t<
 			 std::is_convertible_v<value_type, cast_type>>>
-	constexpr __host__ __device__ explicit operator filler<cast_type>()
+	constexpr explicit operator filler<cast_type>()
 	{ return filler<cast_type>(value); }
 
 	template <typename ... arg_types>
-	constexpr __host__ __device__ auto operator()(arg_types&&...) { return value; }
+	constexpr auto operator()(arg_types&&...) { return value; }
 
 	constexpr filler(value_type value) : value(value) {}
 };
@@ -98,15 +97,7 @@ fill(dense<vtype>& m, fn_type fn)
 
 	auto k = [=] __device__ (int tid, auto fn)
 	{
-		static constexpr bool is_matrix =
-			std::is_invocable_v<decltype(fn), int&, int&>;
-		if constexpr (is_matrix) {
-			auto i = tid % rows;
-			auto j = tid / rows;
-			mdata[tid] = fn(i, j);
-		}
-		else
-			mdata[tid] = fn(tid);
+		mdata[tid] = fn(tid);
 	};
 	util::transform<128, 8>(k, n, fn);
 }

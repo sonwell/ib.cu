@@ -75,4 +75,11 @@ swap(dense& o)
 	base::operator=(std::move(o));
 }
 
+template <typename vtype>
+void
+reshape(dense<vtype>& d, size sz)
+{
+	d = base{sz};
+}
+
 } // namespace linalg

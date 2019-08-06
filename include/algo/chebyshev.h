@@ -103,13 +103,14 @@ protected:
 		static constexpr auto num_weights = sizeof(weights) / sizeof(double);
 
 		vector y = (weights[0] / denominator) * r;
-		if constexpr(num_weights > 1) {
-			vector z{size(r)};
-			for (int i = 1; i < num_weights; ++i) {
-				gemv(-1.0, op, y, 0.0, z);
-				axpy(weights[i] / denominator, r, z);
-				swap(y, z);
-			}
+		if constexpr (num_weights == 1)
+			return y;
+
+		vector z{size(r)};
+		for (int i = 1; i < num_weights; ++i) {
+			gemv(-1.0, op, y, 0.0, z);
+			axpy(weights[i] / denominator, r, z);
+			swap(y, z);
 		}
 		return y;
 	}
@@ -122,6 +123,10 @@ public:
 
 	chebyshev(double a, double b, const matrix& m) :
 		chebw(a, b), op(m) {}
+
+	chebyshev(const chebyshev&) = delete;
+	chebyshev(chebyshev&& o) :
+		chebw(std::move(o.chebw)), op(o.op) {}
 };
 
 } // namespace algo

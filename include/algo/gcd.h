@@ -4,6 +4,14 @@
 namespace algo {
 namespace impl {
 
+constexpr void
+swap(double& a, double& b)
+{
+	double c = a;
+	a = b;
+	b = c;
+}
+
 constexpr double
 gcd(double a, double b)
 {
@@ -12,7 +20,7 @@ gcd(double a, double b)
 	constexpr auto eps = limits::epsilon();
 
 	while (abs(b) > eps) {
-		if (a < b) std::swap(a, b);
+		if (a < b) impl::swap(a, b);
 		auto c = a - ((int) (a / b)) * b;
 		a = b; b = c;
 	}
@@ -24,7 +32,7 @@ gcd(double a, double b)
 constexpr double
 gcd(double a, double b)
 {
-	if (a < b) std::swap(a, b);
+	if (a < b) impl::swap(a, b);
 	return impl::gcd(1.0, b / a) * a;
 }
 

@@ -11,7 +11,8 @@ class coloring {
 private:
 	int sz;
 	int ncolors;
-	util::memory<int> cstarts;
+	int* cstarts;
+	//util::memory<int> cstarts;
 protected:
 	template <typename p_iterator>
 	vector
@@ -81,10 +82,10 @@ public:
 
 	int size() const { return sz; }
 	int colors() const { return ncolors; }
-	int* starts() const { return cstarts.data(); }
+	int* starts() const { return cstarts; }
 
 	coloring(int sz, int colors) :
-		sz(sz), ncolors(colors), cstarts(colors+1) {}
+		sz(sz), ncolors(colors), cstarts(new int[colors+1]) {}
 	virtual ~coloring() {}
 };
 

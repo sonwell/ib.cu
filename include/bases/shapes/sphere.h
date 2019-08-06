@@ -4,6 +4,7 @@
 #include "algo/lu.h"
 #include "bases/traits.h"
 #include "bases/fill.h"
+#include "bases/polynomials.h"
 #include "bases/differentiation.h"
 #include "bases/closed_surface.h"
 
@@ -13,11 +14,12 @@ namespace shapes {
 struct sphere : closed_surface<2> {
 private:
 	static constexpr bases::traits<sphere> traits;
+	using base = closed_surface<2>;
 public:
 	struct metric : differentiable {
 	private:
 		template <std::size_t n, int ... cnts>
-		constexpr __host__ __device__ double
+		constexpr double
 		eval(const double (&xs)[n], const double (&xd)[n],
 				util::sequence<int, cnts...>) const
 		{
@@ -37,7 +39,7 @@ public:
 		}
 	public:
 		template <std::size_t n, int ... ds>
-		constexpr __host__ __device__ double
+		constexpr double
 		operator()(const double (&xs)[n], const double (&xd)[n],
 				partials<ds...> p = partials<>()) const
 		{
@@ -55,8 +57,6 @@ protected:
 	using params = double[2];
 	static constexpr auto pi = M_PI;
 	static constexpr metric d{};
-
-	using closed_surface<2>::closed_surface;
 public:
 	static matrix
 	sample(int n)
@@ -108,13 +108,17 @@ public:
 	weights(const matrix& x, rbf phi)
 	{
 		static constexpr auto weight =
-			[] __device__ (const params& x) { return cos(x[1]) / 4 * pi; };
-		return scale(closed_surface<2>::weights(x, phi, weight));
+			[] __device__ (const params& x) { return cos(x[1]) / (4 * pi); };
+		return base::weights(x, phi, weight);
 	}
 
-	template <typename basic, typename poly>
-	sphere(int nd, int ns, basic phi, poly p) :
-		closed_surface<2>(nd, ns, traits, phi, p) {}
+	template <typename trait_type, typename basic, typename poly = polynomials<0>>
+	sphere(int nd, int ns, bases::traits<trait_type> traits, basic phi, poly p = {}) :
+		base(nd, ns, traits, phi, d, p) {}
+
+	template <typename basic, typename poly = polynomials<0>>
+	sphere(int nd, int ns, basic phi, poly p = {}) :
+		sphere(nd, ns, traits, phi, p) {}
 };
 
 } // namespace shapes

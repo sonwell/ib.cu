@@ -9,7 +9,7 @@ struct rbf : differentiable {
 	metric distance;
 
 	template <std::size_t n>
-	constexpr __host__ __device__ double
+	constexpr double
 	eval(const double (&xs)[n], const double (&xd)[n], partials<>) const
 	{
 		auto r = distance(xs, xd);
@@ -17,7 +17,7 @@ struct rbf : differentiable {
 	}
 
 	template <std::size_t n, int d>
-	constexpr __host__ __device__ double
+	constexpr double
 	eval(const double (&xs)[n], const double (&xd)[n], partials<d> p) const
 	{
 		auto r = distance(xs, xd);
@@ -26,7 +26,7 @@ struct rbf : differentiable {
 	}
 
 	template <std::size_t n, int d0, int d1>
-	constexpr __host__ __device__ double
+	constexpr double
 	eval(const double (&xs)[n], const double (&xd)[n], partials<d0, d1>) const
 	{
 		partials<d0> p0;
@@ -39,9 +39,9 @@ struct rbf : differentiable {
 	}
 
 	template <std::size_t n, int ... ds>
-	__host__ __device__ double
+	constexpr double
 	operator()(const double (&xs)[n], const double (&xd)[n],
-			partials<ds...> p = partials<>()) const
+			partials<ds...> p = {}) const
 	{
 		return eval(xs, xd, p);
 	}

@@ -1,5 +1,5 @@
 #pragma once
-#include "util/array.h"
+#include <array>
 #include "differentiation.h"
 
 namespace bases {
@@ -140,7 +140,7 @@ template <int degree>
 class polynomials : differentiable {
 private:
 	template <int n, int ... exps, int ... coeffs>
-	constexpr __host__ __device__ auto
+	constexpr auto
 	eval(const double (&xs)[n], util::sequence<int, exps...>,
 			util::sequence<int, coeffs...>) const
 	{
@@ -148,7 +148,7 @@ private:
 		constexpr int coefficients[] = {coeffs...};
 		constexpr int np = sizeof...(coeffs);
 
-		util::array<double, np> values;
+		std::array<double, np> values;
 		for (int i = 0; i < np; ++i) {
 			double v = coefficients[i];
 			for (int j = 0; j < n; ++j)
@@ -159,8 +159,8 @@ private:
 	}
 public:
 	template <int n, int ... ds>
-	constexpr __host__ __device__ auto
-	operator()(const double (&xs)[n], partials<ds...> p = partials<>()) const
+	constexpr auto
+	operator()(const double (&xs)[n], partials<ds...> p = {}) const
 	{
 		using info_type = detail::info<degree, n>;
 		return eval(xs, info_type::exponents(p), info_type::coefficients(p));
@@ -173,35 +173,35 @@ class polynomial_subset<degree, util::sequence<int, ns...>> : public polynomials
 private:
 	using keep_type = detail::keep<ns...>;
 
-	static constexpr __host__ __device__ auto
+	static constexpr auto
 	index(int d, util::sequence<int>)
 	{
 		return 0;
 	}
 
 	template <int k, int ... ks>
-	static constexpr __host__ __device__ auto
+	static constexpr auto
 	index(int d, util::sequence<int, k, ks...>)
 	{
 		return d == k ? 1 + sizeof...(ks) :
 			index(d, util::sequence<int, ks...>{});
 	}
 
-	static constexpr __host__ __device__ auto
+	static constexpr auto
 	index(int d)
 	{
 		return keep_type::size() - index(d, keep_type{});
 	}
 
 	template <int ... ds>
-	static constexpr __host__ __device__ auto
+	static constexpr auto
 	remap(partials<ds...>)
 	{
 		return partials<index(ds)...>{};
 	}
 
 	template <int n, int ... ds, int ... ks>
-	constexpr __host__ __device__ auto
+	constexpr auto
 	eval(const double (&xs)[n], partials<ds...> p, util::sequence<int, ks...>) const
 	{
 		constexpr decltype(remap(p)) q;
@@ -210,7 +210,7 @@ private:
 	}
 public:
 	template <int n, int ... ds>
-	constexpr __host__ __device__ auto
+	constexpr auto
 	operator()(const double (&xs)[n], partials<ds...> p = partials<>()) const
 	{
 		return eval(xs, p, keep_type{});

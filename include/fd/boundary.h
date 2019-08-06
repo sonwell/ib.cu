@@ -1,46 +1,61 @@
 #pragma once
 #include <cstddef>
 #include <utility>
+#include <array>
 #include <type_traits>
-#include "util/array.h"
 
 namespace fd {
 namespace boundary {
-namespace impl {
+namespace __1 {
 
-class base {
+class boundary {
 private:
-	using container = util::array<double, 2>;
+	using container = std::array<double, 2>;
 	container _params;
 protected:
-	constexpr base(const container& p) : _params{p} {}
+	constexpr boundary(const container& p) : _params{p} {}
 public:
 	constexpr const container& params() const { return _params; }
 };
 
-inline constexpr struct lower_tag : std::integral_constant<std::size_t, 1> {} lower;
-inline constexpr struct upper_tag : std::integral_constant<std::size_t, 0> {} upper;
+template <bool is_lower>
+struct tag : std::integral_constant<bool, is_lower> {};
 
-} // namespace impl
+inline constexpr tag<true> lower;
+inline constexpr tag<false> upper;
 
-struct robin : impl::base {
+
+struct robin : boundary {
 	static constexpr auto solid = true;
-	constexpr robin(double a, double b) : base{{a, b}} {}
+	constexpr robin(double a, double b) : boundary{{a, b}} {}
 };
 
-struct periodic : impl::base {
+struct periodic : boundary {
 	static constexpr auto solid = false;
-	constexpr periodic() : base{{0, 0}} {}
+	constexpr periodic() : boundary{{0, 0}} {}
 };
 
 struct dirichlet : robin { constexpr dirichlet() : robin(1, 0) {} };
 struct neumann : robin { constexpr neumann() : robin(0, 1) {} };
 
+} // namespace __1
+
+using __1::robin;
+using __1::dirichlet;
+using __1::neumann;
+using __1::periodic;
+using __1::tag;
+using __1::lower;
+using __1::upper;
+
+} // namespace boundary
+
 template <typename T> struct is_boundary :
-	std::integral_constant<bool, std::is_base_of_v<robin, T> ||
-	                             std::is_base_of_v<periodic, T>> {};
+	std::integral_constant<bool, std::is_base_of_v<boundary::__1::boundary, T>> {};
 template <typename T> inline constexpr bool is_boundary_v =
 	is_boundary<T>::value;
+
+namespace boundary {
 
 template <typename lower, typename upper>
 struct is_valid_combination {
@@ -57,12 +72,5 @@ template <typename L, typename U>
 inline constexpr bool is_valid_combination_v =
 	is_valid_combination<L, U>::value;
 
-using impl::lower;
-using impl::upper;
-
 } // namespace boundary
-
-using boundary::is_boundary;
-using boundary::is_boundary_v;
-
 } // namespace fd

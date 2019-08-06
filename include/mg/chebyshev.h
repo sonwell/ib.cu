@@ -9,11 +9,11 @@ namespace mg {
 
 class chebyshev : public algo::chebyshev, public smoother {
 private:
-	template <typename domain_type>
+	template <typename grid_type>
 	std::pair<double, double>
-	range(const domain_type&, const matrix& m)
+	range(const grid_type&, const matrix& m)
 	{
-		static constexpr auto correction = 1 << domain_type::ndim;
+		static constexpr auto correction = 1 << grid_type::dimensions;
 		auto [a, b] = algo::gershgorin(m);
 		if (abs(a) > abs(b))
 			std::swap(a, b);
@@ -31,9 +31,9 @@ public:
 		return algo::chebyshev::operator()(b);
 	}
 
-	template <typename domain_type>
-	chebyshev(const domain_type& domain, const matrix& m) :
-		chebyshev(range(domain, m), m) {}
+	template <typename grid_type>
+	chebyshev(const grid_type& grid, const matrix& m) :
+		chebyshev(range(grid, m), m) {}
 };
 
 } // namespace mg

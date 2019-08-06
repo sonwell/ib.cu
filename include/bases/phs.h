@@ -8,7 +8,7 @@ struct polyharmonic_spline : differentiable {
 	static constexpr auto eps = std::numeric_limits<double>::epsilon();
 
 	template <int d0, int d1>
-	constexpr __host__ __device__ auto
+	constexpr auto
 	eval(double r, partials<d0, d1>) const
 	{
 		if constexpr (n % 2 == 0)
@@ -18,7 +18,7 @@ struct polyharmonic_spline : differentiable {
 	}
 
 	template <int d0>
-	constexpr __host__ __device__ auto
+	constexpr auto
 	eval(double r, partials<d0>) const
 	{
 		if constexpr (n % 2 == 0)
@@ -27,7 +27,7 @@ struct polyharmonic_spline : differentiable {
 			return n * pow(r, n-2);
 	}
 
-	constexpr __host__ __device__ auto
+	constexpr auto
 	eval(double r, partials<>) const
 	{
 		if constexpr (n % 2 == 0)
@@ -37,7 +37,7 @@ struct polyharmonic_spline : differentiable {
 	}
 
 	template <int ... ds>
-	constexpr __host__ __device__ auto
+	constexpr auto
 	operator()(double r, partials<ds...> p = partials<>()) const
 	{
 		return eval(r, p);

@@ -9,6 +9,7 @@ auto
 kron(const matrix<sparse<ltype>>& left, const matrix<sparse<rtype>>& right)
 {
 	using result_type = decltype(ltype{} * rtype{});
+	using result_matrix = matrix<sparse<result_type>>;
 	enum { nt = 128, vt = 7, nv = nt * vt };
 
 	const auto lrows = left.rows();
@@ -30,9 +31,9 @@ kron(const matrix<sparse<ltype>>& left, const matrix<sparse<rtype>>& right)
 	auto nnz = lnnz * rnnz;
 
 	if (!nnz)
-		return matrix<sparse<result_type>>{rows, cols};
+		return result_matrix{rows, cols};
 
-	matrix<sparse<result_type>> result{rows, cols, nnz};
+	result_matrix result{rows, cols, nnz};
 	auto* starts = result.starts();
 	auto* indices = result.indices();
 	auto* values = result.values();

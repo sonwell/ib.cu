@@ -1,5 +1,4 @@
 #pragma once
-#include <iostream>
 #include "cublas/handle.h"
 #include "cublas/operation.h"
 #include "cublas/scal.h"
@@ -27,6 +26,7 @@
 #include "matrix.h"
 #include "exceptions.h"
 #include "io.h"
+#include "fill.h"
 
 namespace linalg {
 
@@ -65,12 +65,11 @@ void
 scal(scalar<vtype> s, container<dense<vtype>>& y)
 {
 	if (s == 1) return;
+	if (!s) return (void) (y = container<dense<vtype>>{size(y), zero});
 	auto n = length(y);
 	auto* values = y.values();
 	auto k = [=] __device__ (int tid) { values[tid] *= s; };
 	util::transform<128, 7>(k, n);
-	//cublas::handle h;
-	//cublas::scal(h, length(y), &s, y.values(), 1);
 }
 
 template <template <typename> class container, typename vtype>
@@ -83,8 +82,6 @@ scal(scalar<vtype> s, container<sparse<vtype>>& y)
 	auto* values = y.values();
 	auto k = [=] __device__ (int tid) { values[tid] *= s; };
 	util::transform<128, 7>(k, n);
-	//cublas::handle h;
-	//cublas::scal(h, length(y), &s, y.values(), 1);
 }
 
 template <template <typename> class container, typename vtype>
@@ -98,8 +95,6 @@ axpy(scalar<vtype> s, const container<dense<vtype>>& x, container<dense<vtype>>&
 	auto* ydata = y.values();
 	auto k = [=] __device__ (int tid) { ydata[tid] += s * xdata[tid]; };
 	util::transform<128, 7>(k, n);
-	//cublas::handle h;
-	//cublas::axpy(h, length(x), &s, x.values(), 1, y.values(), 1);
 }
 
 template <typename vtype>
@@ -116,6 +111,7 @@ axpy(scalar<vtype> s, const matrix<sparse<vtype>>& x, matrix<sparse<vtype>>& y)
 	util::memory<int> starts(x.rows() + 1);
 	cusparse::handle h;
 	cusparse::matrix_description descr;
+
 	cusparse::csrgeam_nnz(h, x.rows(), x.cols(),
 			descr, x.nonzero(), x.starts(), x.indices(),
 			descr, y.nonzero(), y.starts(), y.indices(),
@@ -179,8 +175,8 @@ void
 gemv(scalar<vtype> alpha, const matrix<dense<vtype>>& a, const vector<dense<vtype>>& x,
 		scalar<vtype> beta, vector<dense<vtype>>& y)
 {
-	if (!alpha) return scal(beta, y);
 	(void) (alpha * size(a) * size(x) + beta * size(y));
+	if (!alpha) return scal(beta, y);
 	cublas::handle h;
 	cublas::operation op = cublas::operation::non_transpose;
 	cublas::gemv(h, op, a.rows(), a.cols(), &alpha, a.values(), a.rows(),
@@ -192,8 +188,8 @@ void
 gemv(scalar<vtype> alpha, const matrix<sparse<vtype>>& a, const vector<dense<vtype>>& x,
 		scalar<vtype> beta, vector<dense<vtype>>& y)
 {
-	if (!alpha || !a.nonzero()) return scal(beta, y);
 	(void) (alpha * size(a) * size(x) + beta * size(y));
+	if (!alpha || !a.nonzero()) return scal(beta, y);
 	cusparse::handle h;
 	cusparse::operation op = cusparse::operation::non_transpose;
 	cusparse::matrix_description descr;

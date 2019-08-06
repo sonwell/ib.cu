@@ -1,8 +1,41 @@
 #pragma once
+#include <iostream>
 #include <ostream>
 #include <functional>
+#include <type_traits>
 
 namespace util {
+namespace detail {
+
+template <typename T>
+struct preincrementable {
+	template <typename U> static auto test(U& u, int) -> std::is_void<std::void_t<decltype(++u)>>;
+	template <typename U> static auto test(U& u, float) -> std::false_type;
+	static constexpr auto value = decltype(test(std::declval<T&>(), 0))::value;
+};
+
+template <typename T>
+struct postincrementable {
+	template <typename U> static auto test(U& u, int) -> std::is_void<std::void_t<decltype(u++)>>;
+	template <typename U> static auto test(U& u, float) -> std::false_type;
+	static constexpr auto value = decltype(test(std::declval<T&>(), 0))::value;
+};
+
+template <typename T>
+struct predecrementable {
+	template <typename U> static auto test(U& u, int) -> std::is_void<std::void_t<decltype(--u)>>;
+	template <typename U> static auto test(U& u, float) -> std::false_type;
+	static constexpr auto value = decltype(test(std::declval<T&>(), 0))::value;
+};
+
+template <typename T>
+struct postdecrementable {
+	template <typename U> static auto test(U& u, int) -> std::is_void<std::void_t<decltype(u--)>>;
+	template <typename U> static auto test(U& u, float) -> std::false_type;
+	static constexpr auto value = decltype(test(std::declval<T&>(), 0))::value;
+};
+
+}
 
 template <typename wrapped_type>
 class getset {
@@ -14,46 +47,132 @@ protected:
 	getter_type getter;
 	setter_type setter;
 public:
-	operator value_type() const { return getter(); }
-	getset& operator=(const value_type& v) { setter(v); return *this; }
+	constexpr operator value_type() const { return getter(); }
+	constexpr getset& operator=(const value_type& v) { setter(v); return *this; }
 
-	getset(getter_type g, setter_type s) :
+	constexpr getset(getter_type g, setter_type s) :
 		getter(g), setter(s) {}
 };
+
+#define assignment(transform) \
+	transform(+=) \
+	transform(-=) \
+	transform(*=) \
+	transform(/=) \
+	transform(%=) \
+	transform(^=) \
+	transform(&=) \
+	transform(|=) \
+	transform(>>=) \
+	transform(<<=)
+#define increment(transform) \
+	transform(++, detail::preincrementable, detail::postincrementable) \
+	transform(--, detail::predecrementable, detail::postdecrementable)
+#define binary(op) \
+template <typename wrapped_type, typename arg_type, \
+		  typename = decltype(std::declval<wrapped_type&>() op std::declval<arg_type>())> \
+decltype(auto) \
+operator op(getset<wrapped_type>& wr, arg_type&& arg) \
+{ \
+	wrapped_type v = wr; \
+	v op std::forward<arg_type>(arg); \
+	return wr = v; \
+}
+#define unary(op, pre, post) \
+template <typename wrapped_type> \
+constexpr std::enable_if_t<post<wrapped_type>::value, wrapped_type> \
+operator op(getset<wrapped_type>& wr, int) \
+{ \
+	wrapped_type v = wr; \
+	auto w = v; \
+	v op; \
+	wr = v; \
+	return w; \
+} \
+template <typename wrapped_type> \
+constexpr std::enable_if_t<pre<wrapped_type>::value, wrapped_type> \
+operator op(getset<wrapped_type>& wr) \
+{ \
+	wrapped_type v = wr; \
+	op v; \
+	wr = v; \
+	return v; \
+}
+
+assignment(binary)
+increment(unary)
+
+#undef unary
+#undef binary
+#undef increment
+#undef assignment
+
+#define operators(transform) \
+	transform(+) \
+	transform(-) \
+	transform(*) \
+	transform(/) \
+	transform(%) \
+	transform(^) \
+	transform(&) \
+	transform(|) \
+	transform(>>) \
+	transform(<<)
+#define binary(op) \
+template <typename wrapped_type, typename arg_type, \
+	typename = decltype(std::declval<wrapped_type>() op std::declval<arg_type>())> \
+constexpr decltype(auto) \
+operator op(const getset<wrapped_type>& gs, arg_type&& arg) \
+{ \
+	return (wrapped_type) gs op std::forward<arg_type>(arg); \
+} \
+template <typename wrapped_type, typename arg_type, \
+	typename = decltype(std::declval<arg_type>() op std::declval<wrapped_type>())> \
+constexpr decltype(auto) \
+operator op(arg_type&& arg, const getset<wrapped_type>& gs) \
+{ \
+	return std::forward<arg_type>(arg) op (wrapped_type) gs; \
+}
+
+operators(binary)
+
+#undef binary
+#undef operators
+
+template <typename wrapped_type,
+	typename = decltype(~std::declval<wrapped_type>())>
+constexpr decltype(auto)
+operator ~(const getset<wrapped_type>& gs)
+{
+	return ~(wrapped_type) gs;
+}
 
 template <typename wrapped_type>
 inline std::ostream&
 operator<<(std::ostream& out, const getset<wrapped_type>& w)
 {
-	return out << (wrapped_type) w;
+	wrapped_type v = w;
+	return out << v;
 }
 
 template <typename wrapped_type>
-class cached {
+class cached : public getset<wrapped_type> {
 protected:
-	using value_type = wrapped_type;
-	using setter_type = std::function<void(const value_type&)>;
+	using base = getset<wrapped_type>;
+	using value_type = typename base::value_type;
+	using setter_type = typename base::setter_type;
 private:
-	setter_type setter;
 	value_type value;
 public:
-	operator value_type() const { return value; }
-	cached& operator=(const value_type& v)
-	{
-		value = v;
-		setter(v);
-		return *this;
-	}
+	constexpr cached(setter_type s, value_type v) :
+		base{
+			[&] () { return value; },
+			[&, s=s] (const value_type& v) { value = v; s(v); }
+		},
+		value(v) {}
 
-	cached(setter_type s, value_type v) :
-		setter(s), value(v) {}
+	constexpr cached(const cached&) = delete;
+	constexpr cached(cached&&) = delete;
 };
-
-template <typename wrapped_type>
-inline std::ostream&
-operator<<(std::ostream& out, const cached<wrapped_type>& w)
-{
-	return out << (wrapped_type) w;
-}
 
 }

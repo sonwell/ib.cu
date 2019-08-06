@@ -6,28 +6,28 @@
 #include "util/functional.h"
 
 #include "types.h"
-#include "operators.h"
 #include "domain.h"
 #include "identity.h"
 #include "boundary.h"
+#include "grid.h"
 
 namespace fd {
-namespace impl {
+namespace __1 {
 
-template <typename corrector_type>
-matrix
-laplacian(const corrector_type& corrector)
+template <typename lower, typename upper>
+decltype(auto)
+laplacian(const discretization<dimension<lower, upper>>& component)
 {
-	const auto rows = corrector.points();
-	const auto n = corrector.resolution();
-	if (!rows) return matrix{0, 0};
+	auto rows = component.points();
+	auto n = component.resolution();
+	if (!rows) return matrix{rows, rows};
 
 	auto nonzero = 3 * rows - 2;
 	matrix result{rows, rows, nonzero};
 	auto* starts = result.starts();
 	auto* indices = result.indices();
 	auto* values = result.values();
-	const auto scale = n * n;
+	auto scale = n * n;
 
 	auto k = [=] __device__ (int tid)
 	{
@@ -41,83 +41,39 @@ laplacian(const corrector_type& corrector)
 	};
 	util::transform<128, 7>(k, nonzero);
 
-	result += corrector.interior(rows, rows, scale, boundary::lower)
-			+ corrector.interior(rows, rows, scale, boundary::upper);
+	result += component.interior(rows, rows, scale, boundary::lower);
+	result += component.interior(rows, rows, scale, boundary::upper);
 	return result;
 }
 
-template <typename Grid>
-class laplacian_builder {
-private:
-	using grid_type = Grid;
-	using sequence = std::make_index_sequence<std::tuple_size<grid_type>::value>;
-	template <std::size_t n> using iteration = std::integral_constant<std::size_t, n>;
-	static constexpr auto& order = fd::boundary::correction::second_order;
+} // namespace __1
 
-	template <std::size_t ... ns, typename Views>
-	static auto
-	splat(const std::index_sequence<ns...>&, const Views& views)
-	{
-		auto k = [&] (auto m)
-		{
-			static constexpr auto id = decltype(m)::value;
-			using colloc = std::tuple_element_t<id, grid_type>;
-			const auto& dir = std::get<id>(views);
-			using dir_type = std::decay_t<decltype(dir)>;
-			using corrector_type = boundary::corrector<colloc, dir_type>;
-			corrector_type corrector(dir);
-
-			return std::pair{laplacian(corrector), identity(corrector, order)};
-		};
-
-		return std::make_tuple(k(iteration<ns>{})...);
-	}
-public:
-	template <typename Views>
-	static matrix
-	build(const Views& views)
-	{
-		using namespace util::functional;
-
-		static auto operation = [] (const auto& left, const auto& right)
-		{
-			auto&& l_lap = left.first;
-			auto&& l_id = left.second;
-			auto&& r_lap = right.first;
-			auto&& r_id = right.second;
-			return std::pair{kron(l_lap, r_id) + kron(l_id, r_lap), kron(l_id, r_id)};
-		};
-
-		auto&& pairs = splat(sequence(), views);
-		auto&& multiop = partial(foldl, operation);
-		auto&& reversed = reverse(std::move(pairs));
-		auto&& results = apply(multiop, std::move(reversed));
-		return results.first;
-	}
-};
-} // namespace impl
-
-template <typename domain_type, typename view_type,
-		 typename = std::enable_if_t<is_domain_v<domain_type>>>
-auto
-laplacian(const domain_type& domain, const view_type& view)
+template <typename grid_type,
+	typename = std::enable_if_t<is_grid_v<grid_type>>>
+decltype(auto)
+laplacian(const grid_type& grid)
 {
-	using operators::caller;
-	using impl::laplacian_builder;
-	using tag_type = typename domain_type::tag_type;
-	using caller_type = caller<laplacian_builder, tag_type>;
-	auto&& views = fd::dimensions(domain);
-	return caller_type::call(view, views);
-}
+	using namespace util::functional;
+	using correction::second_order;
+	struct container {
+		matrix laplacian;
+		matrix identity;
+	};
 
-template <typename domain_type,
-		 typename = std::enable_if_t<is_domain_v<domain_type>>>
-auto
-laplacian(const domain_type& domain)
-{
-	static_assert(grid::is_uniform_v<domain_type::tag_type>,
-			"the 1-argument variant of fd::laplacian requires a uniform grid (cell- or vertex-centered)");
-	return laplacian(domain, std::get<0>(dimensions(domain)));
+	auto k = [] (const auto& comp) -> container
+	{
+		return {laplacian(comp), identity(comp, second_order)};
+	};
+	auto op = [] (const container& l, const container& r) -> container
+	{
+		auto& [ll, li] = l;
+		auto& [rl, ri] = r;
+		auto lap = kron(ll, ri) + kron(li, rl);
+		return {std::move(lap), kron(li, ri)};
+	};
+	const auto& components = grid.components();
+	auto reduce = partial(foldl, op);
+	return apply(reduce, reverse(map(k, components))).laplacian;
 }
 
 } // namespace fd

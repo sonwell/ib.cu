@@ -10,13 +10,18 @@
 
 namespace bases {
 
-template <int> struct geometry;
+inline constexpr struct {} reference;
+inline constexpr struct {} current;
 
-template <>
-struct geometry<2> {
+template <int dims>
+struct geometry {
+public:
+	static constexpr auto dimensions = dims;
 private:
+	using operators_type = operators<dimensions>;
+
 	static matrix
-	apply(cublas::handle& k, const matrix& op, const matrix& x)
+	multiply(cublas::handle& k, const matrix& op, const matrix& x)
 	{
 		static constexpr double alpha = 1.0;
 		static constexpr double beta = 0.0;
@@ -30,28 +35,41 @@ private:
 	}
 
 	static matrix
-	compute_position(cublas::handle& k, const operators<2>& ops, const matrix& x)
+	compute_position(cublas::handle& k, const operators_type& ops, const matrix& x)
 	{
-		return apply(k, ops.evaluator, x);
+		return multiply(k, ops.evaluator, x);
 	}
 
-	static std::array<matrix, 2>
-	compute_tangents(cublas::handle& k, const operators<2>& ops, const matrix& x)
+	template <std::size_t n>
+	static decltype(auto)
+	compute_matrices(cublas::handle& k, const std::array<matrix, n>& operators, const matrix& x)
 	{
-		return {apply(k, ops.first_derivatives[0], x),
-		        apply(k, ops.first_derivatives[1], x)};
+		using namespace util::functional;
+		auto c = [] (auto&& ... args) { return std::array{std::forward<decltype(args)>(args)...}; };
+		auto f = [&] (const matrix& m) { return multiply(k, m, x); };
+		return apply(c, map(f, operators));
 	}
 
-	static std::array<matrix, 3>
-	compute_second_derivatives(cublas::handle& k, const operators<2>& ops, const matrix& x)
+	static decltype(auto)
+	compute_tangents(cublas::handle& k, const operators_type& ops, const matrix& x)
 	{
-		return {apply(k, ops.second_derivatives[0], x),
-		        apply(k, ops.second_derivatives[1], x),
-		        apply(k, ops.second_derivatives[2], x)};
+		return compute_matrices(k, ops.first_derivatives, x);
 	}
 
-	using tangents_type = std::array<matrix, 2>;
-	using seconds_type = std::array<matrix, 3>;
+	static decltype(auto)
+	compute_second_derivatives(cublas::handle& k, const operators_type& ops, const matrix& x)
+	{
+		return compute_matrices(k, ops.second_derivatives, x);
+	}
+
+	using tangents_type = decltype(compute_tangents(
+				std::declval<cublas::handle&>(),
+				std::declval<operators_type>(),
+				std::declval<matrix>()));
+	using seconds_type = decltype(compute_second_derivatives(
+				std::declval<cublas::handle&>(),
+				std::declval<operators_type>(),
+				std::declval<matrix>()));
 	typedef struct {
 		matrix position;
 		tangents_type tangents;
@@ -61,47 +79,65 @@ private:
 	} return_type;
 
 	static return_type
-	compute(const operators<2>& ops, const matrix& x)
+	compute(const operators_type& ops, const matrix& x)
 	{
+		using namespace util::functional;
 		cublas::handle hdl;
-		auto&& w = ops.weights;
-		auto&& y = compute_position(hdl, ops, x);
-		auto&& [t1, t2] = compute_tangents(hdl, ops, x);
-		auto&& [t11, t12, t22] = compute_second_derivatives(hdl, ops, x);
+		auto& w = ops.weights;
+		auto y = compute_position(hdl, ops, x);
+		auto tangents = compute_tangents(hdl, ops, x);
+		auto seconds = compute_second_derivatives(hdl, ops, x);
 
-		auto m = w.rows();
-		auto count = m * x.cols() / 3;
+		auto ns = y.rows();
+		auto count = ns * x.cols() / (dimensions + 1);
 		vector sigma{count};
-		matrix n{count, 3}; // 3 = 3D
+		matrix n{count, dimensions+1};
 
 		auto* wdata = w.values();
-		auto* udata = t1.values();
-		auto* vdata = t2.values();
+		auto tdata = map([] (const matrix& m) { return m.values(); }, tangents);
 
 		auto* ndata = n.values();
 		auto* sdata = sigma.values();
 
 		auto f = [=] __device__ (int tid)
 		{
-			util::array<double, 3> u;
-			util::array<double, 3> v;
+			using tangent_type = std::array<double, dimensions+1>;
+			std::array<tangent_type, dimensions> t;
 
-			for (int i = 0; i < 3; ++i) {
-				u[i] = udata[count * i + tid];
-				v[i] = vdata[count * i + tid];
-			}
+			auto k = [&] (int i, tangent_type& t, const double* data)
+			{
+				t[i] = data[count * i + tid];
+			};
 
-			auto&& n = algo::cross(u, v);
+			for (int i = 0; i < dimensions+1; ++i)
+				map(partial(k, i), t, tdata);
+
+			auto cross = [] (auto&& ... args)
+			{
+				return algo::cross(std::forward<decltype(args)>(args)...);
+			};
+			auto n = apply(cross, t);
 			auto detf = sqrt(algo::dot(n, n));
 
-			for (int i = 0; i < 3; ++i)
+			for (int i = 0; i < dimensions+1; ++i)
 				ndata[count * i + tid] = n[i] / detf;
-			sdata[tid] = wdata[tid % m] * detf;
+			sdata[tid] = wdata[tid % ns] * detf;
 		};
 		util::transform(f, count);
 
-		return {std::move(y), {std::move(t1), std::move(t2)}, std::move(n),
-			{std::move(t11), std::move(t12), std::move(t22)}, std::move(sigma)};
+		return {std::move(y), std::move(tangents), std::move(n),
+			std::move(seconds), std::move(sigma)};
+	}
+
+	void
+	swap(geometry& g)
+	{
+		if (&g == this) return;
+		std::swap(position, g.position);
+		std::swap(tangents, g.tangents);
+		std::swap(normal, g.normal);
+		std::swap(second_derivatives, g.second_derivatives);
+		std::swap(sigma, g.sigma);
 	}
 
 	geometry(return_type results) :
@@ -112,18 +148,18 @@ private:
 		sigma(std::move(results.sigma)) {}
 
 public:
-	static constexpr auto dimensions = 2;
-
 	matrix position;
-	std::array<matrix, 2> tangents;
+	tangents_type tangents;
 	matrix normal;
-	std::array<matrix, 3> second_derivatives;
+	seconds_type second_derivatives;
 	vector sigma;
 
-	geometry(const operators<2>& ops, const matrix& x) :
+	geometry& operator=(geometry&& g) { swap(g); return *this; }
+
+	geometry() {}
+	geometry(geometry&& g) : geometry() { swap(g); }
+	geometry(const operators_type& ops, const matrix& x) :
 		geometry(compute(ops, x)) {}
 };
-
-template <int n> geometry(const operators<n>&, const matrix&) -> geometry<n>;
 
 }

@@ -1,67 +1,63 @@
-#include "util/sequences.h"
-#include "util/array.h"
-#include "util/launch.h"
-#include "units.h"
 #include "fd/grid.h"
-#include "fd/domain.h"
-#include "fd/dimension.h"
 #include "fd/boundary.h"
-
-template <std::size_t n, typename domain_type>
-struct grid {
-public:
-	static constexpr auto dimensions = domain_type::ndim;
-private:
-	template <typename collection, typename getter, std::size_t ... ns>
-	static constexpr auto
-	collect(const collection& c, getter&& get, util::sequence<std::size_t, ns...>)
-	{
-		return util::array{get(std::get<ns>(c))...};
-	}
-
-	template <typename collection, typename getter>
-	static constexpr auto
-	collect(const collection& c, getter&& get)
-	{
-		constexpr auto size = std::tuple_size_v<collection>;
-		using sequence = util::make_sequence<std::size_t, size>;
-		return collect(c, std::forward<getter>(get), sequence{});
-	}
-
-	using tag_type = typename domain_type::tag_type;
-	static constexpr auto ggp = [] (auto&& d) { return d.grid_points(); };
-public:
-	using grid_type = fd::grid::make<tag_type, n, dimensions>;
-
-	util::array<double, dimensions> shifts;
-	util::array<bool, dimensions> on_boundary;
-	util::array<bool, dimensions> solid_boundary;
-	util::array<int, dimensions> grid_cells;
-
-	constexpr grid(const domain_type& domain) :
-		shifts(grid_type::shifts),
-		on_boundary(grid_type::on_boundary),
-		solid_boundary(domain_type::solid_boundary),
-		grid_cells(collect(fd::dimensions(domain), ggp)) {}
-};
+#include "fd/dimension.h"
+#include "fd/domain.h"
+#include "fd/identity.h"
+#include "fd/laplacian.h"
+#include "fd/average.h"
+#include "fd/differential.h"
+#include "fd/size.h"
+#include "fd/boundary_ops.h"
+#include "fd/discretization.h"
+#include "fd/grid.h"
+#include "ib/sweep.h"
+#include "ib/spread.h"
+#include "ib/interpolate.h"
+#include "bases/shapes/sphere.h"
+#include "units.h"
+#include <thrust/execution_policy.h>
+#include <thrust/reduce.h>
+#include <thrust/sort.h>
+#include <thrust/unique.h>
 
 int
 main(void)
 {
-	constexpr fd::dimension x(1_m, fd::boundary::periodic());
-	constexpr fd::dimension y(1_m, fd::boundary::dirichlet());
-	constexpr fd::domain domain(fd::grid::mac(16), x, y);
-	using grid_type = grid<0, decltype(domain)>;
-	grid_type g(domain);
+	util::set_default_resource(cuda::default_device().memory());
 
+	constexpr fd::dimension x{10_um, fd::boundary::periodic()};
+	constexpr fd::dimension y{10_um, fd::boundary::periodic()};
+	constexpr fd::dimension z{10_um, fd::boundary::periodic()};
+	constexpr fd::domain domain{x, y, z};
+	constexpr fd::mac mac{16};
+
+	constexpr ib::spread spread{mac, domain};
+	constexpr ib::interpolate interpolate{mac, domain};
+
+	constexpr auto n = 2;
+	using bases::shapes::sphere;
+	auto p = sphere::shape(sphere::sample(n));
+
+	auto zz = 5_um;
+
+	auto* pdata = p.values();
 	auto k = [=] __device__ (int tid)
 	{
-
-		printf("%d %f %d %d %d\n", tid, g.shifts[tid], g.grid_cells[tid],
-			g.on_boundary[tid], g.solid_boundary[tid]);
+		for (int i = 0; i < 3; ++i)
+			pdata[n * i + tid] = zz; // + 3.91_um * pdata[n * i + tid];
 	};
-	util::transform(k, domain.ndim);
-	cudaDeviceSynchronize();
+
+	auto s = 16 * 16 * 16;
+	std::tuple u{ib::vector(s, linalg::one), ib::vector(s, linalg::one), ib::vector(s, linalg::one)};
+	util::transform<128, 7>(k, n);
+
+	ib::matrix f(n, 3, linalg::one);
+
+	auto v = spread(n, p, f);
+	auto w = interpolate(n, p, u);
+
+	std::cout << linalg::io::python << std::get<0>(v) << std::endl;
+	std::cout << linalg::io::python << w << std::endl;
 
 	return 0;
 }

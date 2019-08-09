@@ -12,7 +12,7 @@ inline constexpr auto counter_v = counter<n>::value;
 struct tester {
 	unsigned id;
 
-	template <int n, unsigned m = std::next(counter_v<n>)>
+	template <int n=0, unsigned m = std::next(counter_v<n>)>
 	constexpr tester() :
 		id(m) {}
 };

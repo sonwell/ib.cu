@@ -5,27 +5,27 @@
 
 namespace forces {
 
-struct skalak_helper {
-	double e, f, g;
-	double eu, ev, fu, fv, gu, gv;
-	double i, iu, iv;
-
-	constexpr skalak_helper(const info<2>& load) :
-		e(algo::dot(load.t[0], load.t[0])),
-		f(algo::dot(load.t[0], load.t[1])),
-		g(algo::dot(load.t[1], load.t[1])),
-		eu(2 * algo::dot(load.t[0], load.tt[0])),
-		ev(2 * algo::dot(load.t[0], load.tt[1])),
-		fu(algo::dot(load.t[0], load.tt[1]) + algo::dot(load.tt[0], load.t[1])),
-		fv(algo::dot(load.t[0], load.tt[2]) + algo::dot(load.tt[1], load.t[1])),
-		gu(2 * algo::dot(load.t[1], load.tt[1])),
-		gv(2 * algo::dot(load.t[1], load.tt[2])),
-		i(e * g - f * f),
-		iu(eu * g + e * gu - 2 * f * fu),
-		iv(ev * g + e * gv - 2 * f * fv) {}
-};
-
 struct skalak {
+	struct helper {
+		double e, f, g;
+		double eu, ev, fu, fv, gu, gv;
+		double i, iu, iv;
+
+		constexpr helper(const info<2>& load) :
+			e(algo::dot(load.t[0], load.t[0])),
+			f(algo::dot(load.t[0], load.t[1])),
+			g(algo::dot(load.t[1], load.t[1])),
+			eu(2 * algo::dot(load.t[0], load.tt[0])),
+			ev(2 * algo::dot(load.t[0], load.tt[1])),
+			fu(algo::dot(load.t[0], load.tt[1]) + algo::dot(load.tt[0], load.t[1])),
+			fv(algo::dot(load.t[0], load.tt[2]) + algo::dot(load.tt[1], load.t[1])),
+			gu(2 * algo::dot(load.t[1], load.tt[1])),
+			gv(2 * algo::dot(load.t[1], load.tt[2])),
+			i(e * g - f * f),
+			iu(eu * g + e * gu - 2 * f * fu),
+			iv(ev * g + e * gv - 2 * f * fv) {}
+	};
+
 	double shear;
 	double bulk;
 
@@ -50,9 +50,9 @@ struct skalak {
 			auto orig = original(tid);
 			auto curr = deformed(tid);
 			auto [oe, of, og, oeu, oev, ofu, ofv,
-				 ogu, ogv, odetg, odetgu, odetgv] = skalak_helper{orig};
+				 ogu, ogv, odetg, odetgu, odetgv] = helper{orig};
 			auto [ce, cf, cg, ceu, cev, cfu, cfv,
-				 cgu, cgv, cdetg, cdetgu, cdetgv] = skalak_helper{curr};
+				 cgu, cgv, cdetg, cdetgu, cdetgv] = helper{curr};
 
 			auto detfi = 1 / sqrt(odetg);
 			auto detfiu = - odetgu * detfi / (2 * odetg);

@@ -164,8 +164,9 @@ main(int argc, char** argv)
 	constexpr fd::domain domain{x, y, z};
 	constexpr fd::mac mac{32};
 
+	constexpr auto twv = 5_cm / 1_s;
 	constexpr auto h = domain.unit() / mac.refinement();
-	constexpr ins::parameters params {/*4.096 * (double) (h * h)*/ 0.1 * (double) h, 1_g / 1_mL, 1_cP, 1e-8};
+	constexpr ins::parameters params {/*4.096 * (double) (h * h)*/ 0.2 * (double) h, 1_g / 1_mL, 1_cP, 1e-8};
 
 	util::logging::info("characteristic length: ", domain.unit());
 	util::logging::info("timestep: ", params.timestep);
@@ -173,7 +174,7 @@ main(int argc, char** argv)
 	util::logging::info("density: ", params.density);
 	util::logging::info("diffusivity: ", params.viscosity / params.density);
 	util::logging::info("lambda: ", params.timestep * params.viscosity / (params.density * domain.unit() * domain.unit()));
-	util::logging::info("top wall velocity: ", 5_cm / 1_s, "k̂");
+	util::logging::info("top wall velocity: ", twv, "k̂");
 
 	constexpr ib::spread spread{mac, domain};
 	constexpr ib::interpolate interpolate{mac, domain};
@@ -211,8 +212,7 @@ main(int argc, char** argv)
 	using fd::correction::second_order;
 	constexpr fd::grid g{mac, domain, z};
 	auto b = fd::upper_boundary(g, y, second_order);
-	std::get<2>(ub) = b * vector{fd::size(g, y), algo::fill((double) (5_cm/1_s))};
-	std::get<2>(u) = vector{fd::size(g), algo::fill((double) (5_cm/1_s))};
+	std::get<2>(ub) = b * vector{fd::size(g, y), algo::fill((double) twv)};
 
 	std::cout << "import numpy as np\n";
 	std::cout << "import matplotlib\n";
@@ -241,13 +241,17 @@ main(int argc, char** argv)
 			//std::cout << "σ = " << linalg::io::numpy << sigma << std::endl;
 			std::cout << "y = " << linalg::io::numpy << y << std::endl;
 			std::cout << "f = " << linalg::io::numpy << f_c << "\n";
-			std::cout << "fm = np.sqrt(f[:, 0]**2 + f[:, 1]**2 + f[:, 2]**2)\n";
 			std::cout << "w = " << linalg::io::numpy << std::get<2>(u) << "\n";
 
 			std::cout << "fig = plt.figure()\n";
-			std::cout << "ax = fig.add_subplot(111, projection='3d', azim=0, elev=0)\n";
+			std::cout << "ax = fig.add_subplot(111, projection='3d', azim=0, elev=0, aspect='equal')\n";
 			//std::cout << "ax.scatter(y[:, 0] % 5, y[:, 2] % 5, y[:, 1] % 5, c=fm)  #σ)\n";
+			std::cout << "fm = np.sqrt(f[:, 0]**2 + f[:, 1]**2 + f[:, 2]**2)\n";
 			std::cout << "ax.scatter(y[:, 0], y[:, 2], y[:, 1], c=fm)  #σ)\n";
+			std::cout << "zm = np.mean(y[:, 2]) - 2.5\n";
+			std::cout << "ax.scatter([0, 0, 0, 0, 5, 5, 5, 5],\n"
+				<<       "           zm + np.array([0, 0, 5, 5, 0, 0, 5, 5]),\n"
+				<<       "           [0, 5, 0, 5, 0, 5, 0, 5], alpha=0)\n";
 			/*std::cout
 				<< "diff = w - 0.1 * yg\n"
 				<< "max = np.max(np.abs(diff))\n"

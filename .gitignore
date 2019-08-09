@@ -25,3 +25,4 @@ __pycache__/*
 
 .autoenv.zsh
 .autoenv_leave.zsh
+include/thrust

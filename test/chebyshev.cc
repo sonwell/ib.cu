@@ -19,10 +19,11 @@ main(void)
 	static constexpr auto n = 512;
 	static constexpr auto pi = M_PI;
 	constexpr fd::dimension x{100_um, fd::boundary::periodic()};
-	constexpr fd::domain domain{fd::grid::mac(n), x};
+	constexpr fd::domain domain{x};
+	constexpr fd::grid grid{fd::mac(n), domain, x};
 
-	auto lap = fd::laplacian(domain, x);
-	mg::chebyshev smoother(domain, lap);
+	auto lap = fd::laplacian(grid);
+	mg::chebyshev smoother(grid, lap);
 
 	for (int j = 0; j < n; j += 2) {
 		std::cout << "sin(" << j << " pi x)" << std::endl;

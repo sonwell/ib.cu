@@ -15,7 +15,6 @@ public:
 	shape(const matrix& params)
 	{
 		static constexpr double radius = 3.91_um;
-		static constexpr double shift = 25_um;
 		auto rows = params.rows();
 		matrix x(rows, 3);
 
@@ -25,15 +24,15 @@ public:
 		{
 			auto t = pdata[0 * rows + tid];
 			auto p = pdata[1 * rows + tid];
-			auto y = cos(t) * cos(p);
-			auto x = sin(t) * cos(p);
-			auto z0 = sin(p);
-			auto r2 = y*y + x*x;
-			auto z = 0.5 * z0 * (0.21 + 2.0 * r2 - 1.12 * r2*r2);
+			auto x = cos(t) * cos(p);
+			auto z = sin(t) * cos(p);
+			auto y0 = sin(p);
+			auto r2 = x*x + z*z;
+			auto y = 0.5 * y0 * (0.21 + 2.0 * r2 - 1.12 * r2*r2);
 
-			xdata[0 * rows + tid] = shift + radius * x;
-			xdata[1 * rows + tid] = shift + radius * y;
-			xdata[2 * rows + tid] = shift + radius * z;
+			xdata[0 * rows + tid] = radius * x;
+			xdata[1 * rows + tid] = radius * y;
+			xdata[2 * rows + tid] = radius * z;
 		};
 		util::transform<128, 8>(k, rows);
 		return x;

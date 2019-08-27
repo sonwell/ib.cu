@@ -19,10 +19,8 @@ template <int nt, int vt, typename func_t, typename ... arg_t>
 __host__ void
 launch(func_t&& f, int num_ctas, arg_t&& ... args)
 {
-	if (num_ctas > 0) {
+	if (num_ctas > 0)
 		landing<nt, vt><<<num_ctas, nt>>>(f, args...);
-		cuda::throw_if_error(cudaPeekAtLastError());
-	}
 }
 
 template <int nt=128, int vt=1, typename func_t, typename ... arg_t>

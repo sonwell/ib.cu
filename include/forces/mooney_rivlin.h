@@ -1,12 +1,11 @@
 #pragma once
-#include "util/log.h"
 #include "bases/geometry.h"
 #include "types.h"
 #include "load.h"
 
 namespace forces {
 
-struct skalak {
+struct mooneyrivlin {
 	struct helper {
 		double e, f, g;
 		double eu, ev, fu, fv, gu, gv;
@@ -59,23 +58,13 @@ struct skalak {
 			auto detfiu = - odetgu * detfi / (2 * odetg);
 			auto detfiv = - odetgv * detfi / (2 * odetg);
 
-			auto detc = cdetg / odetg;
-			auto detcu = (cdetgu - detc * odetgu) / odetg;
-			auto detcv = (cdetgv - detc * odetgv) / odetg;
+			auto c0 = shear * detfi;
+			auto c0u = shear * detfiu;
+			auto c0v = shear * detfiv;
 
-			auto trc = (ce * og + cg * oe - 2 * cf * of) / odetg;
-			auto trcu = (ceu * og + ce * ogu + cgu * oe + cg * oeu
-					   - 2 * (cfu * of + cf * ofu) - trc * odetgu) / odetg;
-			auto trcv = (cev * og + ce * ogv + cgv * oe + cg * oev
-					   - 2 * (cfv * of + cf * ofv) - trc * odetgv) / odetg;
-
-			auto c0 = shear * (trc - 1) * detfi;
-			auto c0u = shear * (trcu * detfi + (trc - 1) * detfiu);
-			auto c0v = shear * (trcv * detfi + (trc - 1) * detfiv);
-
-			auto c1 = (bulk * (detc - 1) - shear) * detfi;
-			auto c1u = bulk * detcu * detfi + (bulk * (detc - 1) - shear) * detfiu;
-			auto c1v = bulk * detcv * detfi + (bulk * (detc - 1) - shear) * detfiv;
+			auto c1 = bulk * detfi;
+			auto c1u = bulk * detfiu;
+			auto c1v = bulk * detfiv;
 
 			auto e = c0 * og + c1 * cg;
 			auto eu = c0u * og + c0 * ogu + c1u * cg + c1 * cgu;
@@ -98,7 +87,7 @@ struct skalak {
 		return f;
 	}
 
-	constexpr skalak(double shear, double bulk) :
+	constexpr mooneyrivlin(double shear, double bulk) :
 		shear(shear), bulk(bulk) {}
 };
 

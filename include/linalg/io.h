@@ -39,7 +39,13 @@ struct style {
 		//out << std::fixed << std::setprecision(prec);
 	}
 	virtual void value(std::ostream& out, float v) const { generic_value(out, v); }
-	virtual void value(std::ostream& out, double v) const { generic_value(out, v); }
+	virtual void value(std::ostream& out, double v) const
+	{
+		/*union { double d; uint64_t u; } m;
+		m.d = v;
+		out << "'" << std::hex << m.u << "'";*/
+		generic_value(out, v);
+	}
 	virtual void value(std::ostream& out, complex<double> v) const { generic_value(out, v); }
 	virtual void value(std::ostream& out, complex<float> v) const { generic_value(out, v); }
 
@@ -142,7 +148,7 @@ operator<<(styler styr, const vector<dense<vtype>>& v)
 	int exp = detail::scalexp(n, hdata);
 	base_t<vtype> scale = std::pow(10., -exp);
 	if (exp) out << "1e" << exp << " * \\\n";
-	out << std::fixed << std::setprecision(15);
+	//out << std::fixed << std::setprecision(15);
 
 	out << sty.begin_vector;
 	for (int i = 0; i < n; ++i) {

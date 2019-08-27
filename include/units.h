@@ -162,8 +162,8 @@ using density = unit<-3, 1, 0>;
 using work = unit<2, 1, -2>;
 
 
-inline constexpr distance m = 1e+5;
-inline constexpr time s = 1e+4;
+inline constexpr distance m = 2e+5;
+inline constexpr time s = 4e+4;
 inline constexpr mass g = 1e+9;
 
 inline constexpr auto kilo = 1e+3;

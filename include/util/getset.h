@@ -47,6 +47,8 @@ protected:
 	getter_type getter;
 	setter_type setter;
 public:
+	template <typename cast_type>
+		constexpr operator cast_type() const { return (cast_type) getter(); }
 	constexpr operator value_type() const { return getter(); }
 	constexpr getset& operator=(const value_type& v) { setter(v); return *this; }
 

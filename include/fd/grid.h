@@ -74,6 +74,36 @@ struct cell_builder {
 
 template <typename> struct grid;
 
+struct container {
+	int index;
+	int lower;
+	int upper;
+
+	constexpr container&
+	operator*=(const container& o)
+	{
+		auto k = [] (const container& c)
+		{
+			return c.lower <= c.index && c.index <  c.upper ?
+				c.index : c.lower - 1;
+		};
+		auto weight = upper - lower;
+		index = k(*this) + weight * k(o);
+		lower = weight * o.lower;
+		upper = weight * o.upper;
+		return *this;
+	}
+
+	constexpr int value() const { return index; }
+};
+
+constexpr container
+operator*(container left, const container& right)
+{
+	left *= right;
+	return left;
+}
+
 template <typename ... dimension_types>
 struct grid<fd::domain<dimension_types...>> {
 	using domain_type = fd::domain<dimension_types...>;
@@ -174,26 +204,25 @@ struct grid<fd::domain<dimension_types...>> {
 	index(const point_type& u, indexer_type&& indexer) const
 	{
 		using namespace util::functional;
-		using container = std::array<int, 3>;
 
-		auto op = [] (const container& l, const container& r)
+		auto op = [] (const auto& l, const auto& r)
 		{
-			auto [li, ll, lu] = l;
+			return l * r;
+			/*auto [li, ll, lu] = l;
 			auto [ri, rl, ru] = r;
 			auto lw = lu - ll;
 			auto lj = ll <= li && li < lu ? li : ll-1;
 			auto rj = rl <= ri && ri < ru ? ri : rl-1;
-			return container{lj + lw * rj, lw * rl, lw * ru};
+			return container{lj + lw * rj, lw * rl, lw * ru};*/
 		};
 
 		auto info = map(indexer, u, components());
-		return apply(partial(foldl, op, container{0, 0, 1}), info)[0];
+		return apply(partial(foldl, op), info).value();
 	}
 
 	constexpr auto
 	index(const indices_type& u) const
 	{
-		using container = std::array<int, 3>;
 		auto k = [] (int i, const auto& comp)
 		{
 			auto j = comp.index(i);
@@ -205,7 +234,6 @@ struct grid<fd::domain<dimension_types...>> {
 	constexpr auto
 	index(const units_type& u) const
 	{
-		using container = std::array<int, 3>;
 		auto k = [] (double v, const auto& comp)
 		{
 			auto solid = comp.solid_boundary;

@@ -1,12 +1,11 @@
 #pragma once
-#include "util/log.h"
 #include "bases/geometry.h"
 #include "types.h"
 #include "load.h"
 
 namespace forces {
 
-struct skalak {
+struct neohookean {
 	struct helper {
 		double e, f, g;
 		double eu, ev, fu, fv, gu, gv;
@@ -69,13 +68,23 @@ struct skalak {
 			auto trcv = (cev * og + ce * ogv + cgv * oe + cg * oev
 					   - 2 * (cfv * of + cf * ofv) - trc * odetgv) / odetg;
 
-			auto c0 = shear * (trc - 1) * detfi;
-			auto c0u = shear * (trcu * detfi + (trc - 1) * detfiu);
-			auto c0v = shear * (trcv * detfi + (trc - 1) * detfiv);
+			auto ji = 1 / sqrt(detc);
+			auto jiu = - detcu * ji / (2 * detc);
+			auto jiv = - detcv * ji / (2 * detc);
 
-			auto c1 = (bulk * (detc - 1) - shear) * detfi;
-			auto c1u = bulk * detcu * detfi + (bulk * (detc - 1) - shear) * detfiu;
-			auto c1v = bulk * detcv * detfi + (bulk * (detc - 1) - shear) * detfiv;
+			auto r = trc / detc;
+			auto ru = (trcu - detcu * r) / detc;
+			auto rv = (trcv - detcv * r) / detc;
+
+			auto c0 = shear * ji * detfi;
+			auto c0u = shear * (jiu * detfi + ji + detfiu);
+			auto c0v = shear * (jiv * detfi + ji * detfiv);
+
+			auto c1 = (bulk * (1 - ji) - 0.5 * shear * r * ji) * detfi;
+			auto c1u = (-bulk * jiu - 0.5 * shear * (ru * ji + r * jiu)) * detfi +
+			           (bulk * (1 - ji) - 0.5 * shear * r * ji) * detfiu;
+			auto c1v = (-bulk * jiv - 0.5 * shear * (rv * ji + r * jiv)) * detfi +
+			           (bulk * (1 - ji) - 0.5 * shear * r * ji) * detfiv;
 
 			auto e = c0 * og + c1 * cg;
 			auto eu = c0u * og + c0 * ogu + c1u * cg + c1 * cgu;
@@ -98,7 +107,7 @@ struct skalak {
 		return f;
 	}
 
-	constexpr skalak(double shear, double bulk) :
+	constexpr neohookean(double shear, double bulk) :
 		shear(shear), bulk(bulk) {}
 };
 

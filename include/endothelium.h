@@ -2,6 +2,7 @@
 #include "bases/types.h"
 #include "bases/shapes/periodic_sheet.h"
 #include "bases/traits.h"
+#include "units.h"
 
 struct endothelium : bases::shapes::periodic_sheet {
 private:
@@ -11,6 +12,7 @@ public:
 	static matrix
 	shape(const matrix& params)
 	{
+		double height = 2_um;
 		auto rows = params.rows();
 		matrix x(rows, 3);
 
@@ -18,15 +20,16 @@ public:
 		auto* xdata = x.values();
 		auto k = [=] __device__ (int tid)
 		{
-			auto t = pdata[0 * rows + tid];
-			auto p = pdata[1 * rows + tid];
-			auto x = 0.5 * (-1 + t / pi);
-			auto z = 2 * (-1 + p / pi);
-			auto y = (1 - cos(2 * t + 2 * p)) * (1 - cos(-2 * t + 2 * p)) / 100;
+			auto u = pdata[0 * rows + tid] / (2 * pi);
+			auto v = pdata[1 * rows + tid] / (2 * pi);
+			auto r = 2 * (u - 0.5 * v);
+			auto s = 2 * (u + 0.5 * v);
+			auto t = 0.25 * (1 + cos(4 * pi * r)) * (1 + cos(4 * pi * s));
+			double w = height * t;
 
-			xdata[0 * rows + tid] = x;
-			xdata[1 * rows + tid] = y;
-			xdata[2 * rows + tid] = z;
+			xdata[0 * rows + tid] = u;
+			xdata[1 * rows + tid] = v;
+			xdata[2 * rows + tid] = w;
 		};
 		util::transform<128, 8>(k, rows);
 		return x;

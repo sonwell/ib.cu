@@ -2,6 +2,7 @@
 #include <ostream>
 #include <iomanip>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include "cuda/copy.h"
 #include "types.h"

@@ -197,8 +197,13 @@ protected:
 		compute_preemption_supported(props.computePreemptionSupported),
 		can_use_host_pointer_for_registered_mem(props.canUseHostPointerForRegisteredMem),
 		cooperative_launch(props.cooperativeLaunch),
+#if CUDART_VERSION > 9000
 		pageable_memory_access_uses_host_page_tables(props.pageableMemoryAccessUsesHostPageTables),
 		direct_managed_mem_access_from_host(props.directManagedMemAccessFromHost),
+#else
+		pageable_memory_access_uses_host_page_tables(false),
+		direct_managed_mem_access_from_host(false),
+#endif
 		flags([&] () { return get_flags(); }, [&] (const device_flags& flags) { set_flags(flags); }),
 		resource(*this) {}
 	device(int id) : device(id, props(id)) {}

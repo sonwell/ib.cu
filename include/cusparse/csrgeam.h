@@ -46,6 +46,8 @@ csrgeam(handle& h, int m, int n, const double* alpha,
 			"csrgeam failed");
 }
 
+#if CUDART_VERSION > 9000
+
 inline void
 csrgeam2_buffer_size_ext(handle& h, int m, int n, const float* alpha,
 		const matrix_description descr_a, int nnz_a, const float* values_a,
@@ -115,5 +117,7 @@ csrgeam2(handle& h, int m, int n, const double* alpha,
 		values_a, starts_a, indices_a, beta, descr_b, nnz_b, values_b,
 		starts_b, indices_b, descr_c, values_c, starts_c, indices_c, buffer));
 }
+
+#endif
 
 } // namespace cusparse

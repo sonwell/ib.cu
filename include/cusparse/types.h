@@ -30,7 +30,9 @@ using bsrsv2_info_t = bsrsv2Info_t;
 using csrgemm2_info_t = csrgemm2Info_t;
 using csric02_info_t = csric02Info_t;
 using csrilu02_info_t = csrilu02Info_t;
+#if CUDART_VERSION > 9000
 using csrsm2_info_t = csrsm2Info_t;
+#endif
 using csrsv2_info_t = csrsv2Info_t;
 using prune_info_t = pruneInfo_t;
 

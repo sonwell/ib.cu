@@ -4,6 +4,12 @@
 #include "handle.h"
 #include "operation.h"
 
+#if CUDART_VERSION > 9000
+#define CUBLAS_GEMM_POINTER_CONSTNESS const
+#else
+#define CUBLAS_GEMM_POINTER_CONSTNESS
+#endif
+
 namespace cublas {
 
 inline void
@@ -26,9 +32,11 @@ gemm(handle_t h, operation_adaptor transa, operation_adaptor transb, int m, int 
 
 inline void
 gemm_batched(handle_t h, operation_adaptor transa, operation_adaptor transb,
-		int m, int n, int k, const float* alpha, const float* const a[],
-		int lda, const float* const b[], int ldb, const float* beta,
-		float* const c[], int ldc, int batch_count)
+		int m, int n, int k, const float* alpha,
+		const float* CUBLAS_GEMM_POINTER_CONSTNESS a[], int lda,
+		const float* CUBLAS_GEMM_POINTER_CONSTNESS b[], int ldb,
+		const float* beta, float* CUBLAS_GEMM_POINTER_CONSTNESS c[], int ldc,
+		int batch_count)
 {
 	throw_if_error(cublasSgemmBatched(h, transa, transb, m, n, k, alpha,
 		a, lda, b, ldb, beta, c, ldc, batch_count));
@@ -36,9 +44,11 @@ gemm_batched(handle_t h, operation_adaptor transa, operation_adaptor transb,
 
 inline void
 gemm_batched(handle_t h, operation_adaptor transa, operation_adaptor transb,
-		int m, int n, int k, const double* alpha, const double* const a[],
-		int lda, const double* const b[], int ldb, const double* beta,
-		double* const c[], int ldc, int batch_count)
+		int m, int n, int k, const double* alpha,
+		const double* CUBLAS_GEMM_POINTER_CONSTNESS a[], int lda,
+		const double* CUBLAS_GEMM_POINTER_CONSTNESS b[], int ldb,
+		const double* beta, double* CUBLAS_GEMM_POINTER_CONSTNESS c[], int ldc,
+		int batch_count)
 {
 	throw_if_error(cublasDgemmBatched(h, transa, transb, m, n, k, alpha,
 		a, lda, b, ldb, beta, c, ldc, batch_count));
@@ -69,3 +79,5 @@ gemm_strided_batched(handle_t h, operation_adaptor transa,
 }
 
 } // namespace cublas
+
+#undef CUBLAS_GEMM_POINTER_CONSTNESS

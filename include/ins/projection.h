@@ -16,6 +16,7 @@
 #include "types.h"
 #include "differential.h"
 #include "simulation.h"
+#include "exceptions.h"
 
 namespace ins {
 namespace __1 {
@@ -117,7 +118,9 @@ public:
 		// project out nullspace
 		vector ones{size(div_u), algo::fill(1.0)};
 		double alpha = dot(div_u, ones) / ones.rows();
-		util::logging::info("<1, ∇·u*>: ", alpha);
+		if (alpha > 1e-14)
+			throw no_solution("⟨1, ∇·u*⟩ ≉ 0");
+		util::logging::debug("⟨1, ∇·u*⟩: ", alpha);
 		axpy(-alpha, ones, div_u);
 		// solve kΔϕ = ∇·u
 		auto dt_phi = solve(div_u) / scale;

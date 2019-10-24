@@ -1,5 +1,4 @@
 #pragma once
-
 #include "util/functional.h"
 #include "util/getset.h"
 #include "bases/types.h"
@@ -116,30 +115,5 @@ public:
 	util::getset<matrix&> x;
 };
 
-template <std::size_t n>
-constexpr decltype(auto)
-shift(const double (&dx)[n])
-{
-	return [=] __device__ (auto x)
-	{
-		using namespace util::functional;
-		auto s = [] (auto& x, auto&& y) { x += y; };
-		map(s, x, dx);
-		return x;
-	};
-}
-
-template <typename shift_type>
-constexpr decltype(auto)
-shift(shift_type&& dx)
-{
-	return [=] __device__ (auto x)
-	{
-		using namespace util::functional;
-		auto s = [] (auto& x, auto&& y) { x += y; };
-		map(s, x, dx);
-		return x;
-	};
-}
 
 } // namespace bases

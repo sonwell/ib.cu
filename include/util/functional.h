@@ -350,7 +350,7 @@ template <typename Fn, typename T0, typename T1, typename ... Ts>
 constexpr decltype(auto)
 foldl(Fn&& fn, T0&& t0, T1&& t1, Ts&& ... ts)
 {
-	auto tn = fn(std::forward<T0>(t0), std::forward<T1>(t1));
+	auto&& tn = fn(std::forward<T0>(t0), std::forward<T1>(t1));
 	return foldl(std::forward<Fn>(fn), std::move(tn), std::forward<Ts>(ts)...);
 }
 

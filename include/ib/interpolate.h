@@ -4,18 +4,99 @@
 #include "fd/domain.h"
 #include "fd/discretization.h"
 #include "fd/grid.h"
-#include "sweep.h"
+#include "delta.h"
+#include "novel.h"
 #include "types.h"
 
 namespace ib {
+namespace novel {
+
+using fd::__1::delta;
+using fd::__1::shift;
+
+template <std::size_t dimensions>
+struct interpolate_info {
+	static constexpr auto total_values = 1 << (2 * dimensions);
+	static constexpr auto values_per_sweep = total_values;
+	static constexpr auto sweeps = 1;
+	using container_type = values_container<values_per_sweep>;
+};
+
+template <typename grid_type>
+struct interpolate_sweep {
+	static constexpr auto dimensions = grid_type::dimensions;
+	using info = interpolate_info<dimensions>;
+	static constexpr auto values_per_sweep = info::values_per_sweep;
+	static constexpr auto total_values = info::total_values;
+	static constexpr auto sweeps = info::sweeps;
+	using container_type = typename info::container_type;
+	static constexpr cosine_delta phi = {};
+
+	int count;
+	const grid_type& grid;
+
+	constexpr auto
+	values(const delta<dimensions>& dx, double f) const
+	{
+		container_type values = {0.0};
+		if (count >= sweeps)
+			return values;
+
+		double weights[dimensions][4];
+		for (int i = 0; i < dimensions; ++i) {
+			auto v0 = phi(dx[i] - 1);
+			auto v1 = phi(dx[i] + 0);
+			weights[i][0] = v0;
+			weights[i][1] = v1;
+			weights[i][2] = 0.5 - v0;
+			weights[i][3] = 0.5 - v1;
+		}
+
+		for (int i = 0; i < values_per_sweep; ++i) {
+			auto k = i;
+			double v = f;
+			for (int j = 0; j < dimensions; ++j) {
+				v *= weights[j][k % 4];
+				k /= 4;
+			}
+			values[i] = v;
+		}
+
+		return values;
+	}
+
+	constexpr auto
+	indices(int index) const
+	{
+		std::array<int, values_per_sweep> values = {0};
+		indexer idx{grid};
+
+		auto indices = idx.decompose(index);
+		for (int i = 0; i < values_per_sweep; ++i) {
+			auto k = i;
+			shift<dimensions> s = {0};
+			for (int j = 0; j < dimensions; ++j) {
+				s[j] = (k % 4) - 1;
+				k /= 4;
+			}
+			values[i] = idx.grid(indices + s);
+		};
+
+		return values;
+	}
+
+	constexpr interpolate_sweep(int count, const grid_type& grid) :
+		count(count), grid(grid) {}
+};
 
 template <typename grid_tag, typename domain_type>
 struct interpolate {
 public:
 	static constexpr auto dimensions = domain_type::dimensions;
-	static constexpr auto values_per_sweep = 1 << dimensions;
-	static constexpr auto values = 1 << (2 * dimensions);
-	static constexpr auto sweeps = (values + values_per_sweep - 1) / values_per_sweep;
+	using info = interpolate_info<dimensions>;
+	static constexpr auto values_per_sweep = info::values_per_sweep;
+	static constexpr auto total_values = info::total_values;
+	static constexpr auto sweeps = info::sweeps;
 private:
 	static constexpr thrust::device_execution_policy<thrust::system::cuda::tag> exec = {};
 
@@ -32,7 +113,7 @@ private:
 	accumulate(int n, const grid_type& grid, double* vdata, const matrix& x, const vector& u)
 	{
 		using point_type = typename grid_type::point_type;
-		using sweep_type = sweep<grid_type>;
+		using sweep_type = interpolate_sweep<grid_type>;
 		auto* xdata = x.values();
 		auto* udata = u.values();
 
@@ -40,11 +121,12 @@ private:
 		{
 			double v = 0.0;
 			point_type z;
+			indexer idx{grid};
 			for (int i = 0; i < dimensions; ++i)
 				z[i] = xdata[n * i + tid];
 			auto u = grid.units(z);
-			auto j = grid.index(u);
 			auto d = grid.difference(u);
+			auto j = idx.sort(u);
 
 			for (int i = 0; i < sweeps; ++i) {
 				sweep_type sweep(i, grid);
@@ -83,5 +165,9 @@ public:
 		return v;
 	}
 };
+
+} // namespace novel
+
+using novel::interpolate;
 
 } // namespace ib

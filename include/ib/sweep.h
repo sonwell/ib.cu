@@ -3,6 +3,7 @@
 #include "util/math.h"
 #include "fd/discretization.h"
 #include "fd/grid.h"
+#include "delta.h"
 
 namespace ib {
 namespace __1 {
@@ -38,19 +39,13 @@ struct sweep {
 	static constexpr auto nvalues = 1 << dimensions;
 	static constexpr auto total_values = 1 << (2 * dimensions);
 	static constexpr auto max_count = (total_values + nvalues - 1) / nvalues;
+	static constexpr cosine_delta delta = {};
 	using container_type = __1::container<nvalues>;
 
 	int count;
 	const grid_type& grid;
 
 	static constexpr auto bit(int i, int n) { return (i & (1 << n)) >> n; }
-
-	constexpr auto
-	compute(double y) const
-	{
-		constexpr auto pi2 = M_PI_2;
-		return 0.25 * (1 + util::math::cos(pi2 * y));
-	}
 
 	constexpr auto
 	values(const fd::__1::delta<dimensions>& dx, double f) const
@@ -63,7 +58,7 @@ struct sweep {
 		for (int i = 0; i < dimensions; ++i) {
 			auto shift = bit(count, i);
 			auto y = dx[i] + shift - 1.0;
-			auto v = compute(y);
+			auto v = delta(y);
 			weights[i][0] = v;
 			weights[i][1] = 0.5 - v;
 		}

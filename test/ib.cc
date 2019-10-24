@@ -136,14 +136,20 @@ main(int argc, char** argv)
 		std::cout << "y0 = " << linalg::io::numpy << rbcs.geometry(bases::current).sample.position << '\n';
 		std::cout << "s0 = " << linalg::io::numpy << rbcs.geometry(bases::current).sample.sigma << '\n';
 		std::cout << "f0 = " << linalg::io::numpy << forces(rbcs) << '\n';
-		std::cout << "p = " << linalg::io::numpy << rbc::sample(625) << '\n';
+		std::cout << "p = " << linalg::io::numpy << rbc::sample(1250) << '\n';
 		std::cout << "plotter = rbc_plotter.Plotter(rbc_plotter.Sphere, p, x0, y0, f0)\n";
 	}
 
 	static constexpr auto steps_per_print = 100;
 	for (int i = 0; i < iterations; ++i) {
 		util::logging::info("simulation time: ", i * params.timestep);
-		u = step(u, ub, f);
+		try {
+			u = step(u, ub, f);
+		}
+		catch (std::runtime_error& e) {
+			util::logging::error(e.what());
+			return -1;
+		}
 		auto v = k * interpolate(n, rbcs.x, u);
 		rbcs.x += v;
 
@@ -154,6 +160,7 @@ main(int argc, char** argv)
 			std::cout << "plotter.plot(x, y, f)\n";
 		}
 	}
+	std::cout << "plotter.animate()\n";
 
 	return 0;
 }

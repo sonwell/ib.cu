@@ -25,10 +25,10 @@ public:
 			auto t = pdata[0 * rows + tid];
 			auto p = pdata[1 * rows + tid];
 			auto x = cos(t) * cos(p);
-			auto z = sin(t) * cos(p);
-			auto y0 = sin(p);
-			auto r2 = x*x + z*z;
-			auto y = 0.5 * y0 * (0.21 + 2.0 * r2 - 1.12 * r2*r2);
+			auto y = sin(t) * cos(p);
+			auto z0 = sin(p);
+			auto r2 = x*x + y*y;
+			auto z = 0.5 * z0 * (0.21 + 2.0 * r2 - 1.12 * r2*r2);
 
 			xdata[0 * rows + tid] = radius * x;
 			xdata[1 * rows + tid] = radius * y;

@@ -26,14 +26,8 @@ struct composition {
 		functions{fns...} {};
 };
 
-template <typename ... composed>
-composition(composed...) -> composition<composed...>;
-
-template <typename ... composed>
-composition(std::tuple<composed...>) -> composition<composed...>;
-
 template <typename ... left, typename ... right>
-decltype(auto)
+constexpr decltype(auto)
 operator|(const composition<left...>& f, const composition<right...>& g)
 {
 	return composition{std::tuple_cat(f.functions, g.functions)};

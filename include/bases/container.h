@@ -4,6 +4,7 @@
 #include "bases/types.h"
 #include "bases/operators.h"
 #include "bases/geometry.h"
+#include "bases/transforms.h"
 
 namespace bases {
 namespace impl {
@@ -55,6 +56,18 @@ protected:
 	const reference_type& ref;
 };
 
+inline constexpr composition array{
+	[] __host__ __device__ (const auto& x) {
+		using namespace util::functional;
+		using tuple_type = std::decay_t<decltype(x)>;
+		static constexpr auto n = std::tuple_size_v<tuple_type>;
+		static constexpr auto op = [] (auto& dst, const auto& src) { dst = src; };
+		std::array<double, n> y;
+		map(op, y, x);
+		return y;
+	}
+};
+
 } // namespace impl
 
 template <typename reference_type>
@@ -90,11 +103,14 @@ private:
 			std::array<double, 3> x;
 			for (int i = 0; i < 3; ++i)
 				x[i] = ydata[m * i + tid];
-			auto z = std::make_tuple(fs(x)...);
+			auto z = std::make_tuple((fs | impl::array)(x)...);
 			auto s = [&] (const auto& x, int j)
 			{
+				std::array<double, 3> y = {0.0};
+				map([] (auto& d, const auto& s) { d = s; }, y, x);
+
 				for (int i = 0; i < 3; ++i)
-					xdata[n * m * i + m * j + tid] = x[i];
+					xdata[n * m * i + m * j + tid] = y[i];
 			};
 			map(s, z, seq{});
 		};

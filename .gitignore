@@ -20,9 +20,15 @@ dep/*
 *.so
 *.o
 *.d
+*.s
 
+*.py
 __pycache__/*
+pyenv.cfg
+pip-selfcheck.json
 
-.autoenv.zsh
-.autoenv_leave.zsh
+*.log
+TODO
+
+.*
 include/thrust

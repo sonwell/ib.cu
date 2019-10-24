@@ -72,8 +72,6 @@ struct cell_builder {
 	}
 };
 
-template <typename> struct grid;
-
 struct container {
 	int index;
 	int lower;
@@ -103,6 +101,8 @@ operator*(container left, const container& right)
 	left *= right;
 	return left;
 }
+
+template <typename> struct grid;
 
 template <typename ... dimension_types>
 struct grid<fd::domain<dimension_types...>> {
@@ -177,10 +177,8 @@ struct grid<fd::domain<dimension_types...>> {
 	units(const point_type& z) const
 	{
 		using namespace util::functional;
-		units_type u = {0.0};
 		auto k = [] (const auto& comp, double x) { return comp.units(x); };
-		assign(u, map(k, _components, z));
-		return u;
+		return assign(units_type{0.0}, map(k, _components, z));
 	};
 
 	constexpr auto

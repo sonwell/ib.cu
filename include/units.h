@@ -147,7 +147,7 @@ operator/(scalar v, unit<d, m, t> u)
 }
 
 using scalar = unit<0, 0, 0>;
-using distance = unit<1, 0, 0>;
+using length = unit<1, 0, 0>;
 using mass = unit<0, 1, 0>;
 using time = unit<0, 0, 1>;
 using force = unit<1, 1, -2>;
@@ -162,7 +162,7 @@ using density = unit<-3, 1, 0>;
 using work = unit<2, 1, -2>;
 
 
-inline constexpr distance m = 2e+5;
+inline constexpr length m = 2e+5;
 inline constexpr time s = 4e+4;
 inline constexpr mass g = 1e+9;
 

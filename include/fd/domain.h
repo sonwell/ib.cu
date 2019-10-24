@@ -24,7 +24,7 @@ public:
 private:
 	static constexpr auto gcd = partial(foldl, algo::gcd);
 protected:
-	units::distance _base_unit;
+	units::length _base_unit;
 	container_type _components;
 public:
 	constexpr auto unit() const { return _base_unit; }

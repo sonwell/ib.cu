@@ -20,7 +20,7 @@ template <unsigned> struct counter : counter_base { using counter_base::value; }
 class dimension_base {
 private:
 	unsigned _id;
-	units::distance _length;
+	units::length _length;
 public:
 	//static constexpr auto dimensions = 1;
 	constexpr auto id() const { return _id; }
@@ -30,7 +30,7 @@ public:
 	constexpr bool operator!=(const dimension_base& other) const
 		{ return _id != other._id; }
 protected:
-	constexpr dimension_base(units::distance size, unsigned id) :
+	constexpr dimension_base(units::length size, unsigned id) :
 		_id(id), _length(size)
 	{
 		if ((double) size < 0)
@@ -62,14 +62,14 @@ public:
 	}
 
 	template <unsigned n = 0, unsigned id = next(counter<n>::value)>
-	constexpr dimension(units::distance size, const lower_boundary_type& lower,
+	constexpr dimension(units::length size, const lower_boundary_type& lower,
 			const upper_boundary_type& upper) :
 		dimension(size, lower, upper, id) {}
 
 	template <unsigned n = 0,
 		typename = std::enable_if_t<single_boundary_enabled>,
 		unsigned id = next(counter<n>::value)>
-	constexpr dimension(units::distance size, const lower_boundary_type& lower) :
+	constexpr dimension(units::length size, const lower_boundary_type& lower) :
 		dimension(size, lower, lower, id) {}
 
 	template <typename old_lower, typename old_upper>
@@ -87,14 +87,14 @@ private:
 	const lower_boundary_type _lower;
 	const upper_boundary_type _upper;
 
-	constexpr dimension(units::distance size, const lower_boundary_type& lower,
+	constexpr dimension(units::length size, const lower_boundary_type& lower,
 			const upper_boundary_type& upper, unsigned id) :
 		dimension_base(size, id), _lower(lower), _upper(upper) {}
 };
 
 // Deduction help for single-parameter-type boundary
 template <typename boundary_type>
-dimension(units::distance, const boundary_type&) -> dimension<boundary_type, boundary_type>;
+dimension(units::length, const boundary_type&) -> dimension<boundary_type, boundary_type>;
 
 template <typename old_lower, typename old_upper, typename boundary_type>
 dimension(const dimension<old_lower, old_upper>&, const boundary_type&) ->

@@ -162,8 +162,7 @@ struct grid<fd::domain<dimension_types...>> {
 			if constexpr (i < dimensions)
 				return (dimension == std::get<i>(comps)) ? w(m) : f(next{}, f);
 			else
-				return (throw no_such_dimension(__PRETTY_FUNCTION__),
-						std::declval<decltype(w(init{}))>());
+				return (throw no_such_dimension(__PRETTY_FUNCTION__), w(init{}));
 		};
 		return r(init{}, r);
 	}

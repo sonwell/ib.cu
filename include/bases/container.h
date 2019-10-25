@@ -56,15 +56,21 @@ protected:
 	const reference_type& ref;
 };
 
-inline constexpr composition array{
-	[] __host__ __device__ (const auto& x) {
+struct arrayifier {
+	template <typename tuple_type>
+	constexpr decltype(auto)
+	operator()(const tuple_type& x) const
+	{
 		using namespace util::functional;
-		using tuple_type = std::decay_t<decltype(x)>;
-		static constexpr auto n = std::tuple_size_v<tuple_type>;
-		static constexpr auto op = [] (auto& dst, const auto& src) { dst = src; };
-		std::array<double, n> y;
-		map(op, y, x);
-		return y;
+		constexpr auto n = std::tuple_size_v<tuple_type>;
+		constexpr auto ct = [] (auto t0, auto ... args) ->
+			std::common_type_t<decltype(t0), decltype(args)...> { return t0; };
+		using array_type = std::conditional_t<(n > 0), decltype(apply(ct, x)), char>;
+		constexpr auto op = [] (auto&& ... args) constexpr
+		{
+			return std::array<array_type, n>{args...};
+		};
+		return apply(op, x);
 	}
 };
 
@@ -100,17 +106,15 @@ private:
 		auto* xdata = x.values();
 		auto k = [=] __device__ (int tid)
 		{
+			constexpr composition array{impl::arrayifier{}};
 			std::array<double, 3> x;
 			for (int i = 0; i < 3; ++i)
 				x[i] = ydata[m * i + tid];
-			auto z = std::make_tuple((fs | impl::array)(x)...);
+			auto z = std::make_tuple((fs | array)(x)...);
 			auto s = [&] (const auto& x, int j)
 			{
-				std::array<double, 3> y = {0.0};
-				map([] (auto& d, const auto& s) { d = s; }, y, x);
-
 				for (int i = 0; i < 3; ++i)
-					xdata[n * m * i + m * j + tid] = y[i];
+					xdata[n * m * i + m * j + tid] = x[i];
 			};
 			map(s, z, seq{});
 		};

@@ -15,7 +15,7 @@ struct composition {
 	operator()(arg_type&& arg) const
 	{
 		using namespace util::functional;
-		auto op = [] (auto&& x, auto& f) { return f(x); };
+		auto op = [] (auto&& x, auto& f) constexpr { return f(x); };
 		auto reduce = partial(foldl, op, arg);
 		return apply(reduce, functions);
 	}
@@ -41,7 +41,7 @@ private:
 	evaluate(shift_type&& dx) const
 	{
 		return composition{
-			[=] __host__ __device__ (auto&& x)
+			[=] (auto&& x) constexpr
 			{
 				using namespace util::functional;
 				return map(std::plus<void>{}, x, dx);
@@ -80,7 +80,7 @@ private:
 		auto s = sin(angle);
 
 		return composition{
-			[=] __host__ __device__ (auto&& x)
+			[=] (auto&& x) constexpr
 			{
 				auto d = dot(axis, x);
 				auto w = cross(axis, x);

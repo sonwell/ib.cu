@@ -53,6 +53,9 @@ shear_flow(const grid_type& grid, double lower, double upper)
 int
 main(int argc, char** argv)
 {
+	static constexpr double pi_halves = M_PI_2;
+	static constexpr double pi_quarters = M_PI_4;
+
 	int iterations;
 	if (argc == 1)
 		iterations = 10;
@@ -85,7 +88,7 @@ main(int argc, char** argv)
 	constexpr bases::polyharmonic_spline<7> basic;
 	rbc ref{625, 10000, basic};
 	bases::container rbcs{ref,
-		bases::shift({5_um, 5_um, 5_um}),
+		bases::rotate(pi_quarters, {1.0, 0.0, 0.0}) | bases::translate({8_um, 8_um, 8_um}),
 //		bases::shift({10_um, 10_um, 15_um})
 	};
 	matrix& cx = rbcs.x;

@@ -33,7 +33,7 @@ pcg(const preconditioner& pr, const matrix& m, const vector& b, double tol)
 		swap(d, s);
 		++count;
 	}
-	util::logging::info("pcg iterations: ", count);
+	util::logging::debug("pcg iterations: ", count);
 	return x;
 }
 

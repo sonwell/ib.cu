@@ -13,92 +13,11 @@
 namespace ib {
 namespace novel {
 
-using fd::__1::delta;
-using fd::__1::shift;
-
-template <std::size_t dims>
-struct spread_info {
-	static constexpr auto dimensions = dims;
-	static constexpr auto values_per_sweep = 1 << dimensions;
-	static constexpr auto total_values = 1 << (2 * dimensions);
-	static constexpr auto sweeps = (total_values + values_per_sweep - 1) / values_per_sweep;
-	using container_type = values_container<values_per_sweep>;
-};
-
-template <typename grid_type>
-struct spread_sweep {
-	static constexpr auto dimensions = grid_type::dimensions;
-	using info = spread_info<dimensions>;
-	static constexpr auto values_per_sweep = info::values_per_sweep;
-	static constexpr auto total_values = info::total_values;
-	static constexpr auto sweeps = info::sweeps;
-	using container_type = typename info::container_type;
-	static constexpr cosine_delta phi = {};
-
-	int count;
-	const grid_type& grid;
-
-	static constexpr auto bit(int i, int n) { return (i & (1 << n)) >> n; }
-
-	constexpr auto
-	values(const delta<dimensions>& dx, double f) const
-	{
-		container_type values = {0.0};
-		if (count >= sweeps)
-			return values;
-
-		double weights[dimensions][2];
-		for (int i = 0; i < dimensions; ++i) {
-			auto shift = bit(count, i);
-			auto y = dx[i] + shift - 1.0;
-			auto v = phi(y);
-			weights[i][0] = v;
-			weights[i][1] = 0.5 - v;
-		}
-
-		for (int i = 0; i < values_per_sweep; ++i) {
-			double v = f;
-			for (int j = 0; j < dimensions; ++j)
-				v *= weights[j][bit(i, j)];
-			values[i] = v;
-		}
-
-		return values;
-	}
-
-	constexpr auto
-	indices(int index) const
-	{
-		std::array<int, values_per_sweep> values = {0};
-		indexer idx{grid};
-
-		int shifts[dimensions][2];
-		for (int i = 0; i < dimensions; ++i) {
-			auto shift = bit(count, i);
-			shifts[i][0] = shift - 1;
-			shifts[i][1] = shift + 1;
-		}
-
-		auto indices = idx.decompose(index);
-		for (int i = 0; i < values_per_sweep; ++i) {
-			shift<dimensions> s = {0};
-			for (int j = 0; j < dimensions; ++j)
-				s[j] = shifts[j][bit(i, j)];
-			values[i] = idx.grid(indices + s);
-		}
-
-		return values;
-	}
-
-	constexpr spread_sweep(int count, const grid_type& grid) :
-		count(count), grid(grid) {};
-};
-
 template <typename grid_tag, typename domain_type>
 struct spread {
 public:
 	static constexpr auto dimensions = domain_type::dimensions;
-	using info = spread_info<dimensions>;
+	using info = sweep_info<dimensions>;
 	static constexpr auto values_per_sweep = info::values_per_sweep;
 	static constexpr auto total_values = info::total_values;
 	static constexpr auto sweeps = info::sweeps;
@@ -158,7 +77,7 @@ private:
 	{
 		using namespace util::functional;
 		using point_type = typename grid_type::point_type;
-		using sweep_type = spread_sweep<grid_type>;
+		using sweep_type = sweep<grid_type>;
 		constexpr auto gr = [] (const auto& c) { return c.resolution(); };
 		constexpr auto prod = partial(foldl, std::multiplies<double>{}, 1.0);
 		auto res = apply(prod, map(gr, grid.components()));

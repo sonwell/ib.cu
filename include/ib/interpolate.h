@@ -11,84 +11,11 @@
 namespace ib {
 namespace novel {
 
-using fd::__1::delta;
-using fd::__1::shift;
-
-template <std::size_t dimensions>
-struct interpolate_info {
-	static constexpr auto total_values = 1 << (2 * dimensions);
-	static constexpr auto values_per_sweep = 1 << dimensions;
-	static constexpr auto sweeps = (total_values + values_per_sweep -1) / values_per_sweep;
-	using container_type = values_container<values_per_sweep>;
-};
-
-template <typename grid_type>
-struct interpolate_sweep {
-	static constexpr auto dimensions = grid_type::dimensions;
-	using info = interpolate_info<dimensions>;
-	static constexpr auto values_per_sweep = info::values_per_sweep;
-	static constexpr auto total_values = info::total_values;
-	static constexpr auto sweeps = info::sweeps;
-	using container_type = typename info::container_type;
-	static constexpr cosine_delta phi = {};
-
-	int count;
-	const grid_type& grid;
-
-	static constexpr auto mask(int i, int m, int n) { return (i & (m << n)) >> n; }
-
-	constexpr auto
-	values(const delta<dimensions>& dx, double f) const
-	{
-		container_type values = {0.0};
-		if (count >= sweeps)
-			return values;
-
-		double weights[dimensions][2];
-		for (int i = 0; i < dimensions; ++i) {
-			auto base = mask(count, 1, i) - 1;
-			auto v = phi(base + dx[i]);
-			weights[i][0] = v;
-			weights[i][1] = 0.5 - v;
-		}
-
-		for (int i = 0; i < values_per_sweep; ++i) {
-			double v = f;
-			for (int j = 0; j < dimensions; ++j)
-				v *= weights[j][mask(i, 1, j)];
-			values[i] = v;
-		}
-
-		return values;
-	}
-
-	constexpr auto
-	indices(int index) const
-	{
-		std::array<int, values_per_sweep> values = {0};
-		indexer idx{grid};
-
-		auto indices = idx.decompose(index);
-		for (int i = 0; i < values_per_sweep; ++i) {
-			auto base = mask(count, 1, i) - 1;
-			shift<dimensions> s = {0};
-			for (int j = 0; j < dimensions; ++j)
-				s[j] = base + 2 * mask(i, 3, j);
-			values[i] = idx.grid(indices + s);
-		};
-
-		return values;
-	}
-
-	constexpr interpolate_sweep(int count, const grid_type& grid) :
-		count(count), grid(grid) {}
-};
-
 template <typename grid_tag, typename domain_type>
 struct interpolate {
 public:
 	static constexpr auto dimensions = domain_type::dimensions;
-	using info = interpolate_info<dimensions>;
+	using info = sweep_info<dimensions>;
 	static constexpr auto values_per_sweep = info::values_per_sweep;
 	static constexpr auto total_values = info::total_values;
 	static constexpr auto sweeps = info::sweeps;
@@ -108,7 +35,7 @@ private:
 	accumulate(int n, const grid_type& grid, double* vdata, const matrix& x, const vector& u)
 	{
 		using point_type = typename grid_type::point_type;
-		using sweep_type = interpolate_sweep<grid_type>;
+		using sweep_type = sweep<grid_type>;
 		auto* xdata = x.values();
 		auto* udata = u.values();
 

@@ -1,6 +1,9 @@
 #pragma once
 #include "util/math.h"
 #include "util/functional.h"
+#include "fd/grid.h"
+#include "types.h"
+#include "delta.h"
 
 namespace ib {
 namespace novel {
@@ -109,6 +112,77 @@ public:
 
 	constexpr indexer(const grid_type& grid) :
 		_grid(grid) {}
+};
+
+template <std::size_t dimensions>
+struct sweep_info {
+	static constexpr auto total_values = 1 << (2 * dimensions);
+	static constexpr auto values_per_sweep = 1 << dimensions;
+	static constexpr auto sweeps = (total_values + values_per_sweep - 1) / values_per_sweep;
+	using container_type = values_container<values_per_sweep>;
+};
+
+template <typename grid_type>
+struct sweep {
+	static constexpr auto dimensions = grid_type::dimensions;
+	using info = sweep_info<dimensions>;
+	static constexpr auto values_per_sweep = info::values_per_sweep;
+	static constexpr auto total_values = info::total_values;
+	static constexpr auto sweeps = info::sweeps;
+	using container_type = typename info::container_type;
+	static constexpr cosine_delta phi = {};
+
+	int count;
+	const grid_type& grid;
+
+	static constexpr auto mask(int i, int m, int n) { return (i & (m << n)) >> n; }
+
+	constexpr auto
+	values(const delta<dimensions>& dx, double f) const
+	{
+		container_type values = {0.0};
+		if (count >= sweeps)
+			return values;
+
+		double weights[dimensions][2];
+		for (int i = 0; i < dimensions; ++i) {
+			auto base = mask(count, 1, i) - 1;
+			auto v = phi(base + dx[i]);
+			weights[i][0] = v;
+			weights[i][1] = 0.5 - v;
+		}
+
+		for (int i = 0; i < values_per_sweep; ++i) {
+			double v = f;
+			for (int j = 0; j < dimensions; ++j)
+				v *= weights[j][mask(i, 1, j)];
+			values[i] = v;
+		}
+
+		return values;
+	}
+
+	constexpr auto
+	indices(int index) const
+	{
+		std::array<int, values_per_sweep> values = {0};
+		indexer idx{grid};
+
+		auto indices = idx.decompose(index);
+		for (int i = 0; i < values_per_sweep; ++i) {
+			auto base = mask(count, 1, i) - 1;
+			shift<dimensions> s = {0};
+			for (int j = 0; j < dimensions; ++j)
+				s[j] = base + 2 * mask(i, 3, j);
+			values[i] = idx.grid(indices + s);
+		};
+
+		return values;
+	}
+
+	constexpr sweep(int count, const grid_type& grid) :
+		count(count), grid(grid) {}
+
 };
 
 } // namespace novel

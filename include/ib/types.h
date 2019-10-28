@@ -1,5 +1,6 @@
 #pragma once
 #include "linalg/linalg.h"
+#include "fd/grid.h"
 
 namespace ib {
 
@@ -30,5 +31,8 @@ operator+(values_container<n> l, const values_container<n>& r)
 	l += r;
 	return l;
 }
+
+using fd::__1::delta;
+using fd::__1::shift;
 
 } // namespace ib

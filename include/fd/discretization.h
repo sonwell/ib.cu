@@ -148,14 +148,6 @@ public:
 		return base::clamp(x - s / r) * r + s;
 	}
 
-	constexpr double
-	point(int i) const
-	{
-		auto s = shift();
-		auto r = resolution();
-		return (i + s) / r;
-	}
-
 	constexpr int
 	index(int i) const
 	{

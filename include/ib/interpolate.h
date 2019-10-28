@@ -17,8 +17,8 @@ using fd::__1::shift;
 template <std::size_t dimensions>
 struct interpolate_info {
 	static constexpr auto total_values = 1 << (2 * dimensions);
-	static constexpr auto values_per_sweep = total_values;
-	static constexpr auto sweeps = 1;
+	static constexpr auto values_per_sweep = 1 << dimensions;
+	static constexpr auto sweeps = (total_values + values_per_sweep -1) / values_per_sweep;
 	using container_type = values_container<values_per_sweep>;
 };
 
@@ -35,6 +35,8 @@ struct interpolate_sweep {
 	int count;
 	const grid_type& grid;
 
+	static constexpr auto mask(int i, int m, int n) { return (i & (m << n)) >> n; }
+
 	constexpr auto
 	values(const delta<dimensions>& dx, double f) const
 	{
@@ -42,23 +44,18 @@ struct interpolate_sweep {
 		if (count >= sweeps)
 			return values;
 
-		double weights[dimensions][4];
+		double weights[dimensions][2];
 		for (int i = 0; i < dimensions; ++i) {
-			auto v0 = phi(dx[i] - 1);
-			auto v1 = phi(dx[i] + 0);
-			weights[i][0] = v0;
-			weights[i][1] = v1;
-			weights[i][2] = 0.5 - v0;
-			weights[i][3] = 0.5 - v1;
+			auto base = mask(count, 1, i) - 1;
+			auto v = phi(base + dx[i]);
+			weights[i][0] = v;
+			weights[i][1] = 0.5 - v;
 		}
 
 		for (int i = 0; i < values_per_sweep; ++i) {
-			auto k = i;
 			double v = f;
-			for (int j = 0; j < dimensions; ++j) {
-				v *= weights[j][k % 4];
-				k /= 4;
-			}
+			for (int j = 0; j < dimensions; ++j)
+				v *= weights[j][mask(i, 1, j)];
 			values[i] = v;
 		}
 
@@ -73,12 +70,10 @@ struct interpolate_sweep {
 
 		auto indices = idx.decompose(index);
 		for (int i = 0; i < values_per_sweep; ++i) {
-			auto k = i;
+			auto base = mask(count, 1, i) - 1;
 			shift<dimensions> s = {0};
-			for (int j = 0; j < dimensions; ++j) {
-				s[j] = (k % 4) - 1;
-				k /= 4;
-			}
+			for (int j = 0; j < dimensions; ++j)
+				s[j] = base + 2 * mask(i, 3, j);
 			values[i] = idx.grid(indices + s);
 		};
 

@@ -20,12 +20,17 @@
 namespace ins {
 
 struct parameters : simulation {
-public:
 	units::density density;
 	units::viscosity viscosity;
+	units::length length_scale;
+	units::time time_scale;
 
-	constexpr parameters(units::time k, units::density rho, units::viscosity mu, double tol) :
-		simulation{k, mu / rho, tol}, density(rho), viscosity(mu) {}
+	constexpr parameters(units::time k, units::time time,
+			units::length length, units::density rho,
+			units::viscosity mu, double tol) :
+		simulation{k, mu / rho, tol},
+		density(rho), viscosity(mu),
+		length_scale(length), time_scale(time) {}
 };
 
 namespace __1 {
@@ -79,14 +84,14 @@ private:
 		using namespace util::functional;
 		auto k = [&] (const auto& grid)
 		{
-			return vector{fd::size(grid), algo::fill(0.0)};
+			return vector{fd::size(grid), linalg::zero};
 		};
 		return map(k, grids);
 	}
 
-	template <typename u0_type, typename ub_type, typename u1_type, typename force_fn>
+	template <typename u0_type, typename ub_type, typename u1_type, typename f_type>
 	decltype(auto)
-	step(double frac, u0_type&& u0, ub_type&& ub, const u1_type& u1, const force_fn& forces)
+	step(double frac, u0_type&& u0, ub_type&& ub, const u1_type& u1, const f_type& f)
 	{
 		using namespace util::functional;
 
@@ -95,18 +100,22 @@ private:
 		{
 			return stepper(frac, u, ub, f);
 		};
-		auto axpy = [&] (vector f, const vector& h) { return std::move(f) / (double) density - h; };
+		auto axpy = [&] (const vector& f, vector h)
+		{
+			using linalg::axpy;
+			axpy(-1 / (double) density, f, h);
+			scal(-1, h);
+			return h;
+		};
 		auto spmv = [&] (vector b, const matrix& op, const vector& dp)
 		{
 			gemv(frac * viscosity / density, op, dp, 1.0, b);
 			return b;
 		};
 
-		auto h = apply(advect, u1);
-		auto v = map([&] (const vector& u) { return frac * u; }, u1);
-		auto f = map(axpy, forces(std::move(v)), h);
+		auto g = map(axpy, f, apply(advect, u1));
 		auto vb = map(spmv, ub, _operators, k_grad_phi);
-		auto w = map(step, _steppers, u0, vb, f);
+		auto w = map(step, _steppers, u0, vb, g);
 		auto p = apply(projection, w);
 		return std::pair{std::move(w), std::move(p)};
 	}
@@ -118,6 +127,8 @@ private:
 
 	units::density density;
 	units::viscosity viscosity;
+	units::time time_scale;
+	units::length length_scale;
 	advection_type advect;
 	steppers_type _steppers;
 	projection_type projection;
@@ -139,6 +150,8 @@ private:
 			const grids_type& grids, const parameters& params) :
 		density(params.density),
 		viscosity(params.viscosity),
+		time_scale(params.time_scale),
+		length_scale(params.length_scale),
 		advect(tag, domain),
 		_steppers(steppers(grids, params)),
 		projection(tag, domain, params),
@@ -150,10 +163,22 @@ public:
 	operator()(u_type&& u0, ub_type&& ub, const force_fn& forces)
 	{
 		using namespace util::functional;
-		auto [u1, gp1] = step(0.5, u0, ub, u0, forces);
-		auto [u2, gp2] = step(1.0, u0, ub, u1, forces);
-		assign(k_grad_phi, std::move(gp2));
-		return u2;
+		static constexpr auto scalem = [] (double mu)
+		{
+			return partial(map, [=] (auto&& v) { return mu * v; });
+		};
+
+		auto u_scale = length_scale / time_scale;
+		auto half = scalem(0.5);
+		auto nondim = scalem(1.0 / u_scale);
+		auto redim = scalem(u_scale);
+
+		auto f = forces(half(u0));
+		auto [v0, vb, g] = map(nondim, std::tuple{u0, ub, f});
+		auto [v1, gq1] = step(0.5, v0, vb, v0, g);
+		auto [v2, gq2] = step(1.0, v0, vb, v1, g);
+		assign(k_grad_phi, std::move(gq2));
+		return redim(v2);
 	}
 
 	template <typename tag_type>

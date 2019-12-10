@@ -16,6 +16,7 @@ class solver;
 
 class base_solver {
 protected:
+	double tolerance;
 	matrix op;
 
 	virtual vector nested_iteration(const vector&) const = 0;
@@ -26,8 +27,8 @@ public:
 	virtual ~base_solver() {}
 protected:
 	template <typename grid_type, typename op_func>
-	base_solver(const grid_type& grid, op_func op) :
-		op(op(grid)) {}
+	base_solver(const grid_type& grid, double tolerance, op_func op) :
+		tolerance(tolerance), op(op(grid)) {}
 
 friend class solver;
 friend class direct_solver;
@@ -48,8 +49,8 @@ protected:
 	virtual vector operator()(const vector& v) const { return operator()(v, 0); }
 
 	template <typename grid_type, typename op_func, typename sm_func>
-	direct_solver(const grid_type& grid, op_func op, sm_func sm) :
-		base_solver(grid, op), sm(sm(grid, base_solver::op)) {}
+	direct_solver(const grid_type& grid, double tolerance, op_func op, sm_func sm) :
+		base_solver(grid, tolerance, op), sm(sm(grid, base_solver::op)) {}
 friend class solver;
 friend class iterative_solver;
 };
@@ -84,7 +85,7 @@ private:
 		auto fine = nested_iteration(b);
 		auto r = residual(fine, b);
 		// short-circuit to avoid calling abs
-		while (pred(iteration++) && abs(r) > 1e-8) {
+		while (pred(iteration++) && abs(r) > tolerance) {
 			fine += vcycle(r);
 			r = residual(fine, b);
 		}
@@ -137,7 +138,8 @@ protected:
 	template <typename grid_type, typename op_func, typename sm_func>
 	iterative_solver(const grid_type& grid, op_func op, sm_func sm,
 			solver_ptr&& coarse) :
-		base_solver(grid, op), sm(sm(grid, base_solver::op)),
+		base_solver(grid, coarse->tolerance, op),
+		sm(sm(grid, base_solver::op)),
 		restriction(mg::restriction(grid)),
 		interpolation(mg::interpolation(grid)),
 		coarse(std::move(coarse)) {}
@@ -149,9 +151,10 @@ constexpr bool
 refined(const grid_type& grid)
 {
 	using namespace util::functional;
+	auto sz = [] (const auto& comp) { return comp.cells(); };
 	auto k = [] (unsigned pts) { return !(pts & 1) && pts > 4; };
 	auto reduce = partial(foldl, std::logical_and<void>(), true);
-	return apply(reduce, map(k, fd::__1::sizes(grid)));
+	return apply(reduce, map(k, map(sz, grid.components())));
 }
 
 class solver {
@@ -160,15 +163,15 @@ private:
 
 	template <typename grid_type, typename op_func, typename sm_func>
 	static solver_ptr
-	construct(const grid_type& grid, op_func op, sm_func sm)
+	construct(const grid_type& grid, double tolerance, op_func op, sm_func sm)
 	{
 		if (refined(grid)) {
 			auto refinement = grid.refinement() >> 1;
 			auto coarse = fd::grid{grid, refinement};
-			auto solver = construct(coarse, op, sm);
+			auto solver = construct(coarse, tolerance, op, sm);
 			return solver_ptr(new iterative_solver(grid, op, sm, std::move(solver)));
 		}
-		return solver_ptr(new direct_solver(grid, op, sm));
+		return solver_ptr(new direct_solver(grid, tolerance, op, sm));
 	}
 
 	solver&
@@ -183,8 +186,8 @@ public:
 	const matrix& op() const { return slv->op; }
 
 	template <typename grid_type, typename op_func, typename sm_func>
-	solver(const grid_type& grid, op_func op, sm_func sm) :
-		slv(construct(grid, op, sm)) {}
+	solver(const grid_type& grid, double tolerance, op_func op, sm_func sm) :
+		slv(construct(grid, tolerance, op, sm)) {}
 	solver(solver&& o) : slv(nullptr) { swap(o); }
 };
 

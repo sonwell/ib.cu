@@ -33,6 +33,11 @@ polynomial(double a, double b, arg_types&& ... ws)
 
 template <int degree> struct chebw;
 
+/*
+ * denominator = polynomial(a, b, (2n)!/(2n)!, (2n)!/(2!*(2n-2)!), ...,
+ *                          (2n)!/((2k)!*(2n-2k)!), ..., (2n)!/(2n)!).
+ */
+
 template <>
 struct chebw<1> {
 	double denominator;
@@ -93,7 +98,7 @@ class chebyshev {
 private:
 	impl::chebw<4> chebw;
 protected:
-	const matrix& op;
+	const matrix& m;
 
 	vector
 	polynomial(const vector& r) const
@@ -108,7 +113,7 @@ protected:
 
 		vector z{size(r)};
 		for (int i = 1; i < num_weights; ++i) {
-			gemv(-1.0, op, y, 0.0, z);
+			gemv(-1.0, m, y, 0.0, z);
 			axpy(weights[i] / denominator, r, z);
 			swap(y, z);
 		}
@@ -122,11 +127,9 @@ public:
 	}
 
 	chebyshev(double a, double b, const matrix& m) :
-		chebw(a, b), op(m) {}
-
-	chebyshev(const chebyshev&) = delete;
+		chebw(a, b), m(m) {}
 	chebyshev(chebyshev&& o) :
-		chebw(std::move(o.chebw)), op(o.op) {}
+		chebw(std::move(o.chebw)), m(o.m) {}
 };
 
 } // namespace algo

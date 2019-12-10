@@ -2,12 +2,14 @@
 #include <iostream>
 #include "functional.h"
 
+// listed as:
+//   transform(namespace, class_name)
 #define backends(transform, sep) \
-	transform(cuda) sep\
-	transform(mkl)
+	transform(cuda, context) sep \
+	transform(mkl, context)
 
-#define forward_declare(backend) \
-	namespace backend { struct context; }
+#define forward_declare(ns, name) \
+	namespace ns { struct name; }
 backends(forward_declare,);
 #undef forward_declare
 
@@ -35,9 +37,8 @@ struct error_thrower {
 	static_assert(confounder<n>::value,
 			"Contexts use the visitor pattern to dispatch correctly. "
 			"The compiler must therefore be aware of some type info to"
-			"choose the correct function. Supply a namespace in the "
-			"*backends* macro in util/context.h and the resulting "
-			"context has type namespace::context.");
+			"choose the correct function. Supply a namespace and class "
+			"name in the *backends* macro in util/context.h .");
 };
 
 template <typename visitable>
@@ -66,8 +67,7 @@ struct inherit<tmpl, first, rest...> : tmpl<first>, inherit<tmpl, rest...> {
 	using inherit<tmpl, rest...>::visit;
 };
 
-#define list(backend) \
-	backend::context
+#define list(ns, name) ns::name
 #define comma ,
 template <template <typename> typename tmpl>
 using contexts = inherit<tmpl, backends(list, comma)>;
@@ -110,9 +110,10 @@ struct caller<derived>::calls : virtual context::visitor {
 	virtual void
 	visit(const visitable& v) const
 	{
+		// this should always be true but shuts up the
+		// compiler about incomplete types.
 		if constexpr (detail::is_complete_v<visitable>)
 			static_cast<const derived*>(this)->call(v);
-		// the other branch of this if is unreachable
 	}
 };
 
@@ -146,9 +147,9 @@ void visit(const context& ctx, func_type&& fn, arg_types&& ... args)
 			std::forward<arg_types>(args)...});
 }
 
-#define overload_visit(backend) \
+#define overload_visit(ns, name) \
 template <typename func_type, typename ... arg_types> \
-void visit(const backend::context& ctx, func_type&& fn, arg_types&& ... args) \
+void visit(const ns::name& ctx, func_type&& fn, arg_types&& ... args) \
 { \
 	fn(ctx, std::forward<arg_types>(args)...); \
 }

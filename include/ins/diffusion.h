@@ -1,45 +1,16 @@
 #pragma once
-#include <memory>
 #include <utility>
-#include <array>
-#include <future>
-
 #include "fd/identity.h"
 #include "fd/laplacian.h"
 #include "fd/correction.h"
-#include "util/functional.h"
+#include "mg/chebyshev.h"
 #include "util/log.h"
-#include "algo/preconditioner.h"
-#include "algo/chebyshev.h"
-#include "algo/symmilu.h"
-#include "algo/redblack.h"
-#include "algo/pcg.h"
 #include "types.h"
 #include "simulation.h"
+#include "solvers.h"
 
 namespace ins {
 namespace __1 {
-
-struct chebyshev : algo::chebyshev, algo::preconditioner {
-private:
-	chebyshev(std::pair<double, double> range, const algo::matrix& m) :
-		algo::chebyshev(std::get<1>(range), std::get<0>(range), m) {}
-public:
-	virtual algo::vector
-	operator()(const algo::vector& b) const
-	{
-		return algo::chebyshev::operator()(b);
-	}
-
-	chebyshev(const algo::matrix& m) :
-		chebyshev(algo::gershgorin(m), m) {}
-};
-
-struct plu : algo::symmilu {
-	template <typename grid_type>
-	plu(const grid_type& grid, const algo::matrix& m) :
-		algo::symmilu{m, new algo::redblack{grid}} {}
-};
 
 template <typename grid_type>
 class diffusion {
@@ -47,56 +18,68 @@ public:
 	using parameters = simulation;
 	static constexpr auto dimensions = grid_type::dimensions;
 private:
-	static constexpr auto& order = fd::correction::second_order;
-	using pointer = std::unique_ptr<algo::preconditioner>;
-
-	static decltype(auto)
-	construct(const parameters& params, matrix identity, const matrix& laplacian)
+	static constexpr auto helmholtz = [] (double l, const auto& g)
 	{
-		double lambda = params.timestep * params.coefficient / 2;
-		axpy(-lambda, laplacian, identity);
-		return identity;
-	}
+		using fd::correction::second_order;
+		auto id = fd::identity(g, second_order);
+		auto lh = fd::laplacian(g);
+		axpy(-l, lh, id);
+		return id;
+	};
+
+	struct chebyshev : solvers::chebpcg {
+		chebyshev(const grid_type& grid, double tolerance, double l) :
+			chebpcg(tolerance, helmholtz(l, grid)) {}
+
+		chebyshev(const grid_type& grid, const parameters& p) :
+			chebyshev(grid, p.tolerance, p.timestep * p.coefficient / 2) {}
+	};
+
+	struct multigrid : solvers::mgpcg {
+		static constexpr auto smoother = [] (const auto& g, const matrix& m)
+		{
+			return new mg::chebyshev(g, m);
+		};
+
+		multigrid(const grid_type& grid, double tolerance, double l) :
+			mgpcg(grid, tolerance, [=] (auto&& g) { return helmholtz(l, g); }, smoother) {}
+
+		multigrid(const grid_type& grid, const parameters& p):
+			multigrid(grid, p.tolerance, p.timestep * p.coefficient / 2) {}
+	};
 
 	units::time timestep;
 	units::diffusivity coefficient;
 	double tolerance;
 	matrix identity;
 	matrix laplacian;
-	matrix helmholtz;
-	chebyshev preconditioner;
+	chebyshev solver;
 public:
 	vector
 	operator()(double frac, const vector& u, vector rhs,
 			const vector& f) const
 	{
-		using algo::krylov::pcg;
-		double scale = 1.0; //1_m / 1_s;
 		double mu = coefficient;
-		double k = frac * (double) timestep / scale;
-		gemv(1.0, identity, f, mu, rhs);
-		gemv(k * mu, laplacian, u, k, rhs);
+		double k = frac * timestep;
+		gemv(1.0, laplacian, u, 1.0, rhs);
+		gemv(k, identity, f, k * mu, rhs);
 		util::logging::info("helmholtz solve ", abs(rhs) / frac);
-		return scale * pcg(preconditioner, helmholtz, rhs, tolerance) + u;
+		return solve(solver, rhs) + u;
 	}
 
 	diffusion(const grid_type& grid, const parameters& params) :
 		timestep(params.timestep),
 		coefficient(params.coefficient),
-		tolerance(params.tolerance),
-		identity(fd::identity(grid, order)),
+		identity(fd::identity(grid, fd::correction::second_order)),
 		laplacian(fd::laplacian(grid)),
-		helmholtz(construct(params, identity, laplacian)),
-		preconditioner(helmholtz) {}
+		solver(grid, params) {}
 
 	diffusion(diffusion&& other) :
 		timestep(other.timestep),
 		coefficient(other.coefficient),
-		tolerance(other.tolerance),
 		identity(std::move(other.identity)),
 		laplacian(std::move(other.laplacian)),
-		helmholtz(std::move(other.helmholtz)),
-		preconditioner(helmholtz) {}
+		solver(std::move(other.solver)) {}
 };
 
 template <typename grid_type>

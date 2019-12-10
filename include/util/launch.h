@@ -1,7 +1,6 @@
 #pragma once
 #include "cuda/exceptions.h"
 #include "cuda/device.h"
-//#include <cuda_runtime.h>
 
 namespace util {
 
@@ -31,7 +30,8 @@ transform(func_t&& f, int count, arg_t&& ... args)
 	int num_ctas = (count + nv - 1) / nv;
 
 	auto k = [] __device__ (int tid, int cta, int count,
-			std::remove_reference_t<func_t> f, std::remove_reference_t<arg_t> ... args) {
+			auto f, auto ... args)
+	{
 		for (int i = 0; i < vt; ++i)
 			if (nv * cta + tid + nt * i < count)
 				f(nv * cta + tid + nt * i, std::move(args)...);

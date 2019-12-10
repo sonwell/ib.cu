@@ -15,6 +15,7 @@
 
 #include "types.h"
 #include "differential.h"
+#include "solvers.h"
 #include "simulation.h"
 #include "exceptions.h"
 
@@ -41,29 +42,6 @@ intermediate(const fd::domain<dimension_types...>& domain)
 	return apply(k, map(c, fd::components(domain)));
 }
 
-struct multigrid : algo::preconditioner, mg::solver {
-protected:
-	static constexpr auto op_gen = [] (const auto& grid)
-	{
-		return fd::laplacian(grid);
-	};
-
-	static constexpr auto sm_gen = [] (const auto& grid, const matrix& op)
-	{
-		return new mg::chebyshev(grid, op);
-	};
-public:
-	virtual vector
-	operator()(const vector& v) const
-	{
-		return mg::solver::operator()(v, 0);
-	}
-
-	template <typename grid_type>
-	multigrid(const grid_type& grid) :
-		mg::solver(grid, op_gen, sm_gen) {}
-};
-
 template <typename> class projection;
 
 template <typename ... dimension_types>
@@ -71,6 +49,15 @@ class projection<fd::domain<dimension_types...>> {
 public:
 	using parameters = simulation;
 private:
+	struct multigrid : solvers::mgpcg {
+		template <typename grid_type>
+		multigrid(const grid_type& grid, double tolerance) :
+			mgpcg(grid, tolerance,
+					[] (const auto& g) { return fd::laplacian(g); },
+					[] (const auto& g, const matrix& m) { return new mg::chebyshev(g, m); }
+			) {}
+	};
+
 	using domain_type = fd::domain<dimension_types...>;
 	using interm_domain_type = decltype(intermediate(std::declval<domain_type>()));
 	using divergence_functor_type = divergence<domain_type>;
@@ -81,12 +68,6 @@ private:
 	multigrid_solver_type solver;
 	divergence_functor_type div;
 	gradient_functor_type grad;
-
-	auto
-	solve(const vector& b) const
-	{
-		return algo::krylov::pcg(solver, solver.op(), b, tolerance);
-	}
 
 	template <typename tag_type>
 	static constexpr decltype(auto)
@@ -100,7 +81,7 @@ private:
 	projection(const tag_type& tag, const domain_type& domain, const shifted_tag_type& stag,
 			const interm_type& interm, const parameters& params) :
 		tolerance(params.tolerance),
-		solver(fd::grid{stag, domain}),
+		solver(fd::grid{stag, domain}, tolerance),
 		div(tag, domain),
 		grad(stag, interm) {}
 public:
@@ -113,17 +94,16 @@ public:
 		static_assert(sizeof...(vector_types) == dimensions,
 				"number of supplied vectors matches dimensions");
 		using namespace util::functional;
-		static constexpr double scale = 1.0; //1_s;
-		auto div_u = scale * div(vectors...);
+		auto div_u = div(vectors...);
 		// project out nullspace
-		vector ones{size(div_u), algo::fill(1.0)};
+		vector ones{size(div_u), linalg::one};
 		double alpha = dot(div_u, ones) / ones.rows();
-		if (alpha > 1e-14)
+		if (abs(alpha) > tolerance)
 			throw no_solution("⟨1, ∇·u*⟩ ≉ 0");
-		util::logging::debug("⟨1, ∇·u*⟩: ", alpha);
+		util::logging::info("⟨1, ∇·u*⟩: ", alpha);
 		axpy(-alpha, ones, div_u);
 		// solve kΔϕ = ∇·u
-		auto dt_phi = solve(div_u) / scale;
+		auto dt_phi = solve(solver, div_u);
 		auto dt_grad_phi = grad(dt_phi);
 		// update u := u - k∇ϕ
 		auto subtract = [] (auto& l, auto&& r) { l -= r; };

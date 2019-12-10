@@ -8,6 +8,6 @@ struct smoother {
 	virtual ~smoother() = default;
 };
 
-inline auto solve(const smoother& sm, const vector& b) { return sm(b); }
+inline decltype(auto) solve(const smoother& sm, const vector& b) { return sm(b); }
 
 } // namespace mg

@@ -15,7 +15,7 @@ pcg(const preconditioner& pr, const matrix& m, const vector& b, double tol)
 	vector x = 0 * b;
 
 	int count = 0;
-	while (1) {
+	while (abs(r) > tol) {
 		auto q = m * d;
 		auto nu = dot(d, q);
 		if (nu == 0)
@@ -23,8 +23,6 @@ pcg(const preconditioner& pr, const matrix& m, const vector& b, double tol)
 		auto alpha = delta_new / nu;
 		axpy(alpha, d, x);
 		axpy(-alpha, q, r);
-		if (abs(r) <= tol)
-			break;
 		auto s = solve(pr, r);
 		auto delta_old = delta_new;
 		delta_new = dot(r, s);

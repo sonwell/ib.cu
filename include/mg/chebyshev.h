@@ -22,8 +22,6 @@ private:
 
 	chebyshev(std::pair<double, double> range, const matrix& m) :
 		algo::chebyshev(std::get<0>(range), std::get<1>(range), m) {}
-protected:
-	using algo::chebyshev::op;
 public:
 	virtual vector
 	operator()(const vector& b) const

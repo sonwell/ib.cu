@@ -7,7 +7,7 @@
 namespace ins {
 namespace __1 {
 
-struct multigrid_preconditioner : algo::preconditioner, mg::solver {
+struct multigrid : algo::preconditioner, mg::solver {
 	virtual vector
 	operator()(const vector& v) const
 	{
@@ -15,7 +15,7 @@ struct multigrid_preconditioner : algo::preconditioner, mg::solver {
 	}
 
 	template <typename grid_type, typename sm_gen_type, typename op_gen_type>
-	multigrid_preconditioner(const grid_type& grid, double tolerance,
+	multigrid(const grid_type& grid, double tolerance,
 			const sm_gen_type& sm_gen, const op_gen_type& op_gen) :
 		mg::solver(grid, tolerance, sm_gen, op_gen) {}
 };
@@ -23,7 +23,7 @@ struct multigrid_preconditioner : algo::preconditioner, mg::solver {
 struct mgpcg {
 private:
 	double tolerance;
-	multigrid_preconditioner preconditioner;
+	multigrid preconditioner;
 public:
 	vector
 	operator()(const vector& v) const

@@ -127,13 +127,12 @@ public:
 	container(const reference_type& ref, shape_fns ... fns) :
 		container(ref, shapes(ref, fns...)) {}
 
-	container(const reference_type& ref, matrix x) :
-		base{ref, std::move(x)},
+	container(const reference_type& ref, const matrix& x) :
+		base{ref, x},
 		x{[&] () -> matrix& { return get_x(); },
 		  [&] (const matrix& x) { set_x(x); }} {}
 
 	util::getset<matrix&> x;
 };
-
 
 } // namespace bases

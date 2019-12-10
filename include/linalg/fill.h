@@ -2,7 +2,6 @@
 #include <type_traits>
 #include "types.h"
 #include "dense.h"
-#include "util/functional.h"
 
 namespace linalg {
 
@@ -89,7 +88,6 @@ template <typename vtype, typename fn_type,
 void
 fill(dense<vtype>& m, fn_type fn)
 {
-	using namespace util::functional;
 	auto rows = m.rows();
 	auto cols = m.cols();
 	auto n = rows * cols;

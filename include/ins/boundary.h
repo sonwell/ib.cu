@@ -51,7 +51,6 @@ boundary(const grid_type& grid)
 	const auto& components = grid.components();
 	auto reduce = partial(foldl, op);
 	return apply(reduce, reverse(map(k, components))).boundary;
-
 }
 
 } // namespace ins

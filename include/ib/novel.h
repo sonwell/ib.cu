@@ -135,7 +135,8 @@ struct sweep {
 	int count;
 	const grid_type& grid;
 
-	static constexpr auto mask(int i, int m, int n) { return (i & (m << n)) >> n; }
+	static constexpr auto mask(int i, int m, int n) { return (i >> n) & m; }
+	static constexpr auto bit(int i, int n) { return mask(i, 1, n); }
 
 	constexpr auto
 	values(const delta<dimensions>& dx, double f) const
@@ -146,7 +147,7 @@ struct sweep {
 
 		double weights[dimensions][2];
 		for (int i = 0; i < dimensions; ++i) {
-			auto base = mask(count, 1, i) - 1;
+			auto base = bit(count, i) - 1;
 			auto v = phi(base + dx[i]);
 			weights[i][0] = v;
 			weights[i][1] = 0.5 - v;
@@ -155,7 +156,7 @@ struct sweep {
 		for (int i = 0; i < values_per_sweep; ++i) {
 			double v = f;
 			for (int j = 0; j < dimensions; ++j)
-				v *= weights[j][mask(i, 1, j)];
+				v *= weights[j][bit(i, j)];
 			values[i] = v;
 		}
 
@@ -170,10 +171,9 @@ struct sweep {
 
 		auto indices = idx.decompose(index);
 		for (int i = 0; i < values_per_sweep; ++i) {
-			auto base = mask(count, 1, i) - 1;
 			shift<dimensions> s = {0};
 			for (int j = 0; j < dimensions; ++j)
-				s[j] = base + 2 * mask(i, 3, j);
+				s[j] = bit(count, j) + 2 * bit(i, j) - 1;
 			values[i] = idx.grid(indices + s);
 		};
 

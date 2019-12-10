@@ -1,12 +1,14 @@
 #pragma once
 #include "bases/geometry.h"
+#include "units.h"
 #include "types.h"
 #include "load.h"
 
 namespace forces {
 
 struct tether {
-	double modulus;
+	using energy_per_area = units::unit<0, 1, -2>;
+	energy_per_area modulus;
 
 	template <typename object_type>
 	decltype(auto)
@@ -39,7 +41,7 @@ struct tether {
 		return f;
 	}
 
-	constexpr tether(double modulus) :
+	constexpr tether(energy_per_area modulus) :
 		modulus(modulus) {}
 };
 

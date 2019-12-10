@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <ratio>
 #include <ostream>
+#include "util/functional.h"
 
 namespace units {
 
@@ -27,59 +28,38 @@ private:
 	double value;
 };
 
-auto&
-print_char(std::ostream& out, tmpl_type exp)
+std::string
+superscript(tmpl_type e)
 {
-	if (!exp) return out;
-	print_char(out, exp / 10);
-	switch (exp % 10) {
-		case 0 : return out << "⁰";
-		case 1 : return out << "¹";
-		case 2 : return out << "²";
-		case 3 : return out << "³";
-		case 4 : return out << "⁴";
-		case 5 : return out << "⁵";
-		case 6 : return out << "⁶";
-		case 7 : return out << "⁷";
-		case 8 : return out << "⁸";
-		case 9 : return out << "⁹";
-	}
-	return out;
+	constexpr const char* superscripts[] = {
+		"⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"
+	};
+
+	if (!e) return superscripts[0];
+	if (e < 0) return "⁻" + superscript(-e);
+	auto recurse = e > 10 ? superscript(e / 10) : "";
+	return recurse + superscripts[e % 10];
 }
 
 template <tmpl_type dist, tmpl_type mass, tmpl_type time>
 std::ostream&
 operator<<(std::ostream& out, const unit<dist, mass, time>& u)
 {
-	auto e = [&] (tmpl_type exp)
-	{
-		if (exp == 1) return;
-		if (exp < 0) {
-			out << "⁻";
-			exp = -exp;
-		}
-		print_char(out, exp);
-	};
-
+	using namespace util::functional;
+	constexpr const char* symbols[] = {"pg", "μm", "μs"};
+	constexpr tmpl_type counts[] = {mass, dist, time};
 	out << (double) u;
-	if constexpr (!!dist) {
-		out << "cm";
-		e(dist);
-	}
 
-	if constexpr (!!mass) {
-		if constexpr (!!dist)
-			out << "·";
-		out << "g";
-		e(mass);
-	}
-
-	if constexpr (!!time) {
-		if constexpr (!!dist || !!mass)
-			out << "·";
-		out << "s";
-		e(time);
-	}
+	bool printed = false;
+	auto e = [&] (const char* symbol, tmpl_type count)
+	{
+		if (count) {
+			if (printed) out << "·";
+			out << symbol << (count != 1 ? superscript(count) : "");
+			printed = true;
+		}
+	};
+	map(e, symbols, counts);
 	return out;
 }
 
@@ -130,6 +110,22 @@ operator*(unit<d, m, t> u, scalar v)
 	return u *= v;
 }
 
+template <tmpl_type num, tmpl_type den, tmpl_type d, tmpl_type m, tmpl_type t>
+constexpr auto
+operator*(std::ratio<num, den>, unit<d, m, t> u)
+{
+	u *= num;
+	u /= den;
+	return u;
+}
+
+template <tmpl_type num, tmpl_type den, tmpl_type d, tmpl_type m, tmpl_type t>
+constexpr auto
+operator*(unit<d, m, t> u, std::ratio<num, den> r)
+{
+	return r * u;
+}
+
 template <typename scalar, tmpl_type d, tmpl_type m, tmpl_type t,
 		 typename = std::enable_if_t<std::is_arithmetic_v<scalar>>>
 constexpr auto
@@ -146,6 +142,15 @@ operator/(scalar v, unit<d, m, t> u)
 	return unit<-d, -m, -t>{v / (double) u};
 }
 
+template <tmpl_type num, tmpl_type den, tmpl_type d, tmpl_type m, tmpl_type t>
+constexpr auto
+operator/(unit<d, m, t> u, std::ratio<num, den> r)
+{
+	u *= den;
+	u /= num;
+	return u;
+}
+
 using scalar = unit<0, 0, 0>;
 using length = unit<1, 0, 0>;
 using mass = unit<0, 1, 0>;
@@ -160,97 +165,74 @@ using area = unit<2, 0, 0>;
 using diffusivity = unit<2, 0, -1>;
 using density = unit<-3, 1, 0>;
 using work = unit<2, 1, -2>;
+using energy = work;
 
 
-inline constexpr length m = 2e+5;
-inline constexpr time s = 4e+4;
-inline constexpr mass g = 1e+9;
+inline constexpr length m = 1'000'000 /* μm */;
+inline constexpr time   s = 1'000'000 /* μs */;
+inline constexpr mass   g = 1'000'000'000'000 /* pg */;
 
-inline constexpr auto kilo = 1e+3;
-inline constexpr auto centi = 1e-2;
-inline constexpr auto milli = 1e-3;
-inline constexpr auto micro = 1e-6;
+inline constexpr auto atto = std::atto{};
+inline constexpr auto femto = std::femto{};
+inline constexpr auto pico = std::pico{};
+inline constexpr auto nano = std::nano{};
+inline constexpr auto micro = std::micro{};
+inline constexpr auto milli = std::milli{};
+inline constexpr auto centi = std::centi{};
+inline constexpr auto deci = std::deci{};
+inline constexpr auto deca = std::deca{};
+inline constexpr auto hecto = std::hecto{};
+inline constexpr auto kilo = std::kilo{};
+inline constexpr auto mega = std::mega{};
+inline constexpr auto giga = std::giga{};
+inline constexpr auto tera = std::tera{};
+inline constexpr auto peta = std::peta{};
+inline constexpr auto exa = std::exa{};
 
-inline constexpr auto N = kilo * g * m / (s * s);
-inline constexpr auto L = 1e-3 * m * m * m;
-inline constexpr auto P = 0.1 * kilo * g / (m * s);
+inline constexpr auto kg = kilo * g;
+inline constexpr auto N = kg * m / (s * s);
+inline constexpr auto L = std::ratio<1, 1000>{} * m * m * m;
+inline constexpr auto mL = milli * L;
+inline constexpr auto P = std::ratio<1, 10>{} * kg / (m * s);
 inline constexpr auto J = N * m;
 
 namespace literals {
 
 using ull = unsigned long long;
 using lf = long double;
-/*
-constexpr auto operator ""_m   (lf  v) { return distance (v * 1e+0); }
-constexpr auto operator ""_kg  (lf  v) { return mass     (v * 1e+0); }
-constexpr auto operator ""_s   (lf  v) { return time     (v * 1e+0); }
-constexpr auto operator ""_N   (lf  v) { return force    (v * 1e+0); }
-constexpr auto operator ""_cm  (lf  v) { return distance (v * 1e-2); }
-constexpr auto operator ""_mm  (lf  v) { return distance (v * 1e-3); }
-constexpr auto operator ""_um  (lf  v) { return distance (v * 1e-6); }
-constexpr auto operator ""_L   (lf  v) { return volume   (v * 1e-3); }
-constexpr auto operator ""_mL  (lf  v) { return volume   (v * 1e-6); }
-constexpr auto operator ""_g   (lf  v) { return mass     (v * 1e-3); }
-constexpr auto operator ""_ms  (lf  v) { return time     (v * 1e-3); }
-constexpr auto operator ""_us  (lf  v) { return time     (v * 1e-6); }
-constexpr auto operator ""_dyn (lf  v) { return force    (v * 1e-5); }
-constexpr auto operator ""_P   (lf  v) { return viscosity(v * 1e-1); }
-constexpr auto operator ""_cP  (lf  v) { return viscosity(v * 1e-3); }
-constexpr auto operator ""_J   (lf  v) { return work     (v * 1e+0); }
-constexpr auto operator ""_erg (lf  v) { return work     (v * 1e-7); }
-
-constexpr auto operator ""_m   (ull v) { return distance (v * 1e+0); }
-constexpr auto operator ""_kg  (ull v) { return mass     (v * 1e+0); }
-constexpr auto operator ""_s   (ull v) { return time     (v * 1e+0); }
-constexpr auto operator ""_N   (ull v) { return force    (v * 1e+0); }
-constexpr auto operator ""_cm  (ull v) { return distance (v * 1e-2); }
-constexpr auto operator ""_mm  (ull v) { return distance (v * 1e-3); }
-constexpr auto operator ""_um  (ull v) { return distance (v * 1e-6); }
-constexpr auto operator ""_L   (ull v) { return volume   (v * 1e-3); }
-constexpr auto operator ""_mL  (ull v) { return volume   (v * 1e-6); }
-constexpr auto operator ""_g   (ull v) { return mass     (v * 1e-3); }
-constexpr auto operator ""_ms  (ull v) { return time     (v * 1e-3); }
-constexpr auto operator ""_us  (ull v) { return time     (v * 1e-6); }
-constexpr auto operator ""_dyn (ull v) { return force    (v * 1e-5); }
-constexpr auto operator ""_P   (ull v) { return viscosity(v * 1e-1); }
-constexpr auto operator ""_cP  (ull v) { return viscosity(v * 1e-3); }
-constexpr auto operator ""_J   (ull v) { return work     (v * 1e+0); }
-constexpr auto operator ""_erg (ull v) { return work     (v * 1e-7); }
-*/
-
 constexpr auto operator ""_m   (lf  v) { return v * m; }
-constexpr auto operator ""_kg  (lf  v) { return v * kilo * g; }
+constexpr auto operator ""_kg  (lf  v) { return v * kg; }
 constexpr auto operator ""_s   (lf  v) { return v * s; }
 constexpr auto operator ""_N   (lf  v) { return v * N; }
-constexpr auto operator ""_cm  (lf  v) { return v * centi * m; }
-constexpr auto operator ""_mm  (lf  v) { return v * milli * m; }
-constexpr auto operator ""_um  (lf  v) { return v * micro * m; }
+constexpr auto operator ""_cm  (lf  v) { return v * (centi * m); }
+constexpr auto operator ""_mm  (lf  v) { return v * (milli * m); }
+constexpr auto operator ""_um  (lf  v) { return v * (micro * m); }
 constexpr auto operator ""_L   (lf  v) { return v * L; }
-constexpr auto operator ""_mL  (lf  v) { return v * milli * L; }
+constexpr auto operator ""_mL  (lf  v) { return v * mL; }
 constexpr auto operator ""_g   (lf  v) { return v * g; }
-constexpr auto operator ""_ms  (lf  v) { return v * milli * s; }
-constexpr auto operator ""_us  (lf  v) { return v * micro * s; }
+constexpr auto operator ""_ms  (lf  v) { return v * (milli * s); }
+constexpr auto operator ""_us  (lf  v) { return v * (micro * s); }
 constexpr auto operator ""_dyn (lf  v) { return v * 1e-5 * N; }
 constexpr auto operator ""_P   (lf  v) { return v * P; }
-constexpr auto operator ""_cP  (lf  v) { return v * centi * P; }
+constexpr auto operator ""_cP  (lf  v) { return v * (centi * P); }
 constexpr auto operator ""_J   (lf  v) { return v * J; }
 constexpr auto operator ""_erg (lf  v) { return v * 1e-7 * J; }
 
 constexpr auto operator ""_m   (ull v) { return v * m; }
-constexpr auto operator ""_kg  (ull v) { return v * kilo * g; }
+constexpr auto operator ""_kg  (ull v) { return v * kg; }
 constexpr auto operator ""_s   (ull v) { return v * s; }
 constexpr auto operator ""_N   (ull v) { return v * N; }
-constexpr auto operator ""_cm  (ull v) { return v * centi * m; }
-constexpr auto operator ""_mm  (ull v) { return v * milli * m; }
-constexpr auto operator ""_um  (ull v) { return v * micro * m; }
+constexpr auto operator ""_cm  (ull v) { return v * (centi * m); }
+constexpr auto operator ""_mm  (ull v) { return v * (milli * m); }
+constexpr auto operator ""_um  (ull v) { return v * (micro * m); }
 constexpr auto operator ""_L   (ull v) { return v * L; }
-constexpr auto operator ""_mL  (ull v) { return v * milli * L; }
+constexpr auto operator ""_mL  (ull v) { return v * (milli * L); }
 constexpr auto operator ""_g   (ull v) { return v * g; }
-constexpr auto operator ""_ms  (ull v) { return v * milli * s; }
-constexpr auto operator ""_us  (ull v) { return v * micro * s; }
+constexpr auto operator ""_ms  (ull v) { return v * (milli * s); }
+constexpr auto operator ""_us  (ull v) { return v * (micro * s); }
 constexpr auto operator ""_dyn (ull v) { return v * 1e-5 * N; }
 constexpr auto operator ""_P   (ull v) { return v * P; }
-constexpr auto operator ""_cP  (ull v) { return v * centi * P; }
+constexpr auto operator ""_cP  (ull v) { return v * (centi * P); }
 constexpr auto operator ""_J   (ull v) { return v * J; }
 constexpr auto operator ""_erg (ull v) { return v * 1e-7 * J; }
 

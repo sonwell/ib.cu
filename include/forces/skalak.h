@@ -1,6 +1,7 @@
 #pragma once
 #include "util/log.h"
 #include "bases/geometry.h"
+#include "units.h"
 #include "types.h"
 #include "load.h"
 
@@ -27,8 +28,9 @@ struct skalak {
 			iv(ev * g + e * gv - 2 * f * fv) {}
 	};
 
-	double shear;
-	double bulk;
+	using energy_per_area = units::unit<0, 1, -2>;
+	energy_per_area shear;
+	energy_per_area bulk;
 
 	template <typename object_type>
 	decltype(auto)
@@ -98,7 +100,7 @@ struct skalak {
 		return f;
 	}
 
-	constexpr skalak(double shear, double bulk) :
+	constexpr skalak(energy_per_area shear, energy_per_area bulk) :
 		shear(shear), bulk(bulk) {}
 };
 

@@ -7,7 +7,8 @@
 namespace forces {
 
 struct repelling {
-	double modulus;
+	using energy_per_area = units::unit<0, 1, -2>;
+	energy_per_area modulus;
 
 	template <typename object_type>
 	decltype(auto)
@@ -31,16 +32,16 @@ struct repelling {
 			auto& cx = curr.x;
 			auto r = abs(height - cx[1]) / h;
 
-			for (int i = 0; i < 3; ++i)
-				fdata[i * n + tid] = 0.0;
 			auto fy = r < 2 ?  -log(r / 2) * exp(-4/(4-r*r)) : 0.0;
-			fdata[1 * n + tid] = -modulus * fy * curr.s;
+			double f[3] = {0.0, fy, 0.0};
+			for (int i = 0; i < 3; ++i)
+				fdata[i * n + tid] = -modulus * f[i] * curr.s;
 		};
 		util::transform(k, n);
 		return f;
 	}
 
-	constexpr repelling(double modulus) :
+	constexpr repelling(energy_per_area modulus) :
 		modulus(modulus) {}
 };
 

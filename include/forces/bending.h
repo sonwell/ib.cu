@@ -1,6 +1,7 @@
 #pragma once
 #include "cublas/handle.h"
 #include "bases/geometry.h"
+#include "units.h"
 #include "types.h"
 #include "load.h"
 
@@ -27,7 +28,7 @@ struct second_fundamental_form {
 };
 
 struct bending {
-	double modulus;
+	units::energy modulus;
 
 	decltype(auto)
 	multiply(cublas::handle& k, const matrix& op, const matrix& x) const
@@ -122,7 +123,7 @@ struct bending {
 		return f;
 	}
 
-	constexpr bending(double modulus) :
+	constexpr bending(units::energy modulus) :
 		modulus(modulus) {}
 };
 

@@ -24,7 +24,7 @@ dep/*
 
 *.py
 __pycache__/*
-pyenv.cfg
+pyvenv.cfg
 pip-selfcheck.json
 
 *.log
@@ -32,3 +32,7 @@ TODO
 
 .*
 include/thrust
+trials/
+other/
+notes/
+reference/

@@ -122,18 +122,40 @@ increment(unary)
 	transform(<<)
 #define binary(op) \
 template <typename wrapped_type, typename arg_type, \
-	typename = decltype(std::declval<wrapped_type>() op std::declval<arg_type>())> \
+	typename = decltype(std::declval<wrapped_type &>() op std::declval<arg_type>())> \
+constexpr decltype(auto) \
+operator op(getset<wrapped_type>& gs, arg_type&& arg) \
+{ \
+	wrapped_type& wr = gs; \
+	auto r = wr op std::forward<arg_type>(arg); \
+	gs = wr; \
+	return r; \
+} \
+template <typename wrapped_type, typename arg_type, \
+	typename = decltype(std::declval<wrapped_type &>() op std::declval<arg_type>())> \
 constexpr decltype(auto) \
 operator op(const getset<wrapped_type>& gs, arg_type&& arg) \
 { \
-	return (wrapped_type) gs op std::forward<arg_type>(arg); \
+	const wrapped_type& wr = gs; \
+	return wr op std::forward<arg_type>(arg); \
 } \
 template <typename wrapped_type, typename arg_type, \
-	typename = decltype(std::declval<arg_type>() op std::declval<wrapped_type>())> \
+	typename = decltype(std::declval<arg_type>() op std::declval<wrapped_type &>())> \
+constexpr decltype(auto) \
+operator op(arg_type&& arg, getset<wrapped_type>& gs) \
+{ \
+	wrapped_type& wr = gs; \
+	auto r = std::forward<arg_type>(arg) op wr; \
+	gs = wr; \
+	return r; \
+} \
+template <typename wrapped_type, typename arg_type, \
+	typename = decltype(std::declval<arg_type>() op std::declval<wrapped_type &>())> \
 constexpr decltype(auto) \
 operator op(arg_type&& arg, const getset<wrapped_type>& gs) \
 { \
-	return std::forward<arg_type>(arg) op (wrapped_type) gs; \
+	const wrapped_type& wr = gs; \
+	return std::forward<arg_type>(arg) op wr; \
 }
 
 operators(binary)
@@ -149,12 +171,12 @@ operator ~(const getset<wrapped_type>& gs)
 	return ~(wrapped_type) gs;
 }
 
-template <typename wrapped_type>
-inline std::ostream&
-operator<<(std::ostream& out, const getset<wrapped_type>& w)
+template <typename wrapped_type,
+	typename = decltype(!std::declval<wrapped_type>())>
+constexpr decltype(auto)
+operator !(const getset<wrapped_type>& gs)
 {
-	wrapped_type v = w;
-	return out << v;
+	return !(wrapped_type) gs;
 }
 
 template <typename wrapped_type>

@@ -4,301 +4,661 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <array>
+#include <tuple>
 #include "cuda/copy.h"
 #include "types.h"
 #include "vector.h"
 #include "matrix.h"
+#include "util/debug.h"
 
 namespace linalg {
 namespace io {
+namespace formatting {
 
-struct style {
-	std::string begin_vector;
-	std::string vector_delimiter;
-	std::string end_vector;
-
-	std::string begin_matrix;
-	std::string matrix_delimiter;
-	std::string end_matrix;
-
-	std::string begin_row;
-	std::string row_delimiter;
-	std::string end_row;
-
-	template <typename value_type>
-	void
-	generic_value(std::ostream& out, value_type v) const {
-		if (real(v) >= 0) out << ' ';
-		out << v;
-	}
-
-	virtual void prepare(std::ostream& out) const
-	{
-		//using limits = std::numeric_limits<double>;
-		//static constexpr auto eps = limits::epsilon();
-		//int prec = std::floor(-std::log10(eps));
-		//out << std::fixed << std::setprecision(prec);
-	}
-	virtual void value(std::ostream& out, float v) const { generic_value(out, v); }
-	virtual void value(std::ostream& out, double v) const
-	{
-		/*union { double d; uint64_t u; } m;
-		m.d = v;
-		out << "'" << std::hex << m.u << "'";*/
-		generic_value(out, v);
-	}
-	virtual void value(std::ostream& out, complex<double> v) const { generic_value(out, v); }
-	virtual void value(std::ostream& out, complex<float> v) const { generic_value(out, v); }
-
-	style(std::string bv, std::string vd, std::string ev,
-	      std::string bm, std::string md, std::string em,
-	      std::string br, std::string rd, std::string er) :
-		begin_vector(bv), vector_delimiter(vd), end_vector(ev),
-		begin_matrix(bm), matrix_delimiter(md), end_matrix(em),
-		begin_row(br), row_delimiter(rd), end_row(er) {}
-};
-
-struct styler { std::ostream& out; const style& sty; };
-
-namespace styles {
-
-inline const
-struct none_style : style {
-	none_style() :
-		style("", ",\n ", "", "", ", ", "", "", "\n", "") {}
-} none;
-
-inline const
-struct python_style : style {
-	python_style() :
-		style("[", ",\n ", "]", "[", ", ", "]", "[", ",\n ", "]") {}
-} python;
-
-
-inline const
-struct numpy_style : style {
-	numpy_style() :
-		style("np.array([", ",\n ", "])", "np.array(\n[", ", ", "]\n)", "[", ",\n ", "]") {}
-} numpy;
-
-inline const
-struct matlab_style : style {
-	matlab_style() :
-		style("[", ",\n ", "]'", "[", ", ", "]", "", ";\n ", "") {}
-} matlab;
-
-} // namespace styles
-
-using namespace styles;
-
-inline styler operator<<(std::ostream& out, const style& sty) { return styler{out, sty}; }
+struct binary;
+struct text;
+struct algebraic;
+struct format;
 
 namespace detail {
 
-struct setter { const style& sty; };
+template <typename object_type>
+inline constexpr auto is_linalg_v = std::is_base_of_v<base, object_type>;
 
-inline const style*&
-get_default_style()
+}
+
+struct format {};
+
+template <typename format_type>
+struct writer {
+	static_assert(std::is_base_of_v<format, format_type>,
+			"formats must inherit from formatting::format");
+	std::ostream& stream;
+	const format_type& format;
+
+	writer(std::ostream& stream, const format_type& format) :
+		stream(stream), format(format) {}
+
+	template <typename other_format_type,
+	          typename = std::enable_if_t<std::is_base_of_v<format_type, other_format_type>>>
+	writer(const writer<other_format_type>& writer) :
+		stream(writer.stream), format(writer.format) {}
+};
+
+template <typename format_type>
+struct reader {
+	static_assert(std::is_base_of_v<format, format_type>,
+			"formats must inherit from formatting::format");
+	std::istream& stream;
+	const format_type& format;
+
+	reader(std::istream& stream, const format_type& format) :
+		stream(stream), format(format) {}
+
+	template <typename other_format_type,
+	          typename = std::enable_if_t<std::is_base_of_v<format_type, other_format_type>>>
+	reader(const reader<other_format_type>& reader) :
+		stream(reader.stream), format(reader.format) {}
+};
+
+template <template <typename> typename> struct container_magic;
+template <> struct container_magic<linalg::vector> :
+	std::integral_constant<int, 0x65760000> {}; // ve
+template <> struct container_magic<linalg::matrix> :
+	std::integral_constant<int, 0x616d0000> {}; // ma
+
+template <template <typename> typename> struct layout_magic;
+template <> struct layout_magic<linalg::dense> :
+	std::integral_constant<int, 0x00006400> {};
+template <> struct layout_magic<linalg::sparse> :
+	std::integral_constant<int, 0x00007300> {};
+
+template <typename> struct type_magic;
+template <> struct type_magic<float> :
+	std::integral_constant<int, 0x00000073> {};
+template <> struct type_magic<double> :
+	std::integral_constant<int, 0x00000064> {};
+
+template <typename> struct magic_number;
+template <template <typename> typename container,
+          template <typename> typename layout,
+          typename vtype>
+struct magic_number<container<layout<vtype>>> {
+	static constexpr int value =
+		container_magic<container>::value |
+		layout_magic<layout>::value       |
+		type_magic<vtype>::value;
+};
+
+template <typename T>
+inline constexpr auto magic_number_v = magic_number<T>::value;
+
+inline struct binary : format {} binary;
+
+inline struct text : format {
+	std::string comment = "/!\\";
+
+	// vector formatting
+	std::string vector_begin = "";
+	std::string vector_delim = "\n";
+	std::string vector_end = "";
+
+	// matrix formatting
+	std::string matrix_begin = "";
+	std::string row_begin = "";
+	std::string matrix_delim = ", ";
+	std::string row_end = "";
+	std::string row_delim = "\n";
+	std::string matrix_end = "";
+
+	text(std::string comment,      std::string vector_begin,
+	     std::string vector_delim, std::string vector_end,
+	     std::string matrix_begin, std::string row_begin,
+	     std::string matrix_delim, std::string row_end,
+	     std::string row_delim,    std::string matrix_end) :
+		comment(comment),           vector_begin(vector_begin),
+		vector_delim(vector_delim), vector_end(vector_end),
+		matrix_begin(matrix_begin), row_begin(row_begin),
+		matrix_delim(matrix_delim), row_end(row_end),
+		row_delim(row_delim),       matrix_end(matrix_end) {}
+	text() {}
+} none;
+
+struct algebraic : text {
+	std::string continuation = "↩";
+
+	algebraic(std::string comment,      std::string vector_begin,
+	          std::string vector_delim, std::string vector_end,
+	          std::string matrix_begin, std::string row_begin,
+	          std::string matrix_delim, std::string row_end,
+	          std::string row_delim,    std::string matrix_end,
+		      std::string continuation) :
+		text{comment,      vector_begin, vector_delim, vector_end,
+		     matrix_begin, row_begin,    matrix_delim, row_end,
+		     row_delim,    matrix_end},
+		continuation(continuation) {}
+	algebraic() {}
+};
+
+inline struct python : text {
+	python(std::string padding = "") :
+		text{" #", "[\n" + padding + " ",
+			",\n" + padding + " ", "\n]",
+			"[\n" + padding + "    ",
+			"[", ", ", "]",
+			",\n" + padding + "    ", "]"} {}
+} python;
+
+inline struct numpy : algebraic {
+private:
+	struct private_tag {};
+	numpy(private_tag, std::string imported_name, std::string padding) :
+		algebraic{" #", imported_name + ".array([\n" + padding,
+			",\n" + padding, "\n])", imported_name + ".array([\n",
+			"[", ", ", "]", "\n" + padding, "])", "\\"} {}
+public:
+	numpy(std::string imported_name = "np", std::string padding = "") :
+		numpy(private_tag{}, imported_name, padding + "    ") {}
+} numpy;
+
+inline struct matlab : algebraic {
+	matlab(std::string padding = "") :
+		algebraic{"%", "[", "\n" + padding + " ", "]",
+		"[", "", ", ", "", "\n" + padding + " ", "]", "..."} {}
+} matlab;
+
+namespace detail {
+
+template <typename vtype>
+int
+zeros(vtype&& v)
 {
-	static const style* ptr = &none;
-	return ptr;
+	return std::ceil(std::log10(std::fabs(v)/2));
 }
 
 template <typename vtype>
-inline int
-scalexp(int n, const vtype* data)
+int
+exponent(int n, vtype* values)
 {
-	static constexpr int min_exp = std::numeric_limits<vtype>::min_exponent10;
-	int exp = min_exp-1;
-	for (int i = 0 ; i < n; ++i) {
-		vtype datum = data[i];
-		int curr = datum == 0 ? min_exp-1 : std::ceil(std::log10(std::fabs(datum)/2));
+	using limits = std::numeric_limits<vtype>;
+	static constexpr int min_exp = limits::min_exponent10;
+	int exp = min_exp - 1;
+	for (int i = 0; i < n; ++i) {
+		auto& datum = values[i];
+		int curr = !datum ? min_exp-1 : zeros(datum);
 		exp = curr > exp ? curr : exp;
 	}
-	return exp == min_exp-1 ? 0 : exp;
+	return exp < min_exp ? 0 : exp;
 }
 
-}
-
-inline const style&
-get_default_style()
+template <typename value_type>
+void
+bytes(std::ostream& out, const value_type* v, std::size_t n)
 {
-	return *detail::get_default_style();
+	out.write(reinterpret_cast<const char*>(v), n * sizeof(value_type));
 }
 
-inline void
-set_default_style(const style& sty)
+template <typename value_type>
+decltype(auto)
+bytes(std::istream& in, value_type* v, std::size_t n)
 {
-	detail::get_default_style() = &sty;
+	in.read(reinterpret_cast<char*>(v), n * sizeof(value_type));
 }
 
-inline auto setstyle(const style& sty) { return detail::setter{sty}; }
-
-template <typename vtype>
-std::ostream&
-operator<<(styler styr, const vector<dense<vtype>>& v)
+inline std::array<int, 3>
+header(std::istream& in)
 {
-	auto& out = styr.out;
-	auto& sty = styr.sty;
-	sty.prepare(out);
+	std::array<int, 3> buf;
+	bytes(in, buf.data(), 3);
+	return buf;
+}
 
-	auto n = v.rows();
-	auto* hdata = new vtype[n];
-	cuda::dtoh(hdata, v.values(), n);
+template <typename value_type>
+struct tmpflags {
+	std::ostream& out;
+	std::ios::fmtflags flags;
+	std::streamsize precision;
+	std::streamsize width;
 
-	int exp = detail::scalexp(n, hdata);
-	base_t<vtype> scale = std::pow(10., -exp);
-	if (exp) out << "1e" << exp << " * \\\n";
-	//out << std::fixed << std::setprecision(15);
+	tmpflags(const tmpflags&) = delete;
+	tmpflags(tmpflags&&) = delete;
+	tmpflags(std::ostream& out) :
+		out(out),
+		flags(out.flags()),
+		precision(out.precision()),
+		width(out.width())
+	{
+		using btype = base_t<value_type>;
+		using limits = std::numeric_limits<btype>;
+		int prec = -zeros(limits::epsilon());
+		out << std::fixed << std::setprecision(prec);
+	}
 
-	out << sty.begin_vector;
+	~tmpflags()
+	{
+		out.flags(flags);
+		out.precision(precision);
+		out.width(width);
+	}
+};
+
+template <typename value_type>
+void
+write(std::ostream& out, const text& fmt, base_t<value_type> scale,
+		const vector<dense<value_type>>& v)
+{
+	tmpflags<value_type> flags{out};
+	auto* w = v.values();
+	int n = v.rows();
+
+	out << fmt.vector_begin;
 	for (int i = 0; i < n; ++i) {
-		if (i) out << sty.vector_delimiter;
-		sty.value(out, scale * hdata[i]);
+		if (i) out << fmt.vector_delim;
+		out << w[i] * scale;
 	}
-	delete[] hdata;
-	return out << sty.end_vector;
+	out << fmt.vector_end;
 }
 
-template <typename vtype>
-std::ostream&
-operator<<(styler styr, const matrix<dense<vtype>>& m)
+template <typename value_type>
+void
+write(std::ostream& out, const text& fmt, base_t<value_type> scale,
+		const vector<sparse<value_type>>& v)
 {
-	auto& out = styr.out;
-	auto& sty = styr.sty;
-	sty.prepare(out);
-
-	auto rows = m.rows();
-	auto cols = m.cols();
-	auto n = rows * cols;
-	auto* hdata = new vtype[n];
-	cuda::dtoh(hdata, m.values(), n);
-
-	int exp = detail::scalexp(n, hdata);
-	base_t<vtype> scale = std::pow(10., -exp);
-	if (exp) out << "1e" << exp << " * ";
-
-	out << sty.begin_matrix;
-	for (int i = 0; i < rows; ++ i) {
-		if (i) out << sty.row_delimiter;
-		out << sty.begin_row;
-		for (int j = 0; j < cols; ++j) {
-			if (j) out << sty.matrix_delimiter;
-			sty.value(out, scale * hdata[i + j * rows]);
-		}
-		out << sty.end_row;
-	}
-	delete[] hdata;
-	return out << sty.end_matrix;
-}
-
-template <typename vtype>
-std::ostream&
-operator<<(styler styr, const vector<sparse<vtype>>& v)
-{
-	auto& out = styr.out;
-	auto& sty = styr.sty;
-	sty.prepare(out);
-
-	auto rows = v.rows();
-	auto nnz = v.nonzero();
-
-	auto* h_indices = new int[nnz];
-	auto* h_values = new vtype[nnz];
-	cuda::dtoh(h_indices, v.indices(), nnz);
-	cuda::dtoh(h_values, v.values(), nnz);
-
-	int exp = detail::scalexp(nnz, h_values);
-	base_t<vtype> scale = std::pow(10., -exp);
-	if (exp) out << "1e" << exp << " * ";
-	out << std::fixed << std::setprecision(15);
-
-	out << sty.begin_vector;
+	tmpflags<value_type> flags{out};
+	auto* w = v.values();
+	int* k = v.indices();
+	int n = v.rows();
+	int nnz = v.nonzero();
 	int offset = 0;
-	for (int i = 0; i < rows; ++i) {
-		if (i) out << sty.vector_delimiter;
-		if (h_indices[offset] == i)
-			sty.value(out, scale * h_values[offset++]);
+
+	out << fmt.vector_begin;
+	for (int i = 0; i < n; ++i) {
+		if (i) out << fmt.vector_delim;
+		if (offset < nnz && k[offset] == i)
+			out << v[offset++] * scale;
 		else
-			sty.value(out, (vtype) 0);
+			out << (value_type) 0;
 	}
-	delete[] h_indices;
-	delete[] h_values;
-	out << sty.end_vector;
-	if (offset != nnz) out << " # vector continues?";
-	return out;
+	out << fmt.vector_end;
+	if (offset < nnz)
+		out << ' ' << fmt.comment << " vector continues?";
 }
 
-template <typename vtype>
-std::ostream&
-operator<<(styler styr, const matrix<sparse<vtype>>& m)
+template <typename value_type>
+void
+write(std::ostream& out, const text& fmt, base_t<value_type> scale,
+		const matrix<dense<value_type>>& v)
 {
-	auto& out = styr.out;
-	auto& sty = styr.sty;
-	sty.prepare(out);
+	tmpflags<value_type> flags{out};
+	auto* w = v.values();
+	int n = v.rows();
+	int m = v.cols();
 
-	auto rows = m.rows();
-	auto cols = m.cols();
-	auto nnz = m.nonzero();
-
-	auto* h_starts = new int[rows + 1];
-	auto* h_indices = new int[nnz];
-	auto* h_values = new vtype[nnz];
-
-	if (m.nonzero())
-		cuda::dtoh(h_starts, m.starts(), rows + 1);
-	else
-		std::memset(h_starts, 0, sizeof(int) * (rows + 1));
-	cuda::dtoh(h_indices, m.indices(), nnz);
-	cuda::dtoh(h_values, m.values(), nnz);
-
-	int exp = detail::scalexp(nnz, h_values);
-	base_t<vtype> scale = std::pow(10., -exp);
-	if (exp) out << "1e" << exp << " * \\\n";
-	out << std::fixed << std::setprecision(4);
-
-	out << sty.begin_matrix;
-	for (int i = 0; i < rows; ++i) {
-		auto& end = h_starts[i+1];
-		auto offset = h_starts[i];
-		if (i) out << sty.row_delimiter;
-		out << sty.begin_row;
-		for (int j = 0; j < cols; ++j) {
-			if (j) out << sty.matrix_delimiter;
-			if (offset < end && j == h_indices[offset])
-				sty.value(out, scale * h_values[offset++]);
-			else
-				sty.value(out, (vtype) 0);
+	out << fmt.matrix_begin;
+	for (int i = 0; i < n; ++i) {
+		if (i) out << fmt.row_delim;
+		out << fmt.row_begin;
+		for (int j = 0; j < m; ++j) {
+			if (j) out << fmt.matrix_delim;
+			out << w[i + j * n] * scale;
 		}
-		out << sty.end_row;
-		if (offset != end) out << " # row continues?";
+		out << fmt.row_end;
 	}
-	delete[] h_starts;
-	delete[] h_indices;
-	delete[] h_values;
-	return out << sty.end_matrix;
+	out << fmt.matrix_end;
 }
 
-inline std::ostream&
-operator<<(std::ostream& out, detail::setter setter)
+template <typename value_type>
+void
+write(std::ostream& out, const text& fmt, base_t<value_type> scale,
+		const matrix<sparse<value_type>>& v)
 {
-	set_default_style(setter.sty);
-	return out;
+	tmpflags<value_type> flags{out};
+	auto* w = v.values();
+	auto* s = v.starts();
+	auto* k = v.indices();
+	int n = v.rows();
+	int m = v.cols();
+	int nnz = v.nonzero();
+
+	out << fmt.matrix_begin;
+	for (int i = 0; i < n; ++i) {
+		if (i) out << fmt.row_delim;
+		out << fmt.row_begin;
+		auto end = nnz ? s[i+1] : 0;
+		auto offset = nnz ? s[i] : 0;
+		for (int j = 0; j < m; ++j) {
+			if (j) out << fmt.matrix_delim;
+			if (offset < end && k[offset] == j)
+				out << v[offset] * scale;
+			else
+				out << (value_type) 0;
+		}
+		out << fmt.row_end;
+		if (offset < end)
+			out << ' ' << fmt.comment << " row continues ?";
+	}
+	out << fmt.matrix_end;
 }
 
-template <template <typename> class container,
-		 template <typename> class layout, typename vtype>
-std::ostream&
-operator<<(std::ostream& out, const container<layout<vtype>>& c)
+template <typename object_type>
+void
+write(std::ostream& out, const format&, const object_type& v)
 {
-	auto& style = get_default_style();
-	return styler{out, style} << c;
+	out << v;
 }
+
+template <typename object_type,
+		typename = std::enable_if_t<is_linalg_v<object_type>>>
+void
+magic(std::ostream& out, const object_type& v)
+{
+	static constexpr int magic_number = magic_number_v<object_type>;
+	bytes(out, &magic_number, 1);
+}
+
+template <typename object_type,
+		typename = std::enable_if_t<is_linalg_v<object_type>>>
+void
+magic(std::istream& in, const object_type& v)
+{
+	static constexpr int magic_number = magic_number_v<object_type>;
+	int n;
+	bytes(in, &n, 1);
+	assert(n == magic_number);
+}
+
+template <typename object_type,
+		typename = std::enable_if_t<detail::is_linalg_v<object_type>>>
+void
+write(std::ostream& out, const text& fmt, const object_type& v)
+{
+	detail::write(out, fmt, 1.0, v);
+}
+
+template <typename object_type,
+		typename = std::enable_if_t<detail::is_linalg_v<object_type>>>
+void
+write(std::ostream& out, const algebraic& fmt, const object_type& v)
+{
+	int exp = detail::exponent(v.rows(), v.values());
+	if (exp) out << "1e" << exp << " * " << fmt.continuation << '\n';
+	write(out, fmt, std::pow(10., -exp), v);
+}
+
+template <typename object_type>
+void
+write(std::ostream& out, const struct binary&, const object_type& object)
+{
+	bytes(out, &object, 1);
+}
+
+template <typename value_type>
+void
+write(std::ostream& out, const struct binary&, const vector<dense<value_type>>& v)
+{
+	int data[3] = {v.rows(), 1, v.rows()};
+	auto* d = v.values();
+	magic(out, v);
+	bytes(out, data, 3);
+	bytes(out, d, data[2]);
+}
+
+template <typename value_type>
+void
+write(std::ostream& out, const struct binary&, const vector<sparse<value_type>>& v)
+{
+	int data[3] = {v.rows(), 1, v.nonzero()};
+	int* k = v.indices();
+	auto* d = v.values();
+	magic(out, v);
+	bytes(out, data, 3);
+	bytes(out, k, data[2]);
+	bytes(out, d, data[2]);
+}
+
+template <typename value_type>
+void
+write(std::ostream& out, const struct binary&, const matrix<dense<value_type>>& v)
+{
+	int data[3] = {v.rows(), v.cols(), v.rows() * v.cols()};
+	auto* d = v.values();
+	magic(out, v);
+	bytes(out, data, 3);
+	bytes(out, d, data[2]);
+}
+
+template <typename value_type>
+void
+write(std::ostream& out, const struct binary&, const matrix<sparse<value_type>>& v)
+{
+	int data[3] = {v.rows(), v.cols(), v.nonzero()};
+	int* s = v.starts();
+	int* k = v.indices();
+	auto* d = v.values();
+	magic(out, v);
+	bytes(out, data, 3);
+	bytes(out, s, data[0] ? data[0] + 1 : 0);
+	bytes(out, k, data[2]);
+	bytes(out, d, data[2]);
+}
+
+template <typename object_type>
+void
+read(std::istream& in, const format&, object_type& v)
+{
+	in >> v;
+}
+
+template <typename object_type>
+void
+read(std::istream& in, const struct binary&, object_type& object)
+{
+	bytes(in, &object, 1);
+}
+
+template <typename value_type>
+void
+read(std::istream& in, const struct binary& fmt, vector<dense<value_type>>& v)
+{
+	magic(in, v);
+	auto&& [n, m, nnz] = header(in);
+	util::memory<value_type> buf(n, util::new_delete_resource());
+	bytes(in, buf.data(), n);
+	v = {n, std::move(buf)};
+}
+
+template <typename value_type>
+void
+read(std::istream& in, const struct binary& fmt, vector<sparse<value_type>>& v)
+{
+	magic(in, v);
+	auto&& [n, m, nnz] = header(in);
+	util::memory<value_type> vals(nnz, util::new_delete_resource());
+	util::memory<int>        inds(nnz, util::new_delete_resource());
+	bytes(in, inds.data(), nnz);
+	bytes(in, vals.data(), nnz);
+	v = {n, nnz, std::move(inds), std::move(vals)};
+}
+
+template <typename value_type>
+void
+read(std::istream& in, const struct binary& fmt, matrix<dense<value_type>>& v)
+{
+	magic(in, v);
+	auto&& [n, m, nnz] = header(in);
+	util::memory<value_type> buf(n * m, util::new_delete_resource());
+	bytes(in, buf.data(), n * m);
+	v = {n, m, std::move(buf)};
+}
+
+template <typename value_type>
+void
+read(std::istream& in, const struct binary& fmt, matrix<sparse<value_type>>& v)
+{
+	magic(in, v);
+	auto&& [n, m, nnz] = header(in);
+	util::memory<value_type> vals(nnz, util::new_delete_resource());
+	util::memory<int>        inds(nnz, util::new_delete_resource());
+	util::memory<int>        rows(n ? n+1 : 0, util::new_delete_resource());
+	bytes(in, rows.data(), n ? n+1 : 0);
+	bytes(in, inds.data(), nnz);
+	bytes(in, vals.data(), nnz);
+	v = {n, m, nnz, std::move(rows), std::move(inds), std::move(vals)};
+}
+
+template <typename value_type, typename transfer_type>
+auto
+copy(const vector<dense<value_type>>& v, transfer_type&& transfer)
+	-> std::decay_t<decltype(v)>
+{
+	auto n = v.rows();
+	auto* w = v.values();
+	return {n, transfer(n, w)};
+}
+
+template <typename value_type, typename transfer_type>
+auto
+copy(const vector<sparse<value_type>>& v, transfer_type&& transfer)
+	-> std::decay_t<decltype(v)>
+{
+	auto n = v.rows();
+	auto nnz = v.nonzero();
+	auto* w = v.values();
+	auto* k = v.indices();
+	return {n, nnz, transfer(nnz, w), transfer(nnz, k)};
+}
+
+template <typename value_type, typename transfer_type>
+auto
+copy(const matrix<dense<value_type>>& v, transfer_type&& transfer)
+	-> std::decay_t<decltype(v)>
+{
+	auto n = v.rows();
+	auto m = v.cols();
+	auto* w = v.values();
+	return {n, m, transfer(n * m, w)};
+}
+
+template <typename value_type, typename transfer_type>
+auto
+copy(const matrix<sparse<value_type>>& v, transfer_type&& transfer)
+	-> std::decay_t<decltype(v)>
+{
+	auto n = v.rows();
+	auto m = v.cols();
+	auto nnz = v.nonzero();
+	auto* s = v.starts();
+	auto* k = v.indices();
+	auto* w = v.values();
+	return {n, m, nnz, transfer(n ? n+1 : 0, s),
+		transfer(nnz, k), transfer(nnz, w)};
+}
+
+template <typename wrapped_type, typename transfer_type>
+decltype(auto)
+copy(const util::getset<wrapped_type>& gs, transfer_type&& transfer)
+{
+	return copy((wrapped_type&) gs, std::forward<transfer_type>(transfer));
+}
+
+template <typename object_type, typename transfer_type>
+decltype(auto)
+copy(const object_type& object, transfer_type&&)
+{
+	return object;
+}
+
+} // namespace detail
+
+template <typename format_type, typename object_type>
+void
+read(std::istream& in, const format_type& fmt, object_type& v)
+{
+	auto copy = [] (int n, const auto* v)
+	{
+		using value_type = std::decay_t<decltype(*v)>;
+		using buffer = util::memory<value_type>;
+		buffer buf(n, cuda::get_device().memory());
+		cuda::htod(buf.data(), v, n);
+		return buf;
+	};
+
+	detail::read(in, fmt, v);
+	v = detail::copy(v, copy);
+}
+
+template <typename format_type, typename object_type>
+void
+write(std::ostream& out, const format_type& fmt, const object_type& v)
+{
+	auto copy = [] (int n, const auto* v)
+	{
+		using value_type = std::decay_t<decltype(*v)>;
+		using buffer = util::memory<value_type>;
+		buffer buf(n, util::new_delete_resource());
+		cuda::dtoh(buf.data(), v, n);
+		return buf;
+	};
+
+	detail::write(out, fmt, detail::copy(v, copy));
+}
+
+template <typename format_type, typename fn_type>
+void
+visit(const format_type& fmt, fn_type&& fn)
+{
+	fn(fmt);
+}
+
+template <typename format_type, typename object_type>
+decltype(auto)
+operator<<(writer<format_type> wr, object_type&& object)
+{
+	std::ostream& stream = wr.stream;
+	const auto& fmt = wr.format;
+	auto cb = [&] (const auto& fmt) { write(stream, fmt, object); };
+
+	if constexpr (std::is_base_of_v<format, std::decay_t<object_type>>)
+		return writer{stream, object};
+	else { visit(fmt, cb); return wr; }
+}
+
+template <typename format_type, typename object_type>
+decltype(auto)
+operator>>(reader<format_type> rd, object_type&& object)
+{
+	std::istream& stream = rd.stream;
+	const auto& fmt = rd.format;
+	auto cb = [&] (const auto& fmt) { read(stream, fmt, object); };
+
+	if constexpr (std::is_base_of_v<format, std::decay_t<object_type>>)
+		return reader{stream, object};
+	else { visit(fmt, cb); return rd; }
+}
+
+template <typename format_type,
+          typename = std::enable_if_t<std::is_base_of_v<format, format_type>>>
+decltype(auto)
+operator<<(std::ostream& out, const format_type& fmt)
+{
+	return writer{out, fmt};
+}
+
+template <typename format_type,
+          typename = std::enable_if_t<std::is_base_of_v<format, format_type>>>
+decltype(auto)
+operator>>(std::istream& out, const format_type& fmt)
+{
+	return reader{out, fmt};
+}
+
+} // namespace formatting
+
+using formatting::binary;
+using formatting::numpy;
+using formatting::python;
+using formatting::matlab;
 
 } // namespace io
-
-using io::operator<<;
-
 } // namespace linalg
-
-using linalg::operator<<;

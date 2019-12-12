@@ -162,12 +162,6 @@ public:
 		colorer(std::move(colorer)), offsets(m.rows()), lu(factor(m)) {}
 	symmilu(const matrix& m, coloring* colorer) :
 		symmilu(m, coloring_ptr(colorer)) {}
-
-	friend std::ostream&
-	operator<<(std::ostream& out, const symmilu& lu)
-	{
-		return out << lu.lu;
-	};
 };
 
 } // namespace algo

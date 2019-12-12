@@ -75,9 +75,9 @@ private:
 		using algo::dot;
 		using algo::cross;
 
-		auto l = sqrt(dot(axis, axis));
-		auto c = cos(angle);
-		auto s = sin(angle);
+		auto l = util::math::sqrt(dot(axis, axis));
+		auto c = util::math::cos(angle);
+		auto s = util::math::sin(angle);
 
 		return composition{
 			[=] (auto&& x) constexpr

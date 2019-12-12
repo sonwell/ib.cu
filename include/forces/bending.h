@@ -47,8 +47,8 @@ struct bending {
 	decltype(auto)
 	mean_curvature(const loader<2>& current) const
 	{
-		auto s = current.size();
-		matrix h{s};
+		auto [n, m] = current.size();
+		matrix h{n, m};
 		auto* hdata = h.values();
 		auto k = [=] __device__ (int tid)
 		{
@@ -58,7 +58,7 @@ struct bending {
 			auto h = (l * g + n * e - 2 * m * f) / (2 * detg);
 			hdata[tid] = h;
 		};
-		util::transform(k, s.rows * s.cols);
+		util::transform(k, n * m);
 		return h;
 	}
 
@@ -97,9 +97,9 @@ struct bending {
 		};
 		util::transform(k, nd);
 
-		matrix f{linalg::size(currs.position)};
 		auto lh = multiply(handle, d2s.first_derivatives[0], hu)
 		        + multiply(handle, d2s.first_derivatives[1], hv);
+		matrix f{linalg::size(currs.position)};
 
 		auto ss = loads.size();
 		auto ns = ss.rows * ss.cols;

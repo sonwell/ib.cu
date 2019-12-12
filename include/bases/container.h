@@ -33,6 +33,13 @@ public:
 	}
 
 	decltype(auto)
+	points() const
+	{
+		auto&& [data, sample] = operators();
+		return pair<int>{data.points, sample.points};
+	}
+
+	decltype(auto)
 	geometry(const reference_tag&) const
 	{
 		using pair = geometry_pair_type;
@@ -46,6 +53,7 @@ public:
 		return pair{data, sample};
 	}
 
+	base_container(const reference_type& ref) : ref{ref} {}
 	base_container(const reference_type& ref, const matrix& x) :
 		data{ref.data_to_data, x},
 		sample{ref.data_to_sample, x},
@@ -129,6 +137,11 @@ public:
 
 	container(const reference_type& ref, const matrix& x) :
 		base{ref, x},
+		x{[&] () -> matrix& { return get_x(); },
+		  [&] (const matrix& x) { set_x(x); }} {}
+
+	container(const reference_type& ref) :
+		base{ref},
 		x{[&] () -> matrix& { return get_x(); },
 		  [&] (const matrix& x) { set_x(x); }} {}
 

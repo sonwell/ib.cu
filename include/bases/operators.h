@@ -90,28 +90,33 @@ private:
 		matrix evaluator;
 		fdtype first;
 		sdtype second;
+		int points;
 	} ops_type;
 
 	template <typename rbf, typename poly>
 	static ops_type
 	compute_operators(const matrix& xd, const matrix& xs, rbf phi, poly p)
 	{
+		constexpr sequence seq;
 		auto lu = algo::lu(fill<dimensions>(xd, phi, p));
 		return {compute_evaluator(xd, xs, phi, p, lu),
-				compute_first_derivatives(xd, xs, phi, p, lu, sequence()),
-				compute_second_derivatives(xd, xs, phi, p, lu, sequence())};
+				compute_first_derivatives(xd, xs, phi, p, lu, seq),
+				compute_second_derivatives(xd, xs, phi, p, lu, seq),
+				xs.rows()};
 	}
 
 	operators(ops_type ops, vector weights) :
 		evaluator(std::move(ops.evaluator)),
 		first_derivatives(std::move(ops.first)),
 		second_derivatives(std::move(ops.second)),
-		weights(std::move(weights)) {}
+		weights(std::move(weights)),
+		points(ops.points) {}
 public:
 	matrix evaluator;
 	fdtype first_derivatives;
 	sdtype second_derivatives;
 	vector weights;
+	int points;
 
 	template <typename rbf, typename poly>
 	operators(const matrix& xd, const matrix& xs, vector weights, rbf phi, poly p) :

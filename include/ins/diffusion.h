@@ -53,7 +53,7 @@ private:
 	double tolerance;
 	matrix identity;
 	matrix laplacian;
-	chebyshev solver;
+	multigrid solver;
 public:
 	vector
 	operator()(double frac, const vector& u, vector rhs,

@@ -20,75 +20,80 @@
 #include "cuda/event.h"
 #include "units.h"
 
-struct chebyshev : algo::chebyshev, algo::preconditioner {
-private:
-	chebyshev(std::pair<double, double> range, const algo::matrix& m) :
-		algo::chebyshev(std::get<1>(range), std::get<0>(range), m) {}
-public:
-	virtual algo::vector
-	operator()(const algo::vector& b) const
-	{
-		return algo::chebyshev::operator()(b);
-	}
-
-	chebyshev(const algo::matrix& m) :
-		chebyshev(algo::gershgorin(m), m) {}
-};
-
-template <typename grid_type>
-algo::vector
-fill(const grid_type& grid)
+template <typename grid_type, typename fn_type>
+decltype(auto)
+fill(const grid_type& grid, fn_type fn)
 {
-	static constexpr auto pi = M_PI;
-	auto s = fd::size(grid);
-	algo::vector r{s};
+	static constexpr auto dimensions = grid_type::dimensions;
+	using algo::vector;
 
-	auto* rdata = r.values();
-	auto k = [=] __device__ (int tid)
+	auto x = [=] __device__ (int tid, auto h)
 	{
-		auto x = grid.point(tid);
-		rdata[tid] = sin(2 * pi * x[0] / 10_um);
+		using namespace util::functional;
+		auto i = tid;
+		std::array<double, dimensions> x = {0.};
+		auto p = [&] (double& x, const auto& comp)
+		{
+			auto l = comp.points();
+			auto j = i % l;
+			i /= l;
+			x = (j + comp.shift()) / comp.resolution();
+		};
+		map(p, x, grid.components());
+		return h(x);
 	};
-	util::transform<128, 7>(k, s);
-	return r;
 
-	//auto k = [=] __device__ (int i) { return f(grid.point(i)); };
-	//return algo::vector{s, linalg::fill(k)};
+	vector v{fd::size(grid)};
+	auto* data = v.values();
+	auto f = [=] __device__ (int tid, auto g, auto h) { data[tid] = g(tid, h); };
+
+	util::transform<128, 7>(f, fd::size(grid), x, fn);
+	return v;
 }
 
 int
 main(void)
 {
-	static constexpr auto n = 128;
-	static constexpr auto k = 1e-4_s / ((n / 128) * (n / 128));
+	static constexpr auto pi = M_PI;
+
+	constexpr fd::dimension x{16_um, fd::boundary::periodic()};
+	constexpr fd::dimension y{16_um, fd::boundary::dirichlet()};
+	constexpr fd::dimension z{16_um, fd::boundary::periodic()};
+	constexpr fd::domain domain{x, y, z};
+	constexpr fd::centered mac{64};
 
 	auto density = 1_g / (1_cm * 1_cm * 1_cm);
-	auto viscosity = 0.89_cP;
+	auto viscosity = 1_cP;
+	auto refinement = mac.refinement();
+	units::length h = domain.unit() / refinement;
+	units::time k = 0.00004096_s / (refinement * refinement);
 	ins::simulation params{k, viscosity / density, 1e-8};
-	double mu = params.coefficient;
 
 	util::set_default_resource(cuda::default_device().memory());
 
-	util::file_logfile logfile("diffusion.log");
-	util::logger logger(logfile, util::log_level::info);
-	util::set_logger(logger);
-
-	constexpr fd::dimension x{10_um, fd::boundary::periodic()};
-	constexpr fd::dimension y{10_um, fd::boundary::periodic()};
-	constexpr fd::dimension z{10_um, fd::boundary::periodic()};
-	constexpr fd::domain domain{x, y, z};
-	constexpr fd::mac mac(16);
-
-	auto pc = [] (const auto& /*grid*/, algo::matrix& m) { return new chebyshev(m); };
+	util::logging::info("k: ", k);
+	util::logging::info("h: ", h);
+	util::logging::info("μ: ", viscosity);
+	util::logging::info("ρ: ", density);
+	util::logging::info("λ: ", (k / (h * h)) * viscosity / density);
 
 	constexpr fd::grid grid{mac, domain, x};
-	ins::diffusion step{grid, params, pc};
-	auto u = fill(grid);
+	ins::diffusion step{grid, params};
+	auto scale = domain.unit();
+	auto sinusoid = [=] __device__ (auto x) { return sin(62 * pi * x[1] / scale); };
+	auto u = fill(grid, sinusoid);
 	auto ub = 0 * u;
-	auto b = -mu * (fd::laplacian(grid) * u);
+	auto b = 0 * u;
 
-	for (int i = 0; i < 2; ++i)
-		std::cout << (u = step(1.0, u, ub, b)) << std::endl;
+	std::cout << "import numpy as np\n";
+	std::cout << "import matplotlib.pyplot as plt\n";
+	std::cout << "u0 = " << linalg::io::numpy << u << '\n'
+		<< "plt.plot(u0)\n";
+	for (int i = 0; i < 1; ++i)
+		std::cout << "u" << (i+1) << " = " <<
+			linalg::io::numpy << (u = step(1.0, u, ub, b)) << '\n'
+			<< "plt.plot(u" << (i+1) << ")\n";
 
+	std::cout << "plt.show()\n";
 	return 0;
 }

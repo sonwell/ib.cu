@@ -14,12 +14,12 @@
 #include "bases/phs.h"
 #include "bases/polynomials.h"
 #include "bases/geometry.h"
-#include "ib/sweep.h"
 #include "ib/spread.h"
 #include "ib/interpolate.h"
 #include "forces/bending.h"
 #include "forces/skalak.h"
 #include "forces/neohookean.h"
+#include "forces/repelling.h"
 #include "forces/combine.h"
 #include "ins/solver.h"
 #include "cuda/event.h"
@@ -142,7 +142,7 @@ initialize(const grid_type& grid, const domain_type& domain, const reference_typ
 		auto&& [x, y, z] = domain.components();
 		auto ymax = y.length();
 		auto twv = ymax * shear_rate / 2;
-		auto shear = [=] __device__ (auto x) { return -twv + 2 * twv * x[1] / ymax; };
+		auto shear = [=] __device__ (const auto& x) { return -twv + 2 * twv * x[1] / ymax; };
 		using fd::correction::second_order;
 		fd::grid g{grid, domain, z};
 		auto b = fd::upper_boundary(g, y, second_order)
@@ -221,7 +221,8 @@ main(int argc, char** argv)
 
 	constexpr forces::skalak tension{2.5e-3_dyn/1_cm, 2.5e-1_dyn/1_cm};
 	constexpr forces::bending bending{2e-12_erg};
-	constexpr forces::combine forces{tension, bending};
+	constexpr forces::repelling repelling{2.5e-3_dyn/1_cm};
+	constexpr forces::combine forces{tension, bending, repelling};
 	util::logging::info("tension info: shear = ", tension.shear, " bulk = ", tension.bulk);
 	util::logging::info("bending info: modulus = ", bending.modulus);
 	matrix f_l = forces(rbcs);

@@ -193,9 +193,15 @@ main(int argc, char** argv)
 	constexpr auto time_scale = 1 / shear_rate;
 	constexpr auto length_scale = domain.unit();
 	constexpr auto h = domain.unit() / mac.refinement();
-	constexpr auto k = 0.000016_s * (h / 1_um) * (h / 1_um);
+	constexpr auto k = 0.0000016_s * (h / 1_um) * (h / 1_um);
 	constexpr ins::parameters params {k, time_scale, length_scale, 1_g / 1_mL, 1_cP, 1e-8};
 
+	constexpr forces::skalak tension{2.5e-3_dyn/1_cm, 2.5e-1_dyn/1_cm};
+	constexpr forces::bending bending{2e-12_erg};
+	constexpr forces::repelling repelling{2.5e-3_dyn/1_cm};
+	constexpr forces::combine forces{tension, bending, repelling};
+
+	util::logging::info("meter: ", units::m);
 	util::logging::info("time scale: ", params.time_scale);
 	util::logging::info("length scale: ", params.length_scale);
 	util::logging::info("h: ", h);
@@ -203,6 +209,9 @@ main(int argc, char** argv)
 	util::logging::info("μ: ", params.viscosity);
 	util::logging::info("ρ: ", params.density);
 	util::logging::info("λ: ", params.coefficient * k / (h * h));
+
+	util::logging::info("tension info: shear =  ", tension.shear, " bulk = ", tension.bulk);
+	util::logging::info("bending info: modulus = ", bending.modulus);
 
 	constexpr ib::spread spread{mac, domain};
 	constexpr ib::interpolate interpolate{mac, domain};
@@ -219,12 +228,6 @@ main(int argc, char** argv)
 	auto n = rows * cols / domain.dimensions;
 	ins::solver step{mac, domain, params};
 
-	constexpr forces::skalak tension{2.5e-3_dyn/1_cm, 2.5e-1_dyn/1_cm};
-	constexpr forces::bending bending{2e-12_erg};
-	constexpr forces::repelling repelling{2.5e-3_dyn/1_cm};
-	constexpr forces::combine forces{tension, bending, repelling};
-	util::logging::info("tension info: shear = ", tension.shear, " bulk = ", tension.bulk);
-	util::logging::info("bending info: modulus = ", bending.modulus);
 	matrix f_l = forces(rbcs);
 
 	auto f = [&] (const auto& v)
@@ -262,12 +265,12 @@ main(int argc, char** argv)
 	stop.record();
 	util::logging::info("runtime: ", stop - start, "ms");
 
-	{
+	/*{
 		auto store = [&] (vector& v) { std::cout << linalg::io::binary << v; };
 		util::functional::map(store, u);
 		util::functional::map(store, ub);
 		std::cout << linalg::io::binary << rbcs.x;
-	}
+	}*/
 
 	return return_code;
 }

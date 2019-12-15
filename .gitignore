@@ -6,10 +6,12 @@
 # unignore directories
 !*/
 
+# editor temp files
 *.swp
 *.swo
 *~
 
+# compilation targets
 bin/*
 lib/*
 obj/*
@@ -22,12 +24,19 @@ dep/*
 *.d
 *.s
 
+# python stuff
 *.py
 __pycache__/*
 pyvenv.cfg
 pip-selfcheck.json
 
 *.log
+*.bin
+*.hex
+*.mat
+*.pdf
+*.mtx
+*.pos
 TODO
 
 .*
@@ -36,3 +45,8 @@ trials/
 other/
 notes/
 reference/
+share/
+
+# ingore old code
+ib/
+src/

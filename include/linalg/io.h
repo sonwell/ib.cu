@@ -246,6 +246,14 @@ struct tmpflags {
 
 template <typename value_type>
 void
+text_value(std::ostream& out, value_type v)
+{
+	if (1.0 / real(v) > 0) out << ' ';
+	out << v;
+}
+
+template <typename value_type>
+void
 write(std::ostream& out, const text& fmt, base_t<value_type> scale,
 		const vector<dense<value_type>>& v)
 {
@@ -256,7 +264,7 @@ write(std::ostream& out, const text& fmt, base_t<value_type> scale,
 	out << fmt.vector_begin;
 	for (int i = 0; i < n; ++i) {
 		if (i) out << fmt.vector_delim;
-		out << w[i] * scale;
+		text_value(out, w[i] * scale);
 	}
 	out << fmt.vector_end;
 }
@@ -277,9 +285,9 @@ write(std::ostream& out, const text& fmt, base_t<value_type> scale,
 	for (int i = 0; i < n; ++i) {
 		if (i) out << fmt.vector_delim;
 		if (offset < nnz && k[offset] == i)
-			out << v[offset++] * scale;
+			text_value(out, v[offset++] * scale);
 		else
-			out << (value_type) 0;
+			text_value(out, (value_type) 0);
 	}
 	out << fmt.vector_end;
 	if (offset < nnz)
@@ -302,7 +310,7 @@ write(std::ostream& out, const text& fmt, base_t<value_type> scale,
 		out << fmt.row_begin;
 		for (int j = 0; j < m; ++j) {
 			if (j) out << fmt.matrix_delim;
-			out << w[i + j * n] * scale;
+			text_value(out, w[i + j * n] * scale);
 		}
 		out << fmt.row_end;
 	}
@@ -331,9 +339,9 @@ write(std::ostream& out, const text& fmt, base_t<value_type> scale,
 		for (int j = 0; j < m; ++j) {
 			if (j) out << fmt.matrix_delim;
 			if (offset < end && k[offset] == j)
-				out << v[offset] * scale;
+				text_value(out, v[offset] * scale);
 			else
-				out << (value_type) 0;
+				text_value(out, (value_type) 0);
 		}
 		out << fmt.row_end;
 		if (offset < end)

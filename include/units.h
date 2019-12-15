@@ -8,13 +8,38 @@ namespace units {
 
 using tmpl_type = std::intmax_t;
 
+namespace detail {
+
+constexpr auto
+pow(double base, int exp)
+{
+	if (exp == 0) return 1.0;
+	if (exp == 1) return base;
+	if (exp < 0) return 1 / pow(base, -exp);
+	auto r = pow(base, exp >> 1);
+	return pow(base, exp & 1) * r * r;
+}
+
+static constexpr auto length_scale = 1'000.     /* per cm */;
+static constexpr auto mass_scale   = 1'000'000. /* per  g */;
+static constexpr auto time_scale   = 1'000.     /* per  s */;
+
+template <tmpl_type dist, tmpl_type mass, tmpl_type time>
+inline constexpr auto scale =
+		pow(length_scale, dist) * pow(mass_scale, mass) * pow(time_scale, time);
+
+} // namespace detail
+
 template <tmpl_type dist, tmpl_type mass, tmpl_type time>
 struct unit {
-
+private:
 	static constexpr auto distance_exponent = dist;
 	static constexpr auto mass_exponent = mass;
 	static constexpr auto time_exponent = time;
+	static constexpr auto scale = detail::scale<dist, mass, time>;
 
+	double value;
+public:
 	constexpr operator double() const { return value; }
 	constexpr unit(double v) : value(v) {}
 
@@ -24,8 +49,6 @@ struct unit {
 	constexpr unit& operator/=(const unit<0, 0, 0>& u) { value /= u.value; return *this; }
 	constexpr unit& operator+=(const unit& u) { value += u.value; return *this; }
 	constexpr unit& operator-=(const unit& u) { value -= u.value; return *this; }
-private:
-	double value;
 };
 
 std::string
@@ -46,9 +69,11 @@ std::ostream&
 operator<<(std::ostream& out, const unit<dist, mass, time>& u)
 {
 	using namespace util::functional;
-	constexpr const char* symbols[] = {"pg", "μm", "μs"};
+	constexpr auto scale = detail::scale<dist, mass, time>;
+	constexpr const char* symbols[] = {"g", "cm", "s"};
 	constexpr tmpl_type counts[] = {mass, dist, time};
-	out << (double) u;
+	double raw = u;
+	out << raw / scale;
 
 	bool printed = false;
 	auto e = [&] (const char* symbol, tmpl_type count)
@@ -167,11 +192,6 @@ using density = unit<-3, 1, 0>;
 using work = unit<2, 1, -2>;
 using energy = work;
 
-
-inline constexpr length m = 1'000'000 /* μm */;
-inline constexpr time   s = 1'000'000 /* μs */;
-inline constexpr mass   g = 1'000'000'000'000 /* pg */;
-
 inline constexpr auto atto = std::atto{};
 inline constexpr auto femto = std::femto{};
 inline constexpr auto pico = std::pico{};
@@ -188,6 +208,10 @@ inline constexpr auto giga = std::giga{};
 inline constexpr auto tera = std::tera{};
 inline constexpr auto peta = std::peta{};
 inline constexpr auto exa = std::exa{};
+
+inline constexpr length m = 100 /* cm per m */ * detail::scale<1, 0, 0>;
+inline constexpr mass   g = detail::scale<0, 1, 0>;
+inline constexpr time   s = detail::scale<0, 0, 1>;
 
 inline constexpr auto kg = kilo * g;
 inline constexpr auto N = kg * m / (s * s);

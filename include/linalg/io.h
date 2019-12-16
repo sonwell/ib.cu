@@ -155,9 +155,9 @@ inline struct numpy : algebraic {
 private:
 	struct private_tag {};
 	numpy(private_tag, std::string imported_name, std::string padding) :
-		algebraic{" #", imported_name + ".array([\n" + padding,
-			",\n" + padding, "\n])", imported_name + ".array([\n",
-			"[", ", ", "]", "\n" + padding, "])", "\\"} {}
+		algebraic{" #",
+			imported_name + ".array([\n" + padding, ",\n" + padding, "\n])",
+			imported_name + ".array([\n" + padding, "[", ", ", "]", ",\n" + padding, "])", "\\"} {}
 public:
 	numpy(std::string imported_name = "np", std::string padding = "") :
 		numpy(private_tag{}, imported_name, padding + "    ") {}

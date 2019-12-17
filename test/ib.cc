@@ -1,4 +1,6 @@
 #include <fstream>
+#include <cstdio>
+#include <unistd.h>
 #include "util/memory_resource.h"
 #include "cuda/device.h"
 #include "fd/grid.h"
@@ -56,8 +58,7 @@ struct python_writer {
 	template <typename reference_type>
 	python_writer(const bases::container<reference_type>& container,
 			const matrix& f, std::ostream& output = std::cout) :
-		output(output), count(0)
-	{ initialize(container, f); }
+		output(output), count(0) { initialize(container, f); }
 
 	~python_writer() { output << "plotter.animate()\n"; }
 
@@ -265,12 +266,12 @@ main(int argc, char** argv)
 	stop.record();
 	util::logging::info("runtime: ", stop - start, "ms");
 
-	/*{
-		auto store = [&] (vector& v) { std::cout << linalg::io::binary << v; };
+	if (!isatty(fileno(stdout))) {
+		auto store = [&] (auto&& v) { std::cout << linalg::io::binary << v; };
 		util::functional::map(store, u);
 		util::functional::map(store, ub);
-		std::cout << linalg::io::binary << rbcs.x;
-	}*/
+		store(rbcs.x);
+	}
 
 	return return_code;
 }

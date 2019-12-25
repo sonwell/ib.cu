@@ -35,4 +35,5 @@ public:
 		dev(dev) {}
 
 };
+
 } // namespace cuda

@@ -36,14 +36,15 @@ struct binary_writer {
 	std::ostream& output = std::cout;
 	int count = 0;
 
-	template <typename container_type>
+	template <typename u_type, typename ub_type>
 	void
-	operator()(const container_type& u, const matrix& x)
+	operator()(const u_type& u, const ub_type& ub, const matrix& x)
 	{
 		if ((count++) % steps_per_print) return;
 		using namespace util::functional;
 		auto store = [&] (auto&& v) { output << linalg::io::binary << v; };
 		map(store, u);
+		map(store, ub);
 		store(x);
 	}
 
@@ -54,8 +55,8 @@ struct binary_writer {
 struct null_writer {
 	null_writer(std::ostream& = std::cout) {}
 
-	template <typename container_type>
-	void operator()(const container_type&, const matrix&) {}
+	template <typename u_type, typename ub_type>
+	void operator()(const u_type&, const ub_type&, const matrix&) {}
 };
 
 template <typename tag_type, typename domain_type>
@@ -237,7 +238,7 @@ main(int argc, char** argv)
 	binary_writer write;
 	timer t{"runtime"};
 
-	write(u, rbcs.x);
+	write(u, ub, rbcs.x);
 	for (int i = 0; i < iterations; ++i) {
 		util::logging::info("simulation time: ", i * params.timestep);
 		try { u = step(u, ub, f); }
@@ -247,6 +248,6 @@ main(int argc, char** argv)
 		}
 		auto v = (double) k * interpolate(n, rbcs.x, u);
 		rbcs.x += v;
-		write(u, rbcs.x);
+		write(u, ub, rbcs.x);
 	}
 }

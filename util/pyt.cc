@@ -1,3 +1,4 @@
+#include "util/functional.h"
 #include "bases/types.h"
 #include "bases/container.h"
 #include "bases/phs.h"
@@ -36,7 +37,7 @@ struct python_writer {
 
 		auto n = container.points().data;
 		auto p = bases::traits<reference_type>::sample(n);
-		auto&& [data, sample] = container.geometry(bases::current);
+		const auto& [data, sample] = container.geometry(bases::current);
 		auto f = forces(container);
 		output << "p = " << linalg::io::numpy << p << '\n';
 		output << "x0 = " << linalg::io::numpy << data.position << '\n';
@@ -57,7 +58,7 @@ struct python_writer {
 	void
 	operator()(const bases::container<reference_type>& container)
 	{
-		auto&& [data, sample] = container.geometry(bases::current);
+		const auto& [data, sample] = container.geometry(bases::current);
 		auto f = forces(container);
 		output << "x = " << linalg::io::numpy << data.position << '\n';
 		output << "y = " << linalg::io::numpy << sample.position << '\n';
@@ -67,17 +68,18 @@ struct python_writer {
 };
 
 struct state {
-	vector u;
+	vector u[3];
+	vector ub[3];
 	matrix x;
 };
 
 std::istream&
 operator>>(std::istream& in, state& st)
 {
+	using namespace util::functional;
 	auto load = [&] (auto& v) { in >> linalg::io::binary >> v; };
-	load(st.u);
-	load(st.u);
-	load(st.u);
+	map(load, st.u);
+	map(load, st.ub);
 	load(st.x);
 	return in;
 }

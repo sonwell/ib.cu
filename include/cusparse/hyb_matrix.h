@@ -15,7 +15,7 @@ using hyb_partition_adaptor = util::adaptor<
 	util::enum_container<hyb_partition,
 			hyb_partition::automatic,
 			hyb_partition::user,
-			hyb_partition::max>>;
+			hyb_partition::maximum>>;
 
 inline void
 create(hyb_mat_t& matrix)
@@ -29,17 +29,16 @@ destroy(hyb_mat_t& matrix)
 	throw_if_error(cusparseDestroyHybMat(matrix));
 }
 
-class hyb_matrix : public type_wrapper<hyb_mat_t> {
+class hyb_matrix : public cusparse::type_wrapper<hyb_mat_t> {
 private:
+	using base = cusparse::type_wrapper<hyb_mat_t>;
 	using hp_a = hyb_partition_adaptor;
 	hyb_partition _partition;
 
 	hp_a hp() const { return _partition; }
-	void hp(const hp_a& v) { return _partition = v; }
-protected:
-	using type_wrapper<hyb_mat_t>::data;
+	void hp(const hp_a& v) { _partition = v; }
 public:
-	util::cached<hp_a> partition;
+	util::getset<hp_a> partition;
 
 	hyb_matrix() :
 		base(), _partition(hyb_partition::automatic),

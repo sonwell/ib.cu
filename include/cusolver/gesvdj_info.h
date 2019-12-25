@@ -14,7 +14,7 @@ create(gesvdj_info_t& info)
 inline void
 destroy(gesvdj_info_t& info)
 {
-	throw_if_error(cusolverDnDestroyGesvdjInfo(&info));
+	throw_if_error(cusolverDnDestroyGesvdjInfo(info));
 }
 
 inline void
@@ -35,10 +35,10 @@ set_sort_eigenvalues(gesvdj_info_t& info, bool s)
 	cusolverDnXgesvdjSetSortEig(info, s);
 }
 
-class syevj_info : type_wrapper<gesvdj_info_t> {
+struct gesvdj_info : cusolver::type_wrapper<gesvdj_info_t> {
 private:
-	using base = type_wrapper<gesvdj_info_t>;
-	using base::data;
+	using base = cusolver::type_wrapper<gesvdj_info_t>;
+	using base::value;
 public:
 	util::cached<double> tolerance;
 	util::cached<int> max_sweeps;
@@ -46,19 +46,19 @@ public:
 
 	gesvdj_info() :
 		base(),
-		tolerance([&] (const double& t) { set_tolerance(data, t); }, 0),
-		max_sweeps([&] (const int& s) { set_max_sweeps(data, s); }, 100),
-		sort([&] (const bool& s) { set_sort_eigenvalues(data, s); }, true) {}
+		tolerance([&] (const double& t) { set_tolerance(value, t); }, 0),
+		max_sweeps([&] (const int& s) { set_max_sweeps(value, s); }, 100),
+		sort([&] (const bool& s) { set_sort_eigenvalues(value, s); }, true) {}
 	gesvdj_info(gesvdj_info_t& info) :
 		base(info),
-		tolerance([&] (const double& t) { set_tolerance(data, t); }, 0),
-		max_sweeps([&] (const int& s) { set_max_sweeps(data, s); }, 100),
-		sort([&] (const bool& s) { set_sort_eigenvalues(data, s); }, true) {}
+		tolerance([&] (const double& t) { set_tolerance(value, t); }, 0),
+		max_sweeps([&] (const int& s) { set_max_sweeps(value, s); }, 100),
+		sort([&] (const bool& s) { set_sort_eigenvalues(value, s); }, true) {}
 	gesvdj_info(gesvdj_info_t&&) : gesvdj_info() {}
 };
 
 inline double
-residual(dense::handle& h, syevj_info& info)
+residual(dense::handle& h, gesvdj_info& info)
 {
 	double res;
 	throw_if_error(cusolverDnXgesvdjGetResidual(h, info, &res));
@@ -66,7 +66,7 @@ residual(dense::handle& h, syevj_info& info)
 }
 
 inline int
-sweeps(dense::handle& h, syevj_info& info)
+sweeps(dense::handle& h, gesvdj_info& info)
 {
 	int sweeps;
 	throw_if_error(cusolverDnXgesvdjGetSweeps(h, info, &sweeps));

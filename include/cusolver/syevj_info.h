@@ -14,7 +14,7 @@ create(syevj_info_t& info)
 inline void
 destroy(syevj_info_t& info)
 {
-	throw_if_error(cusolverDnCreateSyevjInfo(info));
+	throw_if_error(cusolverDnDestroySyevjInfo(info));
 }
 
 inline void
@@ -35,10 +35,10 @@ set_sort_eigenvalues(syevj_info_t& info, bool s)
 	cusolverDnXsyevjSetSortEig(info, s);
 }
 
-class syevj_info : type_wrapper<syevj_info_t> {
+struct syevj_info : cusolver::type_wrapper<syevj_info_t> {
 private:
-	using base = type_wrapper<syevj_info_t>;
-	using base::data;
+	using base = cusolver::type_wrapper<syevj_info_t>;
+	using base::value;
 public:
 	util::cached<double> tolerance;
 	util::cached<int> max_sweeps;
@@ -46,14 +46,14 @@ public:
 
 	syevj_info() :
 		base(),
-		tolerance([&] (const double& t) { set_tolerance(data, t); }, 0),
-		max_sweeps([&] (const int& s) { set_max_sweeps(data, s); }, 100),
-		sort([&] (const bool& s) { set_sort_eigenvalues(data, s); }, true) {}
+		tolerance([&] (const double& t) { set_tolerance(value, t); }, 0),
+		max_sweeps([&] (const int& s) { set_max_sweeps(value, s); }, 100),
+		sort([&] (const bool& s) { set_sort_eigenvalues(value, s); }, true) {}
 	syevj_info(syevj_info_t& info) :
 		base(info),
-		tolerance([&] (const double& t) { set_tolerance(data, t); }, 0),
-		max_sweeps([&] (const int& s) { set_max_sweeps(data, s); }, 100),
-		sort([&] (const bool& s) { set_sort_eigenvalues(data, s); }, true) {}
+		tolerance([&] (const double& t) { set_tolerance(value, t); }, 0),
+		max_sweeps([&] (const int& s) { set_max_sweeps(value, s); }, 100),
+		sort([&] (const bool& s) { set_sort_eigenvalues(value, s); }, true) {}
 	syevj_info(syevj_info_t&& info) : syevj_info() {}
 };
 

@@ -40,16 +40,17 @@ struct postdecrementable {
 template <typename wrapped_type>
 class getset {
 protected:
-	using value_type = wrapped_type;
-	using getter_type = std::function<value_type(void)>;
-	using setter_type = std::function<void(const value_type&)>;
+	using value_type = std::remove_reference_t<wrapped_type>;
+	using getter_type = std::function<wrapped_type(void)>;
+	using setter_type = std::function<void(value_type)>;
 
 	getter_type getter;
 	setter_type setter;
 public:
 	template <typename cast_type>
 		constexpr operator cast_type() const { return (cast_type) getter(); }
-	constexpr operator value_type() const { return getter(); }
+	constexpr operator wrapped_type() const { return getter(); }
+	constexpr getset& operator=(value_type&& v) { setter(std::move(v)); return *this; }
 	constexpr getset& operator=(const value_type& v) { setter(v); return *this; }
 
 	constexpr getset(getter_type g, setter_type s) :
@@ -76,7 +77,7 @@ template <typename wrapped_type, typename arg_type, \
 decltype(auto) \
 operator op(getset<wrapped_type>& wr, arg_type&& arg) \
 { \
-	wrapped_type v = wr; \
+	std::remove_reference_t<wrapped_type> v = wr; \
 	v op std::forward<arg_type>(arg); \
 	return wr = v; \
 }
@@ -85,7 +86,7 @@ template <typename wrapped_type> \
 constexpr std::enable_if_t<post<wrapped_type>::value, wrapped_type> \
 operator op(getset<wrapped_type>& wr, int) \
 { \
-	wrapped_type v = wr; \
+	std::remove_reference_t<wrapped_type> v = wr; \
 	auto w = v; \
 	v op; \
 	wr = v; \
@@ -95,7 +96,7 @@ template <typename wrapped_type> \
 constexpr std::enable_if_t<pre<wrapped_type>::value, wrapped_type> \
 operator op(getset<wrapped_type>& wr) \
 { \
-	wrapped_type v = wr; \
+	std::remove_reference_t<wrapped_type> v = wr; \
 	op v; \
 	wr = v; \
 	return v; \
@@ -126,8 +127,8 @@ template <typename wrapped_type, typename arg_type, \
 constexpr decltype(auto) \
 operator op(getset<wrapped_type>& gs, arg_type&& arg) \
 { \
-	wrapped_type& wr = gs; \
-	auto r = wr op std::forward<arg_type>(arg); \
+	wrapped_type wr = gs; \
+	auto&& r = wr op std::forward<arg_type>(arg); \
 	gs = wr; \
 	return r; \
 } \
@@ -136,7 +137,7 @@ template <typename wrapped_type, typename arg_type, \
 constexpr decltype(auto) \
 operator op(const getset<wrapped_type>& gs, arg_type&& arg) \
 { \
-	const wrapped_type& wr = gs; \
+	const wrapped_type wr = gs; \
 	return wr op std::forward<arg_type>(arg); \
 } \
 template <typename wrapped_type, typename arg_type, \
@@ -144,8 +145,8 @@ template <typename wrapped_type, typename arg_type, \
 constexpr decltype(auto) \
 operator op(arg_type&& arg, getset<wrapped_type>& gs) \
 { \
-	wrapped_type& wr = gs; \
-	auto r = std::forward<arg_type>(arg) op wr; \
+	wrapped_type wr = gs; \
+	auto&& r = std::forward<arg_type>(arg) op wr; \
 	gs = wr; \
 	return r; \
 } \
@@ -154,7 +155,7 @@ template <typename wrapped_type, typename arg_type, \
 constexpr decltype(auto) \
 operator op(arg_type&& arg, const getset<wrapped_type>& gs) \
 { \
-	const wrapped_type& wr = gs; \
+	const wrapped_type wr = gs; \
 	return std::forward<arg_type>(arg) op wr; \
 }
 
@@ -191,9 +192,10 @@ public:
 	constexpr cached(setter_type s, value_type v) :
 		base{
 			[&] () { return value; },
-			[&, s=s] (const value_type& v) { value = v; s(v); }
+			[&, s=s] (value_type v) { value = std::move(v); s(value); }
 		},
 		value(v) {}
+	using base::operator=;
 
 	constexpr cached(const cached&) = delete;
 	constexpr cached(cached&&) = delete;

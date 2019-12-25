@@ -31,54 +31,28 @@
 using bases::matrix;
 using bases::vector;
 
-struct python_writer {
-	static constexpr auto steps_per_print = 10;
+struct binary_writer {
+	static constexpr int steps_per_print = 100;
 	std::ostream& output = std::cout;
-	int count;
+	int count = 0;
 
-	template <typename reference_type>
+	template <typename container_type>
 	void
-	initialize(const bases::container<reference_type>& container, const matrix& f)
+	operator()(const container_type& u, const matrix& x)
 	{
-		auto n = container.points().data;
-		auto p = bases::traits<reference_type>::sample(n);
-		output << "import numpy as np\n";
-		output << "from mayavi import mlab\n";
-		output << "import rbc_plotter\n\n";
-
-		auto&& [data, sample] = container.geometry(bases::current);
-		output << "p = " << linalg::io::numpy << p << '\n';
-		output << "x0 = " << linalg::io::numpy << data.position << '\n';
-		output << "y0 = " << linalg::io::numpy << sample.position << '\n';
-		output << "f0 = " << linalg::io::numpy << f << '\n';
-		output << "plotter = rbc_plotter.Plotter(rbc_plotter.Sphere, p, x0, y0, f0)\n";
+		if ((count++) % steps_per_print) return;
+		using namespace util::functional;
+		auto store = [&] (auto&& v) { output << linalg::io::binary << v; };
+		map(store, u);
+		store(x);
 	}
 
-
-	template <typename reference_type>
-	python_writer(const bases::container<reference_type>& container,
-			const matrix& f, std::ostream& output = std::cout) :
-		output(output), count(0) { initialize(container, f); }
-
-	~python_writer() { output << "plotter.animate()\n"; }
-
-	template <typename reference_type>
-	void
-	operator()(const bases::container<reference_type>& container, const matrix& f)
-	{
-		if ((++count) % steps_per_print) return;
-		auto&& [data, sample] = container.geometry(bases::current);
-		output << "x = " << linalg::io::numpy << data.position << '\n';
-		output << "y = " << linalg::io::numpy << sample.position << '\n';
-		output << "f = " << linalg::io::numpy << f << '\n';
-		output << "plotter.plot(x, y, f)\n";
-	}
+	binary_writer(std::ostream& output = std::cout) :
+		output(output) {}
 };
 
 struct null_writer {
-	template <typename reference_type>
-	null_writer(const bases::container<reference_type>&,
-			const matrix&, std::ostream& = std::cout) {}
+	null_writer(std::ostream& = std::cout) {}
 
 	template <typename container_type>
 	void operator()(const container_type&, const matrix&) {}
@@ -174,9 +148,23 @@ resume(const domain_type& domain, const char* filename)
 	auto u = map(load, domain.components());
 	auto ub = map(load, domain.components());
 	input >> linalg::io::binary >> x;
+	if (input.eof())
+		throw std::runtime_error("expected initialization state");
 
 	return std::make_tuple(std::move(u), std::move(ub), std::move(x));
 }
+
+struct timer {
+	std::string id;
+	cuda::event start, stop;
+
+	timer(std::string id) :
+		id(id) { start.record(); }
+	~timer() {
+		stop.record();
+		util::logging::info(id, ": ", stop-start, "ms");
+	}
+};
 
 int
 main(int argc, char** argv)
@@ -246,32 +234,19 @@ main(int argc, char** argv)
 		return g;
 	};
 
-	int return_code = 0;
-	std::ofstream py("out.py");
-	python_writer write(rbcs, f_l, py);
-	cuda::event start, stop;
-	start.record();
+	binary_writer write;
+	timer t{"runtime"};
+
+	write(u, rbcs.x);
 	for (int i = 0; i < iterations; ++i) {
 		util::logging::info("simulation time: ", i * params.timestep);
 		try { u = step(u, ub, f); }
 		catch (std::runtime_error& e) {
 			util::logging::error(e.what());
-			return_code = -1;
-			break;
+			return -1;
 		}
 		auto v = (double) k * interpolate(n, rbcs.x, u);
 		rbcs.x += v;
-		write(rbcs, f_l);
+		write(u, rbcs.x);
 	}
-	stop.record();
-	util::logging::info("runtime: ", stop - start, "ms");
-
-	if (!isatty(fileno(stdout))) {
-		auto store = [&] (auto&& v) { std::cout << linalg::io::binary << v; };
-		util::functional::map(store, u);
-		util::functional::map(store, ub);
-		store(rbcs.x);
-	}
-
-	return return_code;
 }

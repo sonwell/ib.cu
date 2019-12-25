@@ -11,12 +11,9 @@
 namespace ins {
 namespace solvers {
 
-struct solver {
-	virtual vector operator()(const vector&) const = 0;
-};
+struct solver { virtual vector operator()(vector) const = 0; };
 
-inline decltype(auto)
-solve(const solver& slv, const vector& b) { return slv(b); }
+inline auto solve(const solver& slv, vector b) { return slv(std::move(b)); }
 
 namespace __1 {
 
@@ -25,10 +22,10 @@ private:
 	chebyshev(std::pair<double, double> range, const algo::matrix& m) :
 		algo::chebyshev(range.second, range.first, m) {}
 public:
-	virtual algo::vector
-	operator()(const algo::vector& b) const
+	virtual vector
+	operator()(vector b) const
 	{
-		return algo::chebyshev::operator()(b);
+		return algo::chebyshev::operator()(std::move(b));
 	}
 
 	chebyshev(const algo::matrix& m) :
@@ -43,9 +40,9 @@ struct ilu : algo::symmilu {
 
 struct multigrid : algo::preconditioner, mg::solver {
 	virtual vector
-	operator()(const vector& v) const
+	operator()(vector v) const
 	{
-		return mg::solver::operator()(v, 1);
+		return mg::solver::operator()(std::move(v), 1);
 	}
 
 	template <typename grid_type, typename sm_gen_type, typename op_gen_type>
@@ -65,10 +62,10 @@ private:
 	chebyshev preconditioner;
 public:
 	virtual vector
-	operator()(const vector& v) const
+	operator()(vector v) const
 	{
 		using algo::krylov::pcg;
-		return pcg(preconditioner, m, v, tolerance);
+		return pcg(preconditioner, m, std::move(v), tolerance);
 	}
 
 	chebpcg(double tolerance, matrix op) :
@@ -89,10 +86,10 @@ private:
 	ilu preconditioner;
 public:
 	virtual vector
-	operator()(const vector& v) const
+	operator()(vector v) const
 	{
 		using algo::krylov::pcg;
-		return pcg(preconditioner, m, v, tolerance);
+		return pcg(preconditioner, m, std::move(v), tolerance);
 	}
 
 	template <typename grid_type>
@@ -109,11 +106,11 @@ private:
 	multigrid preconditioner;
 public:
 	virtual vector
-	operator()(const vector& v) const
+	operator()(vector v) const
 	{
 		using algo::krylov::pcg;
 		const matrix& m = preconditioner.op();
-		return pcg(preconditioner, m, v, tolerance);
+		return pcg(preconditioner, m, std::move(v), tolerance);
 	}
 
 	template <typename grid_type, typename sm_gen_type, typename op_gen_type>

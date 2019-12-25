@@ -53,18 +53,17 @@ private:
 	double tolerance;
 	matrix identity;
 	matrix laplacian;
-	multigrid solver;
+	chebyshev solver;
 public:
 	vector
-	operator()(double frac, const vector& u, vector rhs,
-			const vector& f) const
+	operator()(double frac, const vector& u, vector rhs, vector f) const
 	{
 		double mu = coefficient;
 		double k = frac * timestep;
 		gemv(1.0, laplacian, u, 1.0, rhs);
 		gemv(k, identity, f, k * mu, rhs);
 		util::logging::info("helmholtz solve ", abs(rhs) / frac);
-		return solve(solver, rhs) + u;
+		return solve(solver, std::move(rhs)) + u;
 	}
 
 	diffusion(const grid_type& grid, const parameters& params) :

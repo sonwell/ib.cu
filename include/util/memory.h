@@ -6,13 +6,12 @@ namespace util {
 	template <typename type>
 	class memory {
 	protected:
-		memory&
+		void
 		swap(memory& o)
 		{
 			std::swap(_alloc, o._alloc);
 			std::swap(_size, o._size);
 			std::swap(_ptr, o._ptr);
-			return *this;
 		}
 	public:
 		using value_type = type;
@@ -28,7 +27,7 @@ namespace util {
 		operator pointer() const { return _ptr; }
 		pointer data() const { return _ptr; }
 		std::size_t size() const { return _size; }
-		memory& operator=(memory&& o) { return swap(o); }
+		memory& operator=(memory&& o) { swap(o); return *this; }
 		memory& operator=(std::nullptr_t) { this->~memory(); return *this; }
 
 		memory(std::size_t size = 0, const allocator_type& alloc = allocator_type()) :

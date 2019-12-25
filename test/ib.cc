@@ -235,9 +235,9 @@ main(int argc, char** argv)
 	{
 		auto& x = rbcs.geometry(bases::current).data.position;
 		auto n = x.rows() * x.cols() / domain.dimensions;
-		auto u = interpolate(n, x, v);
+		auto z = (double) k * interpolate(n, x, v) + x;
 
-		bases::container tmp{ref, x + (double) k * std::move(u)};
+		bases::container tmp{ref, z};
 		auto& y = tmp.geometry(bases::current).sample.position;
 		auto m = y.rows() * y.cols() / domain.dimensions;
 		auto f = forces(tmp);

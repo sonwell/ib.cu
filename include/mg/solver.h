@@ -19,10 +19,10 @@ protected:
 	double tolerance;
 	matrix op;
 
-	virtual vector nested_iteration(const vector&) const = 0;
-	virtual vector vcycle(const vector&) const = 0;
-	virtual vector operator()(const vector&) const = 0;
-	virtual vector operator()(const vector&, int) const = 0;
+	virtual vector nested_iteration(vector) const = 0;
+	virtual vector vcycle(vector) const = 0;
+	virtual vector operator()(vector) const = 0;
+	virtual vector operator()(vector, int) const = 0;
 public:
 	virtual ~base_solver() {}
 protected:
@@ -39,14 +39,16 @@ using solver_ptr = std::unique_ptr<base_solver>;
 using smoother_ptr = std::unique_ptr<smoother>;
 
 class direct_solver : public base_solver {
+private:
+	vector relax(const vector& v) const { return solve(*sm, v); }
 protected:
 	using base_solver::op;
 	smoother_ptr sm;
 
-	virtual vector nested_iteration(const vector& v) const { return operator()(v, 0); }
-	virtual vector vcycle(const vector& v) const { return operator()(v, 0); }
-	virtual vector operator()(const vector& v, int) const { return solve(*sm, v); }
-	virtual vector operator()(const vector& v) const { return operator()(v, 0); }
+	virtual vector nested_iteration(vector v) const { return relax(v); }
+	virtual vector vcycle(vector v) const { return relax(v); }
+	virtual vector operator()(vector v, int) const { return relax(v); }
+	virtual vector operator()(vector v) const { return relax(v); }
 
 	template <typename grid_type, typename op_func, typename sm_func>
 	direct_solver(const grid_type& grid, double tolerance, op_func op, sm_func sm) :
@@ -65,7 +67,7 @@ private:
 	vector smooth(const vector& b) const { return solve(*sm, b); }
 
 	vector
-	smooth(const vector& x, const vector& b) const
+	smooth(const vector& x, vector b) const
 	{
 		return smooth(residual(x, b)) + x;
 	}
@@ -79,60 +81,56 @@ private:
 
 	template <typename pred_type>
 	vector
-	iterate(const vector& b, pred_type pred) const
+	iterate(vector b, pred_type pred) const
 	{
+		auto x = nested_iteration(b);
+		if (!pred(0)) return x;
+		auto r = residual(x, std::move(b));
 		int iteration = 0;
-		auto fine = nested_iteration(b);
-		auto r = residual(fine, b);
-		// short-circuit to avoid calling abs
-		while (pred(iteration++) && abs(r) > tolerance) {
-			fine += vcycle(r);
-			r = residual(fine, b);
+		while (abs(r) > tolerance) {
+			auto e = vcycle(r);
+			axpy(1.0, e, x);
+			if (!pred(iteration++))
+				break;
+			gemv(-1.0, op, e, 1.0, r);
 		}
-		return fine;
+		return x;
 	}
 protected:
 	using base_solver::op;
 
-	vector
-	init(const vector& b) const
+	virtual vector
+	nested_iteration(vector b) const
 	{
-		auto restricted = restriction * b;
-		auto iterated = coarse->nested_iteration(restricted);
-		auto interpolated = interpolation * iterated;
-		return interpolated;
+		auto x = restriction * b;
+		x = coarse->nested_iteration(std::move(x));
+		x = interpolation * x;
+		auto r = residual(x, std::move(b));
+		x += vcycle(std::move(r));
+		return x;
 	}
 
 	virtual vector
-	nested_iteration(const vector& b) const
+	vcycle(vector b) const
 	{
-		auto fine = init(b);
-		auto r = residual(fine, b);
-		fine += vcycle(r);
-		return fine;
+		auto x = smooth(b);
+		auto r = residual(x, b);
+		r = restriction * r;
+		r = coarse->vcycle(std::move(r));
+		gemv(1.0, interpolation, r, 1.0, x);
+		return smooth(x, std::move(b));
 	}
 
 	virtual vector
-	vcycle(const vector& b) const
+	operator()(vector b) const
 	{
-		auto fine = smooth(b);
-		auto r = residual(fine, b);
-		auto restricted = restriction * r;
-		auto approx = coarse->vcycle(restricted);
-		gemv(1.0, interpolation, approx, 1.0, fine);
-		return smooth(fine, b);
+		return iterate(std::move(b), [] (int) { return true; });
 	}
 
 	virtual vector
-	operator()(const vector& b) const
+	operator()(vector b, int its) const
 	{
-		return iterate(b, [] (int) { return true; });
-	}
-
-	virtual vector
-	operator()(const vector& b, int its) const
-	{
-		return iterate(b, [&] (int it) { return it < its; });
+		return iterate(std::move(b), [&] (int it) { return it < its; });
 	}
 
 	template <typename grid_type, typename op_func, typename sm_func>
@@ -181,8 +179,8 @@ private:
 		return *this;
 	}
 public:
-	vector operator()(const vector& x) const { return (*slv)(x); }
-	vector operator()(const vector& x, std::size_t it) const { return (*slv)(x, it); }
+	vector operator()(vector x) const { return (*slv)(std::move(x)); }
+	vector operator()(vector x, int it) const { return (*slv)(std::move(x), it); }
 	const matrix& op() const { return slv->op; }
 
 	template <typename grid_type, typename op_func, typename sm_func>

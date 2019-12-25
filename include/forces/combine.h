@@ -13,14 +13,18 @@ struct combine {
 
 	template <typename object_type>
 	decltype(auto)
-	operator()(const object_type& object) const
+	operator()(const object_type& obj) const
 	{
-		using bases::current;
 		using namespace util::functional;
-		const auto& curr = object.geometry(current).sample;
-		matrix f{linalg::size(curr.position), linalg::zero};
-		auto k = [&] (matrix l, const auto& r) { return l + r(object); };
-		return apply(partial(foldl, k, std::move(f)), forces);
+		if constexpr (!sizeof...(force_types)) {
+			using bases::current;
+			const auto& curr = obj.geometry(current).sample;
+			return matrix{linalg::size(curr.position), linalg::zero};
+		} else {
+			auto k = [&] (matrix l, auto& r) { return std::move(l) + r(obj); };
+			auto m = [&] (auto& f, auto& ... r) { return foldl(k, f(obj), r...); };
+			return apply(m, forces);
+		}
 	}
 
 	constexpr combine(force_types ... forces) :

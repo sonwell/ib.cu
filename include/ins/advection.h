@@ -82,6 +82,19 @@ private:
 		return map(k, std::make_index_sequence<dimensions>{});
 	}
 
+	template <typename ... vector_types>
+	auto
+	tensor_product(vector_types&& ... vectors) const
+	{
+		using namespace util::functional;
+		auto modulus = partial(apply, std::modulus<vector>());
+		auto hadamard = [&] (auto pairs) { return map(modulus, std::move(pairs)); };
+		auto averages = average(std::forward<vector_types>(vectors)...);
+		auto complements = apply(zip, averages);
+		auto pairs = map(zip, averages, std::move(complements));
+		return map(hadamard, std::move(pairs));
+	}
+
 	average_functor_type average;
 	divergence_functors_type divs;
 public:
@@ -92,14 +105,10 @@ public:
 		using namespace util::functional;
 		static_assert(sizeof...(vector_types) == dimensions,
 				"Number of vectors must match domain dimension");
-		auto averages = average(std::forward<vector_types>(vectors)...);
-		auto complements = apply(zip, averages);
-		auto pairs = map(zip, averages, std::move(complements));
-		auto modulus = partial(apply, std::modulus<vector>());
-		auto hadamard = [&] (auto&& pairs) { return map(modulus, pairs); };
-		auto scale = [] (vector&& v) { return v *= 0.5; };
-		auto products = map(hadamard, pairs);
-		return map(scale, map(apply, divs, products));
+		auto scale = [] (vector v) { return 0.5 * std::move(v); };
+
+		auto products = tensor_product(std::forward<vector_types>(vectors)...);
+		return map(scale, map(apply, divs, std::move(products)));
 	}
 
 	template <typename tag_type>

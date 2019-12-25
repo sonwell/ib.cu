@@ -111,7 +111,7 @@ internal_get(tuple_type&& tuple) noexcept
 }
 
 template <std::size_t i, typename value_type, std::size_t size>
-constexpr decltype(auto)
+constexpr value_type&
 internal_get(value_type (&arr)[size])
 {
 	return arr[i];
@@ -119,7 +119,7 @@ internal_get(value_type (&arr)[size])
 
 
 template <std::size_t i, typename value_type, std::size_t size>
-constexpr decltype(auto)
+constexpr const value_type&
 internal_get(const value_type (&arr)[size])
 {
 	return arr[i];
@@ -290,7 +290,7 @@ public:
 	}
 
 	constexpr partial(Fn&& fn, Args&& ... args) :
-		fn(fn), args{std::forward<Args>(args)...} {}
+		fn(std::forward<Fn>(fn)), args{std::forward<Args>(args)...} {}
 };
 
 struct partial_functor {

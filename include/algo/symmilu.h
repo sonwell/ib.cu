@@ -101,7 +101,7 @@ protected:
 	}
 
 	vector
-	solve(vector& v) const
+	solve(vector v) const
 	{
 		auto* cdata = colorer->starts();
 		auto colors = colorer->colors();
@@ -151,11 +151,11 @@ protected:
 	}
 public:
 	virtual vector
-	operator()(const vector& b) const
+	operator()(vector b) const
 	{
-		auto&& p = colorer->permute(b);
-		auto&& y = solve(p);
-		return colorer->unpermute(y);
+		auto p = colorer->permute(std::move(b));
+		auto y = solve(std::move(p));
+		return colorer->unpermute(std::move(y));
 	}
 
 	symmilu(const matrix& m, coloring_ptr colorer) :

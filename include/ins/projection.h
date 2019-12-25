@@ -103,10 +103,10 @@ public:
 		util::logging::info("⟨1, ∇·u*⟩: ", alpha);
 		axpy(-alpha, ones, div_u);
 		// solve kΔϕ = ∇·u
-		auto dt_phi = solve(solver, div_u);
-		auto dt_grad_phi = grad(dt_phi);
+		auto dt_phi = solve(solver, std::move(div_u));
+		auto dt_grad_phi = grad(std::move(dt_phi));
 		// update u := u - k∇ϕ
-		auto subtract = [] (auto& l, auto&& r) { l -= r; };
+		auto subtract = [] (auto& l, const auto& r) { l -= r; };
 		map(subtract, std::tie(vectors...), dt_grad_phi);
 		return dt_grad_phi;
 	}

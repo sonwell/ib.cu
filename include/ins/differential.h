@@ -59,11 +59,21 @@ public:
 	{
 		static_assert(sizeof...(Vs) == dimensions);
 		using namespace util::functional;
-		auto spmv = [] (const matrix& m, const vector& v) { return m * v; };
-		auto vectors = std::forward_as_tuple(std::forward<Vs>(vs)...);
-		auto products = map(spmv, base::differentials, std::move(vectors));
-		auto sum = partial(foldl, std::plus<vector>());
-		return apply(sum, std::move(products));
+		if constexpr (dimensions == 0) { return vector{1, linalg::zero}; }
+		else {
+			auto spmv = [] (const matrix& m, vector v) { return m * v; };
+			auto vectors = std::forward_as_tuple(std::forward<Vs>(vs)...);
+			auto pairs = zip(base::differentials, std::move(vectors));
+			auto op = [&] (vector v, auto&& r)
+			{
+				return std::move(v) + apply(spmv, std::forward<decltype(r)>(r));
+			};
+			auto peel = [&] (auto&& f, auto&& ... r)
+			{
+				return foldl(op, apply(spmv, f), std::forward<decltype(r)>(r)...);
+			};
+			return apply(peel, std::move(pairs));
+		}
 	}
 
 	template <typename tag_type, typename domain_type>

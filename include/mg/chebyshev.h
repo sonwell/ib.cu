@@ -24,9 +24,9 @@ private:
 		algo::chebyshev(std::get<0>(range), std::get<1>(range), m) {}
 public:
 	virtual vector
-	operator()(const vector& b) const
+	operator()(vector b) const
 	{
-		return algo::chebyshev::operator()(b);
+		return algo::chebyshev::operator()(std::move(b));
 	}
 
 	template <typename grid_type>

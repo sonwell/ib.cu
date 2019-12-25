@@ -96,9 +96,9 @@ private:
 		using namespace util::functional;
 
 		auto step = [&] (const stepper_type& stepper, const vector& u,
-				const vector& ub, const vector& f)
+				vector ub, vector f)
 		{
-			return stepper(frac, u, ub, f);
+			return stepper(frac, u, std::move(ub), std::move(f));
 		};
 		auto axpy = [&] (const vector& f, vector h)
 		{
@@ -113,11 +113,12 @@ private:
 			return b;
 		};
 
-		auto g = map(axpy, f, apply(advect, u1));
+		auto h = apply(advect, u1);
+		auto g = map(axpy, f, std::move(h));
 		auto vb = map(spmv, ub, _operators, k_grad_phi);
-		auto w = map(step, _steppers, u0, vb, g);
-		auto p = apply(projection, w);
-		return std::pair{std::move(w), std::move(p)};
+		auto w = map(step, _steppers, u0, std::move(vb), std::move(g));
+		assign(k_grad_phi, apply(projection, w));
+		return w;
 	}
 
 	using advection_type = ins::advection<domain_type>;
@@ -165,7 +166,7 @@ public:
 		using namespace util::functional;
 		static constexpr auto scalem = [] (double mu)
 		{
-			return partial(map, [=] (auto&& v) { return mu * v; });
+			return partial(map, [=] (vector v) { return mu * std::move(v); });
 		};
 
 		auto u_scale = length_scale / time_scale;
@@ -173,12 +174,12 @@ public:
 		auto nondim = scalem(1.0 / u_scale);
 		auto redim = scalem(u_scale);
 
-		auto f = forces(half(u0));
-		auto [v0, vb, g] = map(nondim, std::tuple{u0, ub, f});
-		auto [v1, gq1] = step(0.5, v0, vb, v0, g);
-		auto [v2, gq2] = step(1.0, v0, vb, v1, g);
-		assign(k_grad_phi, std::move(gq2));
-		return redim(v2);
+		auto g = nondim(forces(half(u0)));
+		auto v0 = nondim(std::forward<u_type>(u0));
+		auto vb = nondim(std::forward<ub_type>(ub));
+		auto v1 = step(0.5, v0, vb, v0, g);
+		v1 = step(1.0, v0, vb, v1, g);
+		return redim(v1);
 	}
 
 	template <typename tag_type>

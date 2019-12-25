@@ -75,11 +75,11 @@ namespace mg {
 		}
 	public:
 		virtual vector
-		operator()(const vector& b) const
+		operator()(vector b) const
 		{
-			auto&& r = colorer->permute(b);
-			auto&& x = iterate(r);
-			return colorer->unpermute(x);
+			auto r = colorer->permute(std::move(b));
+			auto x = iterate(std::move(r));
+			return colorer->unpermute(std::move(x));
 
 			// XXX maybe one too many vector allocations?
 			/*

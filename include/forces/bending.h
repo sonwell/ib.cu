@@ -73,9 +73,9 @@ struct bending {
 		loader loadd{currd};
 		loader loads{currs};
 
-		auto h = mean_curvature(loadd);
-		auto hu = multiply(handle, d2d.first_derivatives[0], h);
-		auto hv = multiply(handle, d2d.first_derivatives[1], h);
+		auto lh = mean_curvature(loadd);
+		auto hu = multiply(handle, d2d.first_derivatives[0], lh);
+		auto hv = multiply(handle, d2d.first_derivatives[1], lh);
 
 		auto sd = loadd.size();
 		auto nd = sd.rows * sd.cols;
@@ -97,8 +97,8 @@ struct bending {
 		};
 		util::transform(k, nd);
 
-		auto lh = multiply(handle, d2s.first_derivatives[0], hu)
-		        + multiply(handle, d2s.first_derivatives[1], hv);
+		lh = multiply(handle, d2s.first_derivatives[0], hu)
+		   + multiply(handle, d2s.first_derivatives[1], hv);
 		matrix f{linalg::size(currs.position)};
 
 		auto ss = loads.size();

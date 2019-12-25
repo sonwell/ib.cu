@@ -37,6 +37,7 @@ private:
 	static matrix
 	compute_position(cublas::handle& k, const operators_type& ops, const matrix& x)
 	{
+		if (!ops.evaluator.rows() && !ops.evaluator.cols()) return x;
 		return multiply(k, ops.evaluator, x);
 	}
 

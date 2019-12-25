@@ -137,33 +137,33 @@ protected:
 	using coloring::permute_with;
 public:
 	virtual matrix
-	permute(const matrix& m) const
+	permute(matrix m) const
 	{
 		auto* pdata = permutation.data();
 		auto* qdata = inverse.data();
-		return permute_with(m, pdata, qdata);
+		return permute_with(std::move(m), pdata, qdata);
 	}
 
 	virtual matrix
-	unpermute(const matrix& m) const
+	unpermute(matrix m) const
 	{
 		auto* pdata = inverse.data();
 		auto* qdata = permutation.data();
-		return permute_with(m, pdata, qdata);
+		return permute_with(std::move(m), pdata, qdata);
 	}
 
 	virtual vector
-	permute(const vector& v) const
+	permute(vector v) const
 	{
 		auto* pdata = inverse.data();
-		return permute_with(v, pdata);
+		return permute_with(std::move(v), pdata);
 	}
 
 	virtual vector
-	unpermute(const vector& v) const
+	unpermute(vector v) const
 	{
 		auto* pdata = permutation.data();
-		return permute_with(v, pdata);
+		return permute_with(std::move(v), pdata);
 	}
 
 	template <typename grid_type>

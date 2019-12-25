@@ -75,7 +75,7 @@ public:
 		using namespace util::functional;
 		using sequence = std::make_index_sequence<dimensions>;
 
-		matrix v = 0 * x;
+		matrix v{linalg::size(x), linalg::zero};
 		auto* vdata = v.values();
 		auto k = [&] (const auto& grid, const vector& u, auto m)
 		{

@@ -16,7 +16,7 @@ private:
 protected:
 	template <typename p_iterator>
 	vector
-	permute_with(const vector& v, p_iterator pdata) const
+	permute_with(vector v, p_iterator pdata) const
 	{
 		using algo::size;
 		auto n = sz;
@@ -32,7 +32,7 @@ protected:
 
 	template <typename p_iterator, typename q_iterator>
 	matrix
-	permute_with(const matrix& m, p_iterator pdata, q_iterator qdata) const
+	permute_with(matrix m, p_iterator pdata, q_iterator qdata) const
 	{
 		using algo::size;
 		auto n = sz;
@@ -75,10 +75,10 @@ protected:
 		return result;
 	}
 public:
-	virtual matrix permute(const matrix&) const = 0;
-	virtual vector permute(const vector&) const = 0;
-	virtual matrix unpermute(const matrix&) const = 0;
-	virtual vector unpermute(const vector&) const = 0;
+	virtual matrix permute(matrix) const = 0;
+	virtual vector permute(vector) const = 0;
+	virtual matrix unpermute(matrix) const = 0;
+	virtual vector unpermute(vector) const = 0;
 
 	int size() const { return sz; }
 	int colors() const { return ncolors; }

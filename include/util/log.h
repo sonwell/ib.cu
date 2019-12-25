@@ -93,15 +93,17 @@ struct logger {
 };
 
 namespace impl {
-	logger*&
-	logger_storage()
-	{
-		static stream_logfile default_logfile(std::cerr);
-		static logger default_logger(default_logfile, log_level::info);
-		static logger* log_ptr = &default_logger;
-		return log_ptr;
-	}
+
+logger*&
+logger_storage()
+{
+	static stream_logfile default_logfile(std::cerr);
+	static logger default_logger(default_logfile, log_level::info);
+	static logger* log_ptr = &default_logger;
+	return log_ptr;
 }
+
+} // namespace impl
 
 logger*
 get_logger()
@@ -124,40 +126,42 @@ log(log_level level, arg_types&& ... args)
 }
 
 namespace logging {
-	template <typename ... arg_types>
-	void
-	debug(arg_types&& ... args)
-	{
-		log(log_level::debug, std::forward<arg_types>(args)...);
-	}
 
-	template <typename ... arg_types>
-	void
-	info(arg_types&& ... args)
-	{
-		log(log_level::info, std::forward<arg_types>(args)...);
-	}
+template <typename ... arg_types>
+void
+debug(arg_types&& ... args)
+{
+	log(log_level::debug, std::forward<arg_types>(args)...);
+}
 
-	template <typename ... arg_types>
-	void
-	warn(arg_types&& ... args)
-	{
-		log(log_level::warn, std::forward<arg_types>(args)...);
-	}
+template <typename ... arg_types>
+void
+info(arg_types&& ... args)
+{
+	log(log_level::info, std::forward<arg_types>(args)...);
+}
 
-	template <typename ... arg_types>
-	void
-	error(arg_types&& ... args)
-	{
-		log(log_level::error, std::forward<arg_types>(args)...);
-	}
+template <typename ... arg_types>
+void
+warn(arg_types&& ... args)
+{
+	log(log_level::warn, std::forward<arg_types>(args)...);
+}
 
-	template <typename ... arg_types>
-	void
-	critical(arg_types&& ... args)
-	{
-		log(log_level::critical, std::forward<arg_types>(args)...);
-	}
+template <typename ... arg_types>
+void
+error(arg_types&& ... args)
+{
+	log(log_level::error, std::forward<arg_types>(args)...);
+}
+
+template <typename ... arg_types>
+void
+critical(arg_types&& ... args)
+{
+	log(log_level::critical, std::forward<arg_types>(args)...);
+}
+
 } // namespace logging
 
 } // namespace util

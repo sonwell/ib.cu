@@ -11,7 +11,6 @@
 #include "types.h"
 #include "vector.h"
 #include "matrix.h"
-#include "util/debug.h"
 
 namespace linalg {
 namespace io {
@@ -201,9 +200,10 @@ bytes(std::ostream& out, const value_type* v, std::size_t n)
 }
 
 template <typename value_type>
-decltype(auto)
+void
 bytes(std::istream& in, value_type* v, std::size_t n)
 {
+	if (in.eof()) return;
 	in.read(reinterpret_cast<char*>(v), n * sizeof(value_type));
 }
 
@@ -568,7 +568,7 @@ template <typename wrapped_type, typename transfer_type>
 decltype(auto)
 copy(const util::getset<wrapped_type>& gs, transfer_type&& transfer)
 {
-	return copy((wrapped_type&) gs, std::forward<transfer_type>(transfer));
+	return copy((const wrapped_type&) gs, std::forward<transfer_type>(transfer));
 }
 
 template <typename object_type, typename transfer_type>
@@ -593,6 +593,7 @@ read(std::istream& in, const format_type& fmt, object_type& v)
 		return buf;
 	};
 
+	if (in.peek() == EOF) return;
 	detail::read(in, fmt, v);
 	v = detail::copy(v, copy);
 }
@@ -613,13 +614,6 @@ write(std::ostream& out, const format_type& fmt, const object_type& v)
 	detail::write(out, fmt, detail::copy(v, copy));
 }
 
-template <typename format_type, typename fn_type>
-void
-visit(const format_type& fmt, fn_type&& fn)
-{
-	fn(fmt);
-}
-
 template <typename format_type, typename object_type>
 decltype(auto)
 operator<<(writer<format_type> wr, object_type&& object)
@@ -630,7 +624,7 @@ operator<<(writer<format_type> wr, object_type&& object)
 
 	if constexpr (std::is_base_of_v<format, std::decay_t<object_type>>)
 		return writer{stream, object};
-	else { visit(fmt, cb); return wr; }
+	else { cb(fmt); return wr; }
 }
 
 template <typename format_type, typename object_type>
@@ -643,7 +637,7 @@ operator>>(reader<format_type> rd, object_type&& object)
 
 	if constexpr (std::is_base_of_v<format, std::decay_t<object_type>>)
 		return reader{stream, object};
-	else { visit(fmt, cb); return rd; }
+	else { cb(fmt); return rd; }
 }
 
 template <typename format_type,

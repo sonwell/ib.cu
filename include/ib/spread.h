@@ -130,7 +130,7 @@ private:
 			util::transform(l, q, i);
 		}
 
-		for (int i = 1; i < sweeps; ++i)
+		for (int i = 1; i < /* total values / */ sweeps; ++i)
 			outputs[0] += outputs[i];
 		return outputs[0];
 	}

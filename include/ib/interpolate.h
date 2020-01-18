@@ -1,26 +1,80 @@
 #pragma once
 #include <thrust/execution_policy.h>
+#include "cuda/event.h"
+#include "util/log.h"
 #include "util/functional.h"
+#include "util/iterators.h"
 #include "fd/domain.h"
 #include "fd/discretization.h"
 #include "fd/grid.h"
 #include "delta.h"
-#include "novel.h"
+#include "roma.h"
 #include "types.h"
+#include "sweep.h"
+#include "indexing.h"
 
 namespace ib {
-namespace novel {
+
+struct timer {
+	std::string id;
+	cuda::event start, stop;
+
+	timer(std::string id) :
+		id(id) { start.record(); }
+	~timer() {
+		stop.record();
+		util::logging::info(id, ": ", stop-start, "ms");
+	}
+};
+
+namespace interpolation {
+
+struct clamped {
+	static constexpr auto
+	clamp(int index, int lower, int upper)
+	{
+		return index < lower ? lower :
+			index >= upper ? upper - 1 : index;
+	}
+
+	int index, lower, upper;
+
+	constexpr operator int() const { return index; }
+
+	constexpr clamped(int index, int lower, int upper) :
+		index(clamp(index, lower, upper)),
+		lower(lower), upper(upper) {}
+};
+
+constexpr auto
+combine(const clamped& l, const clamped& r)
+{
+	auto weight = l.upper - l.lower;
+	auto index = l.index + weight * r.index;
+	auto lower = weight * r.lower;
+	auto upper = weight * r.upper;
+	return clamped{index, lower, upper};
+}
+
+template <typename grid_type>
+struct sorter : ib::indexing::sorter<grid_type> {
+	using sort_index_type = clamped;
+	using ib::indexing::sorter<grid_type>::sorter;
+};
+
+} // namespace interpolation
 
 template <typename grid_tag, typename domain_type>
 struct interpolate {
 public:
 	static constexpr auto dimensions = domain_type::dimensions;
-	using info = sweep_info<dimensions>;
-	static constexpr auto values_per_sweep = info::values_per_sweep;
-	static constexpr auto total_values = info::total_values;
-	static constexpr auto sweeps = info::sweeps;
 private:
 	static constexpr thrust::device_execution_policy<thrust::system::cuda::tag> exec = {};
+	static constexpr ib::delta::roma phi;
+	using traits = ib::delta::traits<ib::delta::roma>;
+	static constexpr auto values = ib::detail::cpow(traits::meshwidths, dimensions);
+	static constexpr auto per_sweep = values;
+	static constexpr auto sweeps = (values + per_sweep - 1) / per_sweep;
 
 	static constexpr auto
 	construct(const grid_tag& tag, const domain_type& domain)
@@ -35,27 +89,26 @@ private:
 	accumulate(int n, const grid_type& grid, double* vdata, const matrix& x, const vector& u)
 	{
 		using point_type = typename grid_type::point_type;
-		using sweep_type = sweep<grid_type>;
+		using sorter = interpolation::sorter<grid_type>;
+
 		auto* xdata = x.values();
 		auto* udata = u.values();
 
+		ib::indexer idx{sorter{grid}};
 		auto k = [=] __device__(int tid)
 		{
 			double v = 0.0;
 			point_type z;
-			indexer idx{grid};
 			for (int i = 0; i < dimensions; ++i)
 				z[i] = xdata[n * i + tid];
-			auto u = grid.units(z);
-			auto d = grid.difference(u);
-			auto j = idx.sort(u);
+			auto j = idx.sort(z);
 
 			for (int i = 0; i < sweeps; ++i) {
-				sweep_type sweep(i, grid);
-				auto w = sweep.values(d, 1.0);
+				ib::sweep sweep{i, per_sweep, phi, idx};
+				auto w = sweep.values(z);
 				auto k = sweep.indices(j);
-				for (int l = 0; l < values_per_sweep; ++l)
-					if (k[l] >= 0) v += w[l] * udata[k[l]];
+				for (auto [k, w]: util::zip(k, w))
+					if (k >= 0) v += w * udata[k];
 			}
 			vdata[tid] = v;
 		};
@@ -72,6 +125,7 @@ public:
 	auto
 	operator()(int n, const matrix& x, const tuple_type& u) const
 	{
+		timer s{"interpolate"};
 		using namespace util::functional;
 		using sequence = std::make_index_sequence<dimensions>;
 
@@ -87,9 +141,5 @@ public:
 		return v;
 	}
 };
-
-} // namespace novel
-
-using novel::interpolate;
 
 } // namespace ib

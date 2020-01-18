@@ -37,8 +37,8 @@ size(const grid_type& grid, const arg_types& ... args)
 {
 	static_assert(sizeof...(arg_types) <= 1);
 	using namespace util::functional;
-	auto reduce = partial(foldl, std::multiplies<void>{});
-	return apply(reduce, sizes(grid, args...));
+	auto r = [] (auto ... v) { return (v * ... * 1); };
+	return apply(r, sizes(grid, args...));
 }
 
 } // namespace __1

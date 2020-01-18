@@ -1,3 +1,4 @@
+#pragma once
 #include "boundary.h"
 #include "dimension.h"
 #include "domain.h"

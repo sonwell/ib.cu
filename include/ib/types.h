@@ -1,6 +1,8 @@
 #pragma once
-#include "linalg/linalg.h"
-#include "fd/grid.h"
+#include "util/wrapper.h"
+#include "linalg/dense.h"
+#include "linalg/matrix.h"
+#include "linalg/vector.h"
 
 namespace ib {
 
@@ -32,7 +34,12 @@ operator+(values_container<n> l, const values_container<n>& r)
 	return l;
 }
 
-using fd::__1::delta;
-using fd::__1::shift;
+template <std::size_t n> using difference =
+	util::wrapper<struct difference_tag, std::array<double, n>>;
+template <std::size_t n> using point =
+	util::wrapper<struct point_tag, std::array<double, n>>;
+template <std::size_t n> using indices =
+	util::wrapper<struct indices_tag, std::array<int, n>>;
+
 
 } // namespace ib

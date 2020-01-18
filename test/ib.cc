@@ -16,8 +16,8 @@
 #include "bases/phs.h"
 #include "bases/polynomials.h"
 #include "bases/geometry.h"
-#include "ib/spread.h"
-#include "ib/interpolate.h"
+#include "ib/pmqe.h"
+#include "ib/novel.h"
 #include "forces/bending.h"
 #include "forces/skalak.h"
 #include "forces/neohookean.h"
@@ -108,7 +108,7 @@ initialize(const grid_type& grid, const domain_type& domain, const reference_typ
 	static constexpr double pi_quarters = M_PI_4;
 	constexpr auto center = bases::translate({8_um, 8_um, 8_um});
 	constexpr auto tilt = bases::rotate(pi_quarters, {1.0, 0.0, 0.0});
-	bases::container rbcs{ref, tilt | center};
+	bases::container rbcs{ref, tilt | center, tilt | center};
 	matrix x = rbcs.x;
 
 	auto velocity = zeros(grid, domain);
@@ -203,8 +203,8 @@ main(int argc, char** argv)
 	util::logging::info("tension info: shear =  ", tension.shear, " bulk = ", tension.bulk);
 	util::logging::info("bending info: modulus = ", bending.modulus);
 
-	constexpr ib::spread spread{mac, domain};
-	constexpr ib::interpolate interpolate{mac, domain};
+	constexpr ib::pmqe::spread spread{mac, domain};
+	constexpr ib::pmqe::interpolate interpolate{mac, domain};
 
 	constexpr bases::polyharmonic_spline<7> basic;
 	rbc ref{1250, 6050, basic};
@@ -219,7 +219,6 @@ main(int argc, char** argv)
 	ins::solver step{mac, domain, params};
 
 	matrix f_l = forces(rbcs);
-
 	auto f = [&] (const auto& v)
 	{
 		auto& x = rbcs.geometry(bases::current).data.position;
@@ -232,10 +231,11 @@ main(int argc, char** argv)
 		auto f = forces(tmp);
 		auto g = spread(m, y, f);
 		f_l = std::move(f);
+		std::cout << "f = " << linalg::io::numpy << std::get<0>(g) << '\n';
 		return g;
 	};
 
-	binary_writer write;
+	null_writer write;
 	timer t{"runtime"};
 
 	write(u, ub, rbcs.x);

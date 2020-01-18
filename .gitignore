@@ -38,6 +38,7 @@ pip-selfcheck.json
 *.mtx
 *.pos
 TODO
+*.bak
 
 .*
 include/thrust
@@ -48,5 +49,5 @@ reference/
 share/
 
 # ingore old code
-ib/
-src/
+./ib/
+./src/

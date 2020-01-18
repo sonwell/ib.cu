@@ -93,6 +93,10 @@ template <typename int_type, int_type ... n>
 struct tuple_size<std::integer_sequence<int_type, n...>> :
 	std::integral_constant<std::size_t, sizeof...(n)> {};
 
+template <typename int_type, int_type ... n>
+struct tuple_size<const std::integer_sequence<int_type, n...>> :
+	std::integral_constant<std::size_t, sizeof...(n)> {};
+
 template <typename tuple_type>
 inline constexpr auto tuple_size_v = tuple_size<tuple_type>::value;
 
@@ -399,7 +403,6 @@ reverse(const std::index_sequence<Ns...>&, Tpl&& tpl)
 {
 	using tuple_type = plain_tuple_t<Tpl>;
 	constexpr auto size = tuple_size_v<tuple_type>;
-	//using return_type = map_tuple<tuple_element_t<size-1-Ns, tuple_type>...>;
 	return std::forward_as_tuple(internal_get<size-1-Ns>(std::forward<Tpl>(tpl))...);
 }
 
@@ -413,6 +416,21 @@ struct reverse_functor {
 	}
 };
 
+template <int iterations, int init=0, int stride=1>
+struct iterate_functor {
+	template <typename Fn>
+	constexpr decltype(auto)
+	operator()(Fn&& fn) const
+	{
+		auto k = [fn=std::forward<Fn>(fn)] (auto m)
+		{
+			constexpr auto i = init + stride * m;
+			return fn(std::integral_constant<int, i>{});
+		};
+		return map(k, std::make_integer_sequence<int, iterations>{});
+	}
+};
+
 } // namespace impl
 
 inline constexpr impl::zip_functor     zip;
@@ -423,6 +441,8 @@ inline constexpr impl::partial_functor partial;
 inline constexpr impl::foldl_functor   foldl;
 inline constexpr impl::foldr_functor   foldr;
 inline constexpr impl::reverse_functor reverse;
+template <int iterations, int init=0, int stride=1>
+inline constexpr impl::iterate_functor<iterations, init, stride> iterate;
 
 } // namespace functional
 } // namespace util

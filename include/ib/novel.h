@@ -1,189 +1,182 @@
 #pragma once
-#include "util/math.h"
+#include <thrust/execution_policy.h>
 #include "util/functional.h"
+#include "util/iterators.h"
+#include "fd/domain.h"
+#include "fd/discretization.h"
+#include "fd/size.h"
 #include "fd/grid.h"
 #include "types.h"
+#include "sweep.h"
 #include "delta.h"
+#include "roma.h"
+#include "interpolate.h"
 
 namespace ib {
 namespace novel {
 
-struct index {
-	int index;
-	int lower;
-	int upper;
-
-	constexpr struct index&
-	operator*=(const struct index& idx)
-	{
-		auto k = [] (const struct index& idx)
-		{
-			return idx.lower <= idx.index &&
-				   idx.index <  idx.upper ?
-				   idx.index :  idx.lower-1;
-		};
-		auto weight = upper - lower;
-		index = k(*this) + weight * k(idx);
-		lower = weight * idx.lower;
-		upper = weight * idx.upper;
-		return *this;
-	}
-
-	constexpr int value() const { return index; }
-	constexpr operator int() const { return value(); }
-};
-
-constexpr index
-operator*(index l, const index& r)
-{
-	l *= r;
-	return l;
-}
-
-template <typename grid_type>
-struct indexer {
-public:
-	using point_type = typename grid_type::point_type;
-	using units_type = typename grid_type::units_type;
-	using indices_type = typename grid_type::indices_type;
+template <typename grid_tag, typename domain_type>
+struct spread {
 private:
-	const grid_type& _grid;
+	using cuda_tag = thrust::system::cuda::tag;
+	using policy = thrust::device_execution_policy<cuda_tag>;
+	using delta_type = delta::roma;
+	using traits = delta::traits<delta_type>;
+	static constexpr policy exec;
+	static constexpr auto dimensions = domain_type::dimensions;
+	static constexpr auto meshwidths = traits::meshwidths;
+	static constexpr auto values = detail::cpow(meshwidths, dimensions);
+	static constexpr ib::delta::roma phi;
+	using point = ib::point<dimensions>;
 
-	constexpr decltype(auto)
-	components() const
+	static constexpr auto
+	largest_divisor_under(int n)
 	{
-		return _grid.components();
+		if (n >= values) return values;
+		for (int i = n; i > 0; --i)
+			if (values % i == 0)
+				return i;
+		return 1;
 	}
 
-	template <typename point_type, typename indexing_type>
-	constexpr int
-	build(const point_type& p, indexing_type&& indexing) const
+	static constexpr auto
+	construct(const grid_tag& tag, const domain_type& domain)
 	{
 		using namespace util::functional;
-		constexpr std::multiplies<void> op = {};
-
-		auto indices = map(indexing, p, components());
-		return apply(partial(foldl, op), indices);
+		auto k = [&] (const auto& comp) { return fd::grid{tag, domain, comp}; };
+		return map(k, fd::components(domain));
 	}
+
+	static auto
+	uniques(int n, const util::memory<int>& indices)
+	{
+		util::memory<int> buffer(n);
+		auto* idata = indices.data();
+		auto* bdata = buffer.data();
+		return thrust::unique_copy(exec, idata, idata+n, bdata) - bdata;
+	}
+
+	template <typename grid_type>
+	static auto
+	index(int n, const grid_type& grid, const matrix& x)
+	{
+		util::memory<int> indices(n);
+		util::memory<int> permutation(n);
+		auto* xdata = x.values();
+		auto* idata = indices.data();
+		auto* jdata = permutation.data();
+
+		indexer idx{indexing::sorter{grid}};
+		auto k = [=] __device__ (int tid)
+		{
+			point z;
+			for (int i = 0; i < dimensions; ++i)
+				z[i] = xdata[n * i + tid];
+			auto j = idx.sort(z);
+			idata[tid] = j;
+			jdata[tid] = tid;
+		};
+		util::transform<128, 7>(k, n);
+
+		thrust::sort_by_key(exec, idata, idata+n, jdata);
+		return std::pair{std::move(indices), std::move(permutation)};
+	}
+
+	template <typename grid_type>
+	static auto
+	reduce(int n, int q, const grid_type& grid, const matrix& x, const double* fdata,
+			const util::memory<int>& indices, const util::memory<int>& permutation)
+	{
+		using namespace util::functional;
+		using namespace util::math;
+		constexpr auto per_sweep = largest_divisor_under(10);
+		using container_type = values_container<per_sweep>;
+		constexpr auto sweeps = (values + per_sweep - 1) / per_sweep;
+		constexpr auto gr = [] (auto&& ... c) { return (c.resolution() * ... * 1); };
+
+		auto res = apply(gr, grid.components());
+		auto size = fd::size(grid);
+		util::memory<container_type> values(n);
+		util::memory<container_type> reduced_values(q);
+		util::memory<int> reduced_keys(q);
+
+		auto* vdata = values.data();
+		auto* wdata = reduced_values.data();
+		auto* kdata = reduced_keys.data();
+		auto* idata = indices.data();
+		auto* jdata = permutation.data();
+		auto* xdata = x.values();
+
+		vector outputs[per_sweep];
+		double* odata[per_sweep];
+		for (int i = 0; i < per_sweep; ++i) {
+			outputs[i] = vector(size, linalg::zero);
+			odata[i] = outputs[i].values();
+		}
+
+		indexer idx{indexing::sorter{grid}};
+		auto k = [=] __device__ (int tid, int s)
+		{
+			point z;
+			sweep sweep{s, per_sweep, phi, idx};
+			auto j = jdata[tid];
+			double f = fdata[j];
+			for (int i = 0; i < dimensions; ++i)
+				z[i] = xdata[n * i + j];
+			auto w = sweep.values(z);
+			for (auto [i, w]: util::enumerate(w))
+				vdata[tid][i] = w * f;
+		};
+
+		auto l = [=] __device__ (int tid, int s)
+		{
+			sweep sweep{s, per_sweep, phi, idx};
+			auto k = kdata[tid];
+			auto v = wdata[tid];
+			auto j = sweep.indices(k);
+			for (auto [i, j]: util::enumerate(j))
+				if (j >= 0) odata[i][j] += res * v[i];
+		};
+
+		for (int i = 0; i < sweeps; ++i) {
+			util::transform(k, n, i);
+			thrust::reduce_by_key(exec, idata, idata+n, vdata, kdata, wdata);
+			util::transform(l, q, i);
+			cuda::synchronize();
+		}
+
+		for (int i = 1; i < per_sweep; ++i)
+			outputs[0] += outputs[i];
+		return outputs[0];
+	}
+
+	using grids_type = decltype(construct(std::declval<grid_tag>(),
+	                                      std::declval<domain_type>()));
+	grids_type grids;
 public:
-	constexpr auto
-	decompose(int index) const
+	constexpr spread(const grid_tag& tag, const domain_type& domain) :
+		grids(construct(tag, domain)) {}
+
+	auto
+	operator()(int n, const matrix& x, const matrix& f) const
 	{
+		timer s{"spread"};
 		using namespace util::functional;
-		auto assign = [] (auto& dst, const auto& src) { dst = src; };
-		auto k = [&] (const auto& comp)
+		using sequence = std::make_index_sequence<dimensions>;
+		auto* fdata = f.values();
+		auto k = [&] (const auto& grid, auto m)
 		{
-			auto solid = comp.solid_boundary;
-			auto points = comp.points();
-			auto weight = points + solid;
-			auto u = (index + solid) % weight - solid;
-			index /= weight;
-			return u;
+			static constexpr auto i = decltype(m)::value;
+			auto [indices, permutation] = index(n, grid, x);
+			auto unique = uniques(n, indices);
+			auto* f = &fdata[n * i];
+			return reduce(n, unique, grid, x, f, indices, permutation);
 		};
-
-		indices_type indices = {0};
-		map(assign, indices, map(k, components()));
-		return indices;
+		return map(k, grids, sequence{});
 	}
-
-	constexpr auto
-	sort(const units_type& u) const
-	{
-		auto k = [] (double v, const auto& comp)
-		{
-			auto solid = comp.solid_boundary;
-			auto shift = comp.shift();
-			auto i = (int) util::math::floor(v - shift);
-			return index{i, -solid, comp.points()};
-		};
-		return build(u, k);
-	}
-
-	constexpr auto
-	grid(const indices_type& u) const
-	{
-		auto k = [] (int i, const auto& comp)
-		{
-			auto j = comp.index(i);
-			return index{j, 0, comp.points()};
-		};
-		return build(u, k);
-	}
-
-	constexpr indexer(const grid_type& grid) :
-		_grid(grid) {}
 };
 
-template <std::size_t dimensions>
-struct sweep_info {
-	static constexpr auto total_values = 1 << (2 * dimensions);
-	static constexpr auto values_per_sweep = 1 << dimensions;
-	static constexpr auto sweeps = (total_values + values_per_sweep - 1) / values_per_sweep;
-	using container_type = values_container<values_per_sweep>;
-};
-
-template <typename grid_type>
-struct sweep {
-	static constexpr auto dimensions = grid_type::dimensions;
-	using info = sweep_info<dimensions>;
-	static constexpr auto values_per_sweep = info::values_per_sweep;
-	static constexpr auto total_values = info::total_values;
-	static constexpr auto sweeps = info::sweeps;
-	using container_type = typename info::container_type;
-	static constexpr cosine_delta phi = {};
-
-	int count;
-	const grid_type& grid;
-
-	static constexpr auto mask(int i, int m, int n) { return (i >> n) & m; }
-	static constexpr auto bit(int i, int n) { return mask(i, 1, n); }
-
-	constexpr auto
-	values(const delta<dimensions>& dx, double f) const
-	{
-		container_type values = {0.0};
-		if (count >= sweeps)
-			return values;
-
-		double weights[dimensions][2];
-		for (int i = 0; i < dimensions; ++i) {
-			auto base = bit(count, i) - 1;
-			auto v = phi(base + dx[i]);
-			weights[i][0] = v;
-			weights[i][1] = 0.5 - v;
-		}
-
-		for (int i = 0; i < values_per_sweep; ++i) {
-			double v = f;
-			for (int j = 0; j < dimensions; ++j)
-				v *= weights[j][bit(i, j)];
-			values[i] = v;
-		}
-
-		return values;
-	}
-
-	constexpr auto
-	indices(int index) const
-	{
-		std::array<int, values_per_sweep> values = {0};
-		indexer idx{grid};
-
-		auto indices = idx.decompose(index);
-		for (int i = 0; i < values_per_sweep; ++i) {
-			shift<dimensions> s = {0};
-			for (int j = 0; j < dimensions; ++j)
-				s[j] = bit(count, j) + 2 * bit(i, j) - 1;
-			values[i] = idx.grid(indices + s);
-		};
-
-		return values;
-	}
-
-	constexpr sweep(int count, const grid_type& grid) :
-		count(count), grid(grid) {}
-
-};
+using ib::interpolate;
 
 } // namespace novel
 } // namespace ib

@@ -54,39 +54,6 @@ struct standard_pattern {
 	constexpr standard_pattern(std::size_t, std::size_t) {}
 };
 
-/*
-struct cosine_delta {
-private:
-	static constexpr auto pi2 = M_PI_2;
-public:
-	static constexpr auto meshwidths = 3;
-
-	constexpr auto
-	operator()(double r) const
-	{
-		using util::math::cos;
-		return 0.25 * (1 + cos(pi2 * r));
-	}
-};
-
-struct roma_delta {
-	static constexpr auto meshwidths = 3;
-
-	constexpr auto
-	operator()(double r) const
-	{
-		using util::math::abs;
-		using util::math::sqrt;
-		using util::math::floor;
-		constexpr double weights[2][2] = {{3.0, -1.0}, {0.0,  2.0}};
-		auto s = abs(r);
-		int t = floor(s + 0.5);
-		auto d = t - s;
-		return (2.0 + weights[t][0] * d + weights[t][1] * sqrt(1-3*d*d)) / 6.;
-	}
-
-};*/
-
 } // namespace detail
 } // namespace delta
 } // namespace ib

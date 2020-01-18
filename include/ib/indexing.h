@@ -5,10 +5,6 @@
 #include "types.h"
 
 namespace ib {
-
-template <std::size_t dimensions>
-using indices = util::wrapper<struct indices_tag, std::array<int, dimensions>>;
-
 namespace indexing {
 
 struct unclamped {

@@ -40,7 +40,8 @@ private:
 	static constexpr auto dimensions = indexer_type::dimensions;
 	static constexpr auto meshwidths = traits::meshwidths;
 	static constexpr auto calls = traits::calls;
-	static constexpr auto pattern = traits::pattern(dimensions);
+	using pattern_type = typename traits::template pattern<dimensions>;
+	static constexpr auto pattern = pattern_type{};
 	static constexpr auto values = detail::cpow(meshwidths, dimensions);
 	using vec = delta::detail::vec<calls>;
 	using point_type = std::array<double, dimensions>;
@@ -119,8 +120,8 @@ public:
 	{
 		using namespace util::functional;
 		constexpr auto p = [] (auto ... v) { return (v * ... * 1); };
-		constexpr auto k =
-			[] (auto& f, double r, const vec& v) { return f.p(r) + f.r * v; };
+		constexpr auto k = [] (auto& f, double r, const vec& v)
+			{ return f.p(r) + f.r * v; };
 		auto f = rules(pattern[offset + i], k);
 		return apply(p, map(f, r, phi));
 	}
@@ -144,7 +145,8 @@ private:
 	static constexpr auto dimensions = indexer_type::dimensions;
 	static constexpr auto meshwidths = traits::meshwidths;
 	static constexpr auto values = detail::cpow(meshwidths, dimensions);
-	static constexpr auto pattern = traits::pattern(dimensions);
+	using pattern_type = typename traits::template pattern<dimensions>;
+	static constexpr auto pattern = pattern_type{};
 	using indices_type = decltype(std::declval<indexer_type>().decompose(0));
 
 	template <typename f_type>

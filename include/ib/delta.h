@@ -51,7 +51,6 @@ struct rule {
 
 struct standard_pattern {
 	constexpr auto operator[](int n) const { return n; }
-	constexpr standard_pattern(std::size_t, std::size_t) {}
 };
 
 } // namespace detail

@@ -10,6 +10,7 @@
 #include "sweep.h"
 #include "delta.h"
 #include "roma.h"
+#include "cosine.h"
 #include "interpolate.h"
 
 namespace ib {
@@ -26,7 +27,7 @@ private:
 	static constexpr auto dimensions = domain_type::dimensions;
 	static constexpr auto meshwidths = traits::meshwidths;
 	static constexpr auto values = detail::cpow(meshwidths, dimensions);
-	static constexpr ib::delta::roma phi;
+	static constexpr delta_type phi;
 	using point = ib::point<dimensions>;
 
 	static constexpr auto

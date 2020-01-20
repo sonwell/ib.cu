@@ -6,10 +6,8 @@ namespace ib {
 namespace delta {
 namespace detail {
 
+template <std::size_t dimensions, std::size_t meshwidths>
 struct every_other_pattern {
-	std::size_t dimensions;
-	std::size_t meshwidths;
-
 	static constexpr auto
 	cpow(int base, int exp)
 	{
@@ -23,8 +21,8 @@ struct every_other_pattern {
 	constexpr auto
 	operator[](int n) const
 	{
-		auto half_meshwidths = meshwidths / 2;
-		auto mod = cpow(half_meshwidths, dimensions);
+		constexpr auto half_meshwidths = meshwidths / 2;
+		constexpr auto mod = cpow(half_meshwidths, dimensions);
 		auto inner = n % mod;
 		auto outer = n / mod;
 		auto key = 0;
@@ -52,7 +50,6 @@ struct cosine {
 
 template <>
 struct traits<cosine> {
-	using pattern_type = detail::every_other_pattern;
 	static constexpr std::array offsets = {-1, 0};
 	static constexpr auto calls =
 		sizeof(offsets) / sizeof(offsets[0]);
@@ -65,11 +62,8 @@ struct traits<cosine> {
 	};
 	static constexpr auto meshwidths =
 		sizeof(rules) / sizeof(rules[0]);
-	static constexpr auto
-	pattern(std::size_t dimensions)
-	{
-		return pattern_type{dimensions, meshwidths};
-	}
+	template <std::size_t dimensions>
+		using pattern = detail::every_other_pattern<dimensions, meshwidths>;
 };
 
 } // namespace delta

@@ -31,12 +31,8 @@ struct traits<roma> {
 	};
 	static constexpr auto meshwidths =
 		sizeof(rules) / sizeof(rules[0]);
-	using pattern_type = detail::standard_pattern;
-	static constexpr auto
-	pattern(std::size_t dimensions)
-	{
-		return pattern_type{dimensions, meshwidths};
-	}
+	template <std::size_t dimensions>
+		using pattern = detail::standard_pattern;
 };
 
 } // namespace delta

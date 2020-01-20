@@ -203,8 +203,8 @@ main(int argc, char** argv)
 	util::logging::info("tension info: shear =  ", tension.shear, " bulk = ", tension.bulk);
 	util::logging::info("bending info: modulus = ", bending.modulus);
 
-	constexpr ib::pmqe::spread spread{mac, domain};
-	constexpr ib::pmqe::interpolate interpolate{mac, domain};
+	constexpr ib::novel::spread spread{mac, domain};
+	constexpr ib::novel::interpolate interpolate{mac, domain};
 
 	constexpr bases::polyharmonic_spline<7> basic;
 	rbc ref{1250, 6050, basic};

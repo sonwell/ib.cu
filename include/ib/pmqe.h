@@ -11,6 +11,7 @@
 #include "types.h"
 #include "delta.h"
 #include "roma.h"
+#include "cosine.h"
 #include "indexing.h"
 #include "sweep.h"
 #include "interpolate.h"
@@ -110,13 +111,13 @@ struct spread {
 private:
 	using cuda_tag = thrust::system::cuda::tag;
 	using policy = thrust::device_execution_policy<cuda_tag>;
-	using delta_type = ib::delta::roma;
+	using delta_type = delta::cosine;
 	using traits = delta::traits<delta_type>;
 	static constexpr policy exec;
 	static constexpr auto dimensions = domain_type::dimensions;
 	static constexpr auto meshwidths = traits::meshwidths;
 	static constexpr auto values = detail::cpow(meshwidths, dimensions);
-	static constexpr ib::delta::roma phi;
+	static constexpr delta_type phi;
 	using point = ib::point<dimensions>;
 
 	static constexpr auto

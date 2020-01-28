@@ -231,7 +231,6 @@ main(int argc, char** argv)
 		auto f = forces(tmp);
 		auto g = spread(m, y, f);
 		f_l = std::move(f);
-		std::cout << "f = " << linalg::io::numpy << std::get<0>(g) << '\n';
 		return g;
 	};
 

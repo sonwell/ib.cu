@@ -4,6 +4,7 @@
 #include <thrust/unique.h>
 #include "util/functional.h"
 #include "util/iterators.h"
+#include "util/ranges.h"
 #include "fd/domain.h"
 #include "fd/discretization.h"
 #include "fd/size.h"
@@ -57,10 +58,10 @@ combine(index<meshwidths> l, const index<meshwidths>& r)
 }
 
 template <typename grid_type, typename delta_type>
-struct sorter : ib::indexing::sorter<grid_type> {
+struct sorter : indexing::sorter<grid_type> {
 private:
-	using base = ib::indexing::sorter<grid_type>;
-	using traits = ib::delta::traits<delta_type>;
+	using base = indexing::sorter<grid_type>;
+	using traits = delta::traits<delta_type>;
 	static constexpr auto meshwidths = traits::meshwidths;
 	using base::dimensions;
 
@@ -153,13 +154,13 @@ private:
 		auto* idata = indices.data();
 		auto* jdata = permutation.data();
 
-		ib::indexer idx{sorter{grid, phi}};
+		ib::sweep sweep{0, values, phi, sorter{grid, phi}};
 		auto k = [=] __device__ (int tid)
 		{
 			point z;
 			for (int i = 0; i < dimensions; ++i)
 				z[i] = xdata[n * i + tid];
-			auto j = idx.sort(z);
+			auto j = sweep.sort(z);
 			idata[tid] = j;
 			jdata[tid] = tid;
 		};
@@ -177,13 +178,14 @@ private:
 			const util::memory<int>& indices, const util::memory<int>& permutation)
 	{
 		using namespace util::functional;
+		using util::ranges::enumerate;
 		constexpr auto v = [] (auto&& ... c) { return (c.resolution() * ... * 1); };
 		auto res = apply(v, grid.components());
 		vector output(fd::size(grid), linalg::zero);
 
-		sorter s{grid, phi};
-		ib::indexer idx{s};
+		sorter idx{grid, phi};
 		ib::sweep sweep{0, values, phi, idx};
+		auto blocks = idx.blocks;
 
 		auto* idata = indices.data();
 		auto* jdata = permutation.data();
@@ -206,18 +208,18 @@ private:
 					z[i] = xdata[n * i + j];
 				double f = fdata[j];
 				auto w = sweep.values(z);
-				for (auto [i, w]: util::enumerate(w))
+				for (auto [i, w]: w | enumerate)
 					v[i] += w * f;
 			}
 
 			auto j = sweep.indices(idata[head]);
-			for (auto [i, j]: util::enumerate(j))
+			for (auto [i, j]: j | enumerate)
 				if (j >= 0) odata[j] += res * v[i];
 		};
 
 		auto* qnow = qdata;
 		for (int i = 0; i < values; ++i) {
-			auto* qend = thrust::lower_bound(exec, qnow, qdata+m, (i + 1) * s.blocks);
+			auto* qend = thrust::lower_bound(exec, qnow, qdata+m, (i + 1) * blocks);
 			auto threads = qend - qnow;
 			auto start = qnow - qdata;
 			util::transform(k, threads, start);

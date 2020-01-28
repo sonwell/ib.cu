@@ -9,24 +9,12 @@
 #include "fd/grid.h"
 #include "delta.h"
 #include "roma.h"
+#include "cosine.h"
 #include "types.h"
 #include "sweep.h"
 #include "indexing.h"
 
 namespace ib {
-
-struct timer {
-	std::string id;
-	cuda::event start, stop;
-
-	timer(std::string id) :
-		id(id) { start.record(); }
-	~timer() {
-		stop.record();
-		util::logging::info(id, ": ", stop-start, "ms");
-	}
-};
-
 namespace interpolation {
 
 struct clamped {
@@ -59,7 +47,9 @@ combine(const clamped& l, const clamped& r)
 template <typename grid_type>
 struct sorter : ib::indexing::sorter<grid_type> {
 	using sort_index_type = clamped;
-	using ib::indexing::sorter<grid_type>::sorter;
+
+	constexpr sorter(grid_type grid) :
+		ib::indexing::sorter<grid_type>(std::move(grid)) {}
 };
 
 } // namespace interpolation
@@ -70,9 +60,9 @@ public:
 	static constexpr auto dimensions = domain_type::dimensions;
 private:
 	static constexpr thrust::device_execution_policy<thrust::system::cuda::tag> exec = {};
-	static constexpr ib::delta::roma phi;
-	using traits = ib::delta::traits<ib::delta::roma>;
-	static constexpr auto values = ib::detail::cpow(traits::meshwidths, dimensions);
+	static constexpr delta::cosine phi;
+	using traits = delta::traits<delta::roma>;
+	static constexpr auto values = detail::cpow(traits::meshwidths, dimensions);
 	static constexpr auto per_sweep = values;
 	static constexpr auto sweeps = (values + per_sweep - 1) / per_sweep;
 
@@ -88,28 +78,25 @@ private:
 	static auto
 	accumulate(int n, const grid_type& grid, double* vdata, const matrix& x, const vector& u)
 	{
-		using point_type = typename grid_type::point_type;
-		using sorter = interpolation::sorter<grid_type>;
+		using point = ib::point<dimensions>;
 
 		auto* xdata = x.values();
 		auto* udata = u.values();
 
-		ib::indexer idx{sorter{grid}};
+		ib::sweep sweep{0, values, phi, interpolation::sorter{grid}};
 		auto k = [=] __device__(int tid)
 		{
-			double v = 0.0;
-			point_type z;
+			point z;
 			for (int i = 0; i < dimensions; ++i)
 				z[i] = xdata[n * i + tid];
-			auto j = idx.sort(z);
 
-			for (int i = 0; i < sweeps; ++i) {
-				ib::sweep sweep{i, per_sweep, phi, idx};
-				auto w = sweep.values(z);
-				auto k = sweep.indices(j);
-				for (auto [k, w]: util::zip(k, w))
-					if (k >= 0) v += w * udata[k];
-			}
+			auto j = sweep.sort(z);
+			auto k = sweep.indices(j);
+			auto w = sweep.values(z);
+
+			double v = 0.0;
+			for (auto [k, w]: util::iterators::zip(k, w))
+				if (k >= 0) v += w * udata[k];
 			vdata[tid] = v;
 		};
 		util::transform(k, n);
@@ -129,7 +116,7 @@ public:
 		using namespace util::functional;
 		using sequence = std::make_index_sequence<dimensions>;
 
-		matrix v{linalg::size(x), linalg::zero};
+		matrix v{linalg::size(x)};
 		auto* vdata = v.values();
 		auto k = [&] (const auto& grid, const vector& u, auto m)
 		{

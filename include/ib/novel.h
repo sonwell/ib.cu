@@ -2,6 +2,7 @@
 #include <thrust/execution_policy.h>
 #include "util/functional.h"
 #include "util/iterators.h"
+#include "util/ranges.h"
 #include "fd/domain.h"
 #include "fd/discretization.h"
 #include "fd/size.h"
@@ -21,7 +22,7 @@ struct spread {
 private:
 	using cuda_tag = thrust::system::cuda::tag;
 	using policy = thrust::device_execution_policy<cuda_tag>;
-	using delta_type = delta::roma;
+	using delta_type = delta::cosine;
 	using traits = delta::traits<delta_type>;
 	static constexpr policy exec;
 	static constexpr auto dimensions = domain_type::dimensions;
@@ -67,13 +68,14 @@ private:
 		auto* idata = indices.data();
 		auto* jdata = permutation.data();
 
-		indexer idx{indexing::sorter{grid}};
+		indexing::sorter idx{grid};
 		auto k = [=] __device__ (int tid)
 		{
 			point z;
+			ib::sweep sweep{0, values, phi, idx};
 			for (int i = 0; i < dimensions; ++i)
 				z[i] = xdata[n * i + tid];
-			auto j = idx.sort(z);
+			auto j = sweep.sort(z);
 			idata[tid] = j;
 			jdata[tid] = tid;
 		};
@@ -90,6 +92,7 @@ private:
 	{
 		using namespace util::functional;
 		using namespace util::math;
+		using util::ranges::enumerate;
 		constexpr auto per_sweep = largest_divisor_under(10);
 		using container_type = values_container<per_sweep>;
 		constexpr auto sweeps = (values + per_sweep - 1) / per_sweep;
@@ -115,7 +118,7 @@ private:
 			odata[i] = outputs[i].values();
 		}
 
-		indexer idx{indexing::sorter{grid}};
+		indexing::sorter idx{grid};
 		auto k = [=] __device__ (int tid, int s)
 		{
 			point z;
@@ -125,7 +128,7 @@ private:
 			for (int i = 0; i < dimensions; ++i)
 				z[i] = xdata[n * i + j];
 			auto w = sweep.values(z);
-			for (auto [i, w]: util::enumerate(w))
+			for (auto [i, w]: w | enumerate)
 				vdata[tid][i] = w * f;
 		};
 
@@ -135,15 +138,14 @@ private:
 			auto k = kdata[tid];
 			auto v = wdata[tid];
 			auto j = sweep.indices(k);
-			for (auto [i, j]: util::enumerate(j))
+			for (auto [i, j]: j | enumerate)
 				if (j >= 0) odata[i][j] += res * v[i];
 		};
 
 		for (int i = 0; i < sweeps; ++i) {
-			util::transform(k, n, i);
-			thrust::reduce_by_key(exec, idata, idata+n, vdata, kdata, wdata);
-			util::transform(l, q, i);
-			cuda::synchronize();
+			{util::transform(k, n, i);}
+			{thrust::reduce_by_key(exec, idata, idata+n, vdata, kdata, wdata);}
+			{util::transform(l, q, i);}
 		}
 
 		for (int i = 1; i < per_sweep; ++i)

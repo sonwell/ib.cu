@@ -1,5 +1,6 @@
 #pragma once
 #include <cmath>
+#include "types.h"
 #include "delta.h"
 
 namespace ib {
@@ -18,22 +19,27 @@ struct every_other_pattern {
 		return cpow(base, exp & 1) * r * r;
 	}
 
-	constexpr auto
-	operator[](int n) const
+	static constexpr auto
+	div(int x, int y)
 	{
-		constexpr auto half_meshwidths = meshwidths / 2;
+		return std::make_pair(x / y, x % y);
+	}
+
+	constexpr auto
+	operator()(int offset, int i) const
+	{
+		constexpr auto shift = (meshwidths - 1) >> 1;
+		constexpr auto half_meshwidths = (meshwidths + 1) >> 1;
 		constexpr auto mod = cpow(half_meshwidths, dimensions);
-		auto inner = n % mod;
-		auto outer = n / mod;
-		auto key = 0;
-		auto weight = 1;
-		for (int i = 0; i < dimensions; ++i) {
-			key += weight * (outer % 2 + 2 * (inner % half_meshwidths));
-			inner /= half_meshwidths;
-			outer /= 2;
-			weight *= 2 * half_meshwidths;
+
+		auto [x, y] = div(offset + i, mod);
+		ib::shift<dimensions> s{};
+		for (int j = 0; j < dimensions; ++j) {
+			s[j] = x % 2 + 2 * (y % half_meshwidths) - shift;
+			x /= 2;
+			y /= half_meshwidths;
 		}
-		return key;
+		return s;
 	}
 };
 

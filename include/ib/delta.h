@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include "types.h"
 
 namespace ib {
 namespace delta {
@@ -49,10 +50,23 @@ struct rule {
 	vec<m> r;
 };
 
+} // namespace detail
+
+template <std::size_t dimensions, std::size_t meshwidths>
 struct standard_pattern {
-	constexpr auto operator[](int n) const { return n; }
+	constexpr auto
+	operator()(int offset, int i) const
+	{
+		constexpr auto shift = (meshwidths - 1) >> 1;
+		auto n = offset + i;
+		ib::shift<dimensions> s{};
+		for (int j = 0; j < dimensions; ++j) {
+			s[j] = n % meshwidths - shift;
+			n /= meshwidths;
+		}
+		return s;
+	}
 };
 
-} // namespace detail
 } // namespace delta
 } // namespace ib

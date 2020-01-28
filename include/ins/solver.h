@@ -170,7 +170,6 @@ public:
 		};
 
 		auto u_scale = length_scale / time_scale;
-		//auto half = scalem(0.5);
 		auto nondim = scalem(1.0 / u_scale);
 		auto redim = scalem(u_scale);
 
@@ -178,7 +177,6 @@ public:
 		auto v0 = nondim(std::forward<u_type>(u0));
 		auto vb = nondim(std::forward<ub_type>(ub));
 		auto v1 = step(1.0, v0, vb, v0, g);
-		//v1 = step(1.0, v0, vb, v1, g);
 		return redim(std::move(v1));
 	}
 

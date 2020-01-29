@@ -108,7 +108,7 @@ initialize(const grid_type& grid, const domain_type& domain, const reference_typ
 	static constexpr double pi_quarters = M_PI_4;
 	constexpr auto center = bases::translate({8_um, 8_um, 8_um});
 	constexpr auto tilt = bases::rotate(pi_quarters, {1.0, 0.0, 0.0});
-	bases::container rbcs{ref, tilt | center, tilt | center};
+	bases::container rbcs{ref, tilt | center};
 	matrix x = rbcs.x;
 
 	auto velocity = zeros(grid, domain);

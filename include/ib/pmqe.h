@@ -107,12 +107,11 @@ public:
 	const int blocks;
 };
 
-template <typename grid_tag, typename domain_type>
+template <typename grid_tag, typename domain_type, typename delta_type>
 struct spread {
 private:
 	using cuda_tag = thrust::system::cuda::tag;
 	using policy = thrust::device_execution_policy<cuda_tag>;
-	using delta_type = delta::cosine;
 	using traits = delta::traits<delta_type>;
 	static constexpr policy exec;
 	static constexpr auto dimensions = domain_type::dimensions;
@@ -233,7 +232,7 @@ private:
 	                                      std::declval<domain_type>()));
 	grids_type grids;
 public:
-	constexpr spread(const grid_tag& tag, const domain_type& domain) :
+	constexpr spread(const grid_tag& tag, const domain_type& domain, delta_type) :
 		grids(construct(tag, domain)) {}
 
 	auto

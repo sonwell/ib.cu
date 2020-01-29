@@ -33,7 +33,6 @@ private:
 	static constexpr typename traits::template pattern<dimensions> pattern;
 	using shift_type = shift<dimensions>;
 	using point = ib::point<dimensions>;
-
 public:
 	constexpr auto decompose(int index) const { return idx.decompose(index); }
 
@@ -88,19 +87,19 @@ public:
 	}
 
 	constexpr auto
-	values(const std::array<double, dimensions>& r) const
+	values(const point& p) const
 	{
 		using util::iterators::counter;
 		using util::ranges::transform;
 		using namespace util::functional;
-		auto k = [=] (int i)
+		auto k = [&, d=difference(p)] (int i)
 		{
 			auto s = pattern(offset, i);
 			auto p = [] (auto ... v) { return (v * ... * 1); };
 			auto k = [&] (double r, int s) { return phi(r + s); };
-			return apply(p, map(k, r, s));
+			return apply(p, map(k, d, std::move(s)));
 		};
-		return counter{0, count} | transform(k);
+		return counter{0, size()} | transform(k);
 	}
 
 	constexpr auto
@@ -108,12 +107,12 @@ public:
 	{
 		using util::iterators::counter;
 		using util::ranges::transform;
-		auto k = [&, dec=decompose(sort), offset=offset] (int i)
+		auto k = [&, dec=decompose(sort)] (int i)
 		{
 			auto s = pattern(offset, i);
 			return grid(dec + s);
 		};
-		return counter{0, count} | transform(k);
+		return counter{0, size()} | transform(k);
 	}
 
 	constexpr sweep(int index, int count,

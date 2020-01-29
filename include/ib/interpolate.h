@@ -54,14 +54,15 @@ struct sorter : ib::indexing::sorter<grid_type> {
 
 } // namespace interpolation
 
-template <typename grid_tag, typename domain_type>
+template <typename grid_tag, typename domain_type, typename delta_type>
 struct interpolate {
 public:
 	static constexpr auto dimensions = domain_type::dimensions;
 private:
-	static constexpr thrust::device_execution_policy<thrust::system::cuda::tag> exec = {};
-	static constexpr delta::cosine phi;
-	using traits = delta::traits<delta::roma>;
+	using cuda_tag = thrust::system::cuda::tag;
+	static constexpr thrust::device_execution_policy<cuda_tag> exec = {};
+	static constexpr delta_type phi;
+	using traits = delta::traits<delta_type>;
 	static constexpr auto values = detail::cpow(traits::meshwidths, dimensions);
 	static constexpr auto per_sweep = values;
 	static constexpr auto sweeps = (values + per_sweep - 1) / per_sweep;
@@ -102,10 +103,11 @@ private:
 		util::transform(k, n);
 	}
 
-	using grids_type = decltype(construct(std::declval<grid_tag>(), std::declval<domain_type>()));
+	using grids_type = decltype(construct(std::declval<grid_tag>(),
+	                                      std::declval<domain_type>()));
 	grids_type grids;
 public:
-	constexpr interpolate(const grid_tag& tag, const domain_type& domain) :
+	constexpr interpolate(const grid_tag& tag, const domain_type& domain, delta_type) :
 		grids(construct(tag, domain)) {}
 
 	template <typename tuple_type>

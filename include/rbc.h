@@ -1,4 +1,7 @@
 #pragma once
+#include <fstream>
+#include <filesystem>
+#include "util/log.h"
 #include "bases/types.h"
 #include "bases/shapes/sphere.h"
 #include "bases/traits.h"
@@ -36,6 +39,29 @@ public:
 		};
 		util::transform<128, 8>(k, rows);
 		return x;
+	}
+
+	static matrix
+	sample(int n)
+	{
+		static std::filesystem::path root = "data";
+		std::fstream f;
+
+		std::filesystem::path file = root;
+		std::stringstream ss;
+		ss << "rbc." << n << ".bin";
+		file /= ss.str();
+
+		if (!std::filesystem::exists(file)) {
+			util::logging::warn(n, " is not specialized for rbc; ",
+					"falling back to sphere sampling.");
+			return bases::shapes::sphere::sample(n);
+		}
+
+		matrix m;
+		f.open(file, std::ios::in | std::ios::binary);
+		f >> linalg::io::binary >> m;
+		return m;
 	}
 
 	template <typename basic>

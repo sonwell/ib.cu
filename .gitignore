@@ -40,6 +40,8 @@ pip-selfcheck.json
 TODO
 *.bak
 
+!data/*.bin
+
 .*
 include/thrust
 trials/

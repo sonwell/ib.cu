@@ -35,7 +35,7 @@ struct python_writer {
 		output << "from mayavi import mlab\n";
 		output << "import rbc_plotter\n\n";
 
-		auto n = container.points().data;
+		auto n = container.points().sample;
 		auto p = bases::traits<reference_type>::sample(n);
 		const auto& [data, sample] = container.geometry(bases::current);
 		auto f = forces(container);
@@ -85,16 +85,21 @@ operator>>(std::istream& in, state& st)
 }
 
 int
-main(void)
+main(int argc, char** argv)
 {
 	util::set_default_resource(cuda::default_device().memory());
 	constexpr bases::polyharmonic_spline<7> basic;
-	rbc ref{1250, 6050, basic};
+
+	auto m = 2744;
+	if (argc > 1)
+		m = atoi(argv[1]);
 
 	state t;
 	std::cin >> t;
 	if (std::cin.eof()) return -1;
 
+	auto n = t.x.rows();
+	rbc ref{n, m, basic};
 	bases::container rbcs{ref, std::move(t.x)};
 	python_writer write{rbcs};
 

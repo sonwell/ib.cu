@@ -17,39 +17,12 @@
 namespace ib {
 namespace interpolation {
 
-struct clamped {
-	static constexpr auto
-	clamp(int index, int lower, int upper)
-	{
-		return index < lower ? lower :
-			index >= upper ? upper - 1 : index;
-	}
-
-	int index, lower, upper;
-
-	constexpr operator int() const { return index; }
-
-	constexpr clamped(int index, int lower, int upper) :
-		index(clamp(index, lower, upper)),
-		lower(lower), upper(upper) {}
-};
-
-constexpr auto
-combine(const clamped& l, const clamped& r)
-{
-	auto weight = l.upper - l.lower;
-	auto index = l.index + weight * r.index;
-	auto lower = weight * r.lower;
-	auto upper = weight * r.upper;
-	return clamped{index, lower, upper};
-}
-
 template <typename grid_type>
-struct sorter : ib::indexing::sorter<grid_type> {
-	using sort_index_type = clamped;
+struct sorter : indexing::sorter<grid_type> {
+	using grid_index_type = indexing::clamped;
 
 	constexpr sorter(grid_type grid) :
-		ib::indexing::sorter<grid_type>(std::move(grid)) {}
+		indexing::sorter<grid_type>{std::move(grid)} {}
 };
 
 } // namespace interpolation

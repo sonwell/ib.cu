@@ -103,15 +103,7 @@ abs(double x)
 constexpr double
 floor(double x)
 {
-
-	using limits = std::numeric_limits<double>;
-	constexpr auto digits = limits::digits;
-	constexpr auto base = static_cast<double>(1ll << digits);
-
-	long long q = abs(x) < base ? 0 : x / base - (x < 0);
-	auto r = x - q * base;
-	auto f = static_cast<long long>(r - (r < 0));
-	return static_cast<double>(f) + q * base;
+	return (long long) (x - (x < 0));
 }
 
 constexpr double

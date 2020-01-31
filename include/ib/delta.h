@@ -68,5 +68,41 @@ struct standard_pattern {
 	}
 };
 
+template <std::size_t dimensions, std::size_t meshwidths>
+struct every_other_pattern {
+	static constexpr auto
+	cpow(int base, int exp)
+	{
+		if (exp == 0) return 1;
+		if (base == 0) return 0;
+		if (exp == 1) return base;
+		auto r = cpow(base, exp >> 1);
+		return cpow(base, exp & 1) * r * r;
+	}
+
+	static constexpr auto
+	div(int x, int y)
+	{
+		return std::make_pair(x / y, x % y);
+	}
+
+	constexpr auto
+	operator()(int offset, int i) const
+	{
+		constexpr auto shift = (meshwidths - 1) >> 1;
+		constexpr auto half_meshwidths = (meshwidths + 1) >> 1;
+		constexpr auto mod = cpow(half_meshwidths, dimensions);
+
+		auto [x, y] = div(offset + i, mod);
+		ib::shift<dimensions> s{};
+		for (int j = 0; j < dimensions; ++j) {
+			s[j] = x % 2 + 2 * (y % half_meshwidths) - shift;
+			x /= 2;
+			y /= half_meshwidths;
+		}
+		return s;
+	}
+};
+
 } // namespace delta
 } // namespace ib

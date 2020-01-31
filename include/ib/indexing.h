@@ -7,44 +7,46 @@
 namespace ib {
 namespace indexing {
 
-struct unclamped {
-private:
-	int index, lower = 0, upper = 1;
-public:
-	explicit constexpr operator int() const { return index; }
+struct clamped {
+	static constexpr auto
+	clamp(int index, int weight)
+	{
+		return index < 0 ? 0 :
+			index >= weight ? weight - 1 : index;
+	}
 
-	constexpr unclamped(int index, int lower, int upper) :
-		index(index), lower(lower), upper(upper) {}
+	int index, weight;
 
-	friend constexpr unclamped
-		combine(const unclamped&, const unclamped&);
+	constexpr operator int() const { return index; }
+
+	constexpr clamped(int index, int lower, int upper) :
+		index(clamp(index-lower, upper-lower)),
+		weight(upper-lower) {}
 };
 
-constexpr unclamped
-combine(const unclamped& l, const unclamped& r)
+constexpr clamped
+combine(const clamped& l, const clamped& r)
 {
-	auto weight = l.upper - l.lower;
-	auto index = l.index + weight * r.index;
-	auto lower = weight * r.lower;
-	auto upper = weight * r.upper;
-	return unclamped{index, lower, upper};
+	auto index = l.index + l.weight * r.index;
+	auto weight = l.weight * r.weight;
+	return {index, 0, weight};
 }
 
 struct errors_negative {
 private:
 	static constexpr
-	auto clamp(int index, int lower, int upper)
+	auto clamp(int index, int weight)
 	{
-		return lower <= index && index < upper ? index : lower-1;
+		return 0 <= index && index < weight ? index : -1;
 	}
-
-	int index, lower = 0, upper = 1;
 public:
+	int index, weight;
+
 	explicit constexpr operator int() const { return index; }
 
 	constexpr errors_negative(int index, int lower, int upper) :
-		index(clamp(index, lower, upper)),
-		lower(lower), upper(upper) {}
+		index(clamp(index-lower, upper-lower)),
+		weight(upper-lower) {}
 
 	friend constexpr errors_negative
 		combine(const errors_negative&, const errors_negative&);
@@ -53,11 +55,10 @@ public:
 constexpr errors_negative
 combine(const errors_negative& l, const errors_negative& r)
 {
-	auto weight = l.upper - l.lower;
-	auto index = l.index + weight * r.index;
-	auto lower = weight * r.lower;
-	auto upper = weight * r.upper;
-	return errors_negative{index, lower, upper};
+	auto index = l.index < 0 ? -1 :
+		l.index + l.weight * r.index;
+	auto weight = l.weight * r.weight;
+	return {index, 0, weight};
 }
 
 template <typename k_type, typename point_type, typename sorter_type>
@@ -97,7 +98,7 @@ protected:
 	}
 public:
 	using grid_index_type = errors_negative;
-	using sort_index_type = unclamped;
+	using sort_index_type = clamped;
 
 	constexpr auto
 	decompose(int i) const
@@ -105,8 +106,9 @@ public:
 		auto k = [&] (const auto& comp)
 		{
 			auto solid = comp.solid_boundary;
-			auto weight = comp.points() + solid;
-			auto j = (i + solid) % weight - solid;
+			auto points = comp.points();
+			auto [index, weight] = clamped{0, -solid, points};
+			auto j = i % weight - index;
 			i /= weight;
 			return j;
 		};

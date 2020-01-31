@@ -219,26 +219,26 @@ main(int argc, char** argv)
 	auto n = rows * cols / domain.dimensions;
 	ins::solver step{mac, domain, params};
 
-	matrix f_l = forces(rbcs);
-	auto f = [&] (const auto& v)
+	null_writer write;
+	auto f = [&, &u=u, &ub=ub] (const auto& v)
 	{
 		auto& x = rbcs.geometry(bases::current).data.position;
 		auto n = x.rows() * x.cols() / domain.dimensions;
-		auto z = (double) k * interpolate(n, x, v) + x;
+		auto w = interpolate(n, x, v);
+		std::cout << linalg::io::numpy << w << '\n';
+		auto z = (double) k * std::move(w) + x;
+		std::cout << linalg::io::numpy << z << '\n';
+		write(u, ub, z);
 
-		bases::container tmp{ref, z};
+		bases::container tmp{ref, std::move(z)};
 		auto& y = tmp.geometry(bases::current).sample.position;
 		auto m = y.rows() * y.cols() / domain.dimensions;
 		auto f = forces(tmp);
 		auto g = spread(m, y, f);
-		f_l = std::move(f);
 		return g;
 	};
 
-	null_writer write;
 	timer t{"runtime"};
-
-	write(u, ub, rbcs.x);
 	for (int i = 0; i < iterations; ++i) {
 		util::logging::info("simulation time: ", i * params.timestep);
 		try { u = step(u, ub, f); }
@@ -248,6 +248,5 @@ main(int argc, char** argv)
 		}
 		auto v = (double) k * interpolate(n, rbcs.x, u);
 		rbcs.x += v;
-		write(u, ub, rbcs.x);
 	}
 }

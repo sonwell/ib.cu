@@ -15,12 +15,12 @@ struct combine {
 	decltype(auto)
 	operator()(const object_type& obj) const
 	{
-		using namespace util::functional;
 		if constexpr (!sizeof...(force_types)) {
 			using bases::current;
 			const auto& curr = obj.geometry(current).sample;
 			return matrix{linalg::size(curr.position), linalg::zero};
 		} else {
+			using namespace util::functional;
 			auto k = [&] (matrix l, auto& r) { return std::move(l) + r(obj); };
 			auto m = [&] (auto& f, auto& ... r) { return foldl(k, f(obj), r...); };
 			return apply(m, forces);

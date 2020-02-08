@@ -188,10 +188,10 @@ main(int argc, char** argv)
 	constexpr auto k = 0.000016_s * (h / 1_um) * (h / 1_um);
 	constexpr ins::parameters params {k, time_scale, length_scale, 1_g / 1_mL, 1_cP, 1e-8};
 
-	constexpr forces::neohookean tension{2.5e-3_dyn/1_cm, 2.5e-1_dyn/1_cm};
+	constexpr forces::skalak tension{2.5e-3_dyn/1_cm, 2.5e-1_dyn/1_cm};
 	constexpr forces::bending bending{2e-12_erg};
 	constexpr forces::repelling repelling{2.5e-3_dyn/1_cm};
-	constexpr forces::combine forces{tension, bending, repelling};
+	constexpr forces::combine forces{tension/*, bending, repelling*/};
 
 	util::logging::info("meter: ", units::m);
 	util::logging::info("time scale: ", params.time_scale);
@@ -210,7 +210,7 @@ main(int argc, char** argv)
 	constexpr ib::novel::interpolate interpolate{mac, domain, phi};
 
 	constexpr bases::polyharmonic_spline<7> basic;
-	rbc ref{1756, 2744, basic};
+	rbc ref{864, 3439, basic};
 
 	auto [u, ub, rx] = (argc > 2) ?
 		resume(domain, argv[2]) :

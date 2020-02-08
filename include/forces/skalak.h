@@ -1,5 +1,4 @@
 #pragma once
-#include "util/log.h"
 #include "bases/geometry.h"
 #include "units.h"
 #include "types.h"
@@ -48,7 +47,7 @@ struct skalak {
 		matrix f{size};
 
 		auto* fdata = f.values();
-		auto k = [=, shear=shear, bulk=bulk] __device__ (int tid)
+		auto k = [=, shear=(double) shear, bulk=(double) bulk] __device__ (int tid)
 		{
 			auto orig = original(tid);
 			auto curr = deformed(tid);

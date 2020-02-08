@@ -25,8 +25,8 @@ public:
 
 	constexpr auto size() const { return sz; }
 
-	constexpr info<dimensions>
-	operator()(int tid) const
+	constexpr auto
+	operator[](int tid) const
 	{
 		info<dimensions> load;
 		auto n = sz.rows * sz.cols;
@@ -43,6 +43,12 @@ public:
 		}
 		load.s = sdata[j];
 		return load;
+	}
+
+	constexpr auto
+	operator()(int tid) const
+	{
+		return operator[](tid);
 	}
 
 	loader(const bases::geometry<dims>& g) :

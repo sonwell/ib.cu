@@ -8,10 +8,10 @@ namespace impl {
 
 template <typename value_type,
           typename = std::enable_if_t<std::is_integral_v<value_type>>>
-constexpr unsigned
+constexpr int
 msb(value_type v)
 {
-	unsigned b = 0;
+	int b = 0;
 	for (auto bits = sizeof(v) * 4; bits > 0; bits >>= 1)
 		if (v >> bits) {
 			b += bits;
@@ -196,13 +196,17 @@ template <typename value_type,
 constexpr double
 pow(double b, value_type e)
 {
+	using limits = std::numeric_limits<value_type>;
+	constexpr auto digits = limits::digits;
+	constexpr auto mask0 = (1ull << (digits-1));
+	constexpr auto mask = mask0 + (mask0 - 1);
 	double v = 1.0;
-	for (auto i = impl::msb(e); i >= 0; --i) {
+	for (int i = impl::msb(e & mask); i >= 0; --i) {
 		v *= v;
 		if (e & (value_type(1) << i))
 			v *= b;
 	}
-	return v;
+	return e < 0 ? 1.0 / v : v;
 }
 
 

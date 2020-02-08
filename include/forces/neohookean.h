@@ -47,7 +47,7 @@ struct neohookean {
 		matrix f{size};
 
 		auto* fdata = f.values();
-		auto k = [=, shear=shear, bulk=bulk] __device__ (int tid)
+		auto k = [=, shear=(double) shear, bulk=(double) bulk] __device__ (int tid)
 		{
 			auto orig = original(tid);
 			auto curr = deformed(tid);
@@ -56,37 +56,21 @@ struct neohookean {
 			auto [ce, cf, cg, ceu, cev, cfu, cfv,
 				 cgu, cgv, cdetg, cdetgu, cdetgv] = helper{curr};
 
-			auto detfi = 1 / sqrt(odetg);
-			auto detfiu = - odetgu * detfi / (2 * odetg);
-			auto detfiv = - odetgv * detfi / (2 * odetg);
+			auto detfi = 1 / sqrt(cdetg);
+			auto detfiu = - cdetgu * detfi / (2 * cdetg);
+			auto detfiv = - cdetgv * detfi / (2 * cdetg);
 
-			auto detc = cdetg / odetg;
-			auto detcu = (cdetgu - detc * odetgu) / odetg;
-			auto detcv = (cdetgv - detc * odetgv) / odetg;
+			auto detci = odetg / cdetg;
+			auto detciu = (odetgu - detci * cdetgu) / cdetg;
+			auto detciv = (odetgv - detci * cdetgv) / cdetg;
 
-			auto trc = (ce * og + cg * oe - 2 * cf * of) / odetg;
-			auto trcu = (ceu * og + ce * ogu + cgu * oe + cg * oeu
-					   - 2 * (cfu * of + cf * ofu) - trc * odetgu) / odetg;
-			auto trcv = (cev * og + ce * ogv + cgv * oe + cg * oev
-					   - 2 * (cfv * of + cf * ofv) - trc * odetgv) / odetg;
+			auto c0 = shear * detfi;
+			auto c0u = shear * detfiu;
+			auto c0v = shear * detfiv;
 
-			auto ji = 1 / sqrt(detc);
-			auto jiu = - detcu * ji / (2 * detc);
-			auto jiv = - detcv * ji / (2 * detc);
-
-			auto r = trc / detc;
-			auto ru = (trcu - detcu * r) / detc;
-			auto rv = (trcv - detcv * r) / detc;
-
-			auto c0 = shear * ji * detfi;
-			auto c0u = shear * (jiu * detfi + ji + detfiu);
-			auto c0v = shear * (jiv * detfi + ji * detfiv);
-
-			auto c1 = (bulk * (1 - ji) - 0.5 * shear * r * ji) * detfi;
-			auto c1u = (-bulk * jiu - 0.5 * shear * (ru * ji + r * jiu)) * detfi +
-			           (bulk * (1 - ji) - 0.5 * shear * r * ji) * detfiu;
-			auto c1v = (-bulk * jiv - 0.5 * shear * (rv * ji + r * jiv)) * detfi +
-			           (bulk * (1 - ji) - 0.5 * shear * r * ji) * detfiv;
+			auto c1 = bulk * (1 - detci) * detfi;
+			auto c1u = -bulk * detciu * detfi + bulk * (1 - detci) * detfiu;
+			auto c1v = -bulk * detciv * detfi + bulk * (1 - detci) * detfiv;
 
 			auto e = c0 * og + c1 * cg;
 			auto eu = c0u * og + c0 * ogu + c1u * cg + c1 * cgu;

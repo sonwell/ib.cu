@@ -29,9 +29,9 @@ log(value_type v)
 	using limits = std::numeric_limits<value_type>;
 	constexpr auto bits = sizeof(value_type) * 8;
 	constexpr auto digits = limits::digits;
-	constexpr auto minexp = limits::min_exponent;
 	constexpr auto maxexp = limits::max_exponent;
-	constexpr value_type loge = 1.442695040888963407359924681001892137426645954152985934135l;
+	constexpr auto bias = maxexp - 1;
+	constexpr value_type ln2 = 0.693147180559945309417232121458176568075500134360255254120l;
 	constexpr long int emask = (1l << (bits - digits)) - 1;
 	typedef union { value_type v; long int i; } map;
 
@@ -40,33 +40,35 @@ log(value_type v)
 
 	m.v = v;
 	if (!(m.i & (emask << (digits-1)))) { // subnormal number
-		logn = maxexp-2;
+		logn = bias-1;
 		v *= limits::max();
 		m.v = v;
 	}
 	auto e = (m.i >> (digits-1)) & emask;
-	auto logb = maxexp-1 - e;
-	auto diff = logb - minexp;
-	long int n[] = {diff+1, 1l};
-	double s[] = {1.0, 1.0 / (1 << -diff)};
-	m.i = n[diff < 0] << (digits-1);
-	v *= s[diff < 0] * m.v;
-	// v now in (0.5, 2)
+	auto p = e - bias;
+	auto q = 2 * bias - e;
+	auto pred = q > 0;
+	auto r = pred ? q : 1;
+	auto s = pred ? 1.0 : 1.0 / (1 << -q);
+	m.i = r << (digits-1);
+	v *= s * m.v;
+	// v now in [1, 2)
 
 	int i = 1;
-	value_type c = 1 - v;
+	value_type c = (v-1) / v;
 	value_type z = 0;
 	auto y = c;
+	auto ln2p = (p-logn)*ln2;
 
 	while (c) {
 		auto t = z + y / i;
-		if (t == z) break;
+		if (ln2p + t == ln2p + z) break;
 		y *= c;
 		i += 1;
 		z = t;
 	}
 
-	return z-(logn+logb+1)/loge;
+	return z+ln2p;
 }
 
 constexpr double

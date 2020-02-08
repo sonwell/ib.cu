@@ -15,13 +15,12 @@ swap(double& a, double& b)
 constexpr double
 gcd(double a, double b)
 {
-	using util::math::abs;
 	using limits = std::numeric_limits<double>;
 	constexpr auto eps = limits::epsilon();
 
-	while (abs(b) > eps) {
+	while (util::math::abs(b) > eps) {
 		if (a < b) impl::swap(a, b);
-		auto c = a - ((int) (a / b)) * b;
+		auto c = a - util::math::floor(a / b) * b;
 		a = b; b = c;
 	}
 	return a;

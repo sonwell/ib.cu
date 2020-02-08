@@ -1,7 +1,6 @@
 #pragma once
 #include <cstddef>
 #include <stdexcept>
-#include <cmath>
 #include "util/counter.h"
 #include "util/math.h"
 #include "units.h"

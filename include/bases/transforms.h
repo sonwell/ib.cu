@@ -71,7 +71,6 @@ private:
 	evaluate(double angle, axis_type&& axis) const
 	{
 		using namespace util::functional;
-		using namespace util::math;
 		using algo::dot;
 		using algo::cross;
 

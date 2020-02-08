@@ -2,9 +2,9 @@
 #include <type_traits>
 #include <utility>
 
-#include "util/math.h"
 #include "util/launch.h"
 #include "util/functional.h"
+#include "util/math.h"
 
 #include "types.h"
 #include "domain.h"

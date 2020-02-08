@@ -220,15 +220,12 @@ main(int argc, char** argv)
 	ins::solver step{mac, domain, params};
 
 	null_writer write;
-	auto f = [&, &u=u, &ub=ub] (const auto& v)
+	auto f = [&] (const auto& v)
 	{
 		auto& x = rbcs.geometry(bases::current).data.position;
 		auto n = x.rows() * x.cols() / domain.dimensions;
 		auto w = interpolate(n, x, v);
-		std::cout << linalg::io::numpy << w << '\n';
 		auto z = (double) k * std::move(w) + x;
-		std::cout << linalg::io::numpy << z << '\n';
-		write(u, ub, z);
 
 		bases::container tmp{ref, std::move(z)};
 		auto& y = tmp.geometry(bases::current).sample.position;
@@ -239,6 +236,7 @@ main(int argc, char** argv)
 	};
 
 	timer t{"runtime"};
+	write(u, ub, rbcs.x);
 	for (int i = 0; i < iterations; ++i) {
 		util::logging::info("simulation time: ", i * params.timestep);
 		try { u = step(u, ub, f); }
@@ -248,5 +246,6 @@ main(int argc, char** argv)
 		}
 		auto v = (double) k * interpolate(n, rbcs.x, u);
 		rbcs.x += v;
+		write(u, ub, rbcs.x);
 	}
 }

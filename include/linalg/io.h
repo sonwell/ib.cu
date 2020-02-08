@@ -640,6 +640,13 @@ operator>>(reader<format_type> rd, object_type&& object)
 	else { cb(fmt); return rd; }
 }
 
+template <typename format_type>
+decltype(auto)
+operator<<(writer<format_type> wr, std::ostream& (*func)(std::ostream&))
+{
+	return wr.stream << *func;
+}
+
 template <typename format_type,
           typename = std::enable_if_t<std::is_base_of_v<format, format_type>>>
 decltype(auto)

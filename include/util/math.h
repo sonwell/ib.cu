@@ -6,21 +6,67 @@ namespace util {
 namespace math {
 namespace impl {
 
-constexpr double
-log(double x)
+template <typename value_type,
+          typename = std::enable_if_t<std::is_integral_v<value_type>>>
+constexpr unsigned
+msb(value_type v)
 {
-	int i = 1;
-	double c = 1 - x;
-	double y = c;
-	double z = 0;
+	unsigned b = 0;
+	for (auto bits = sizeof(v) * 4; bits > 0; bits >>= 1)
+		if (v >> bits) {
+			b += bits;
+			v >>= bits;
+		}
+	return b;
+}
 
-	while (true) {
+template <typename value_type,
+          typename = std::enable_if_t<
+			  std::numeric_limits<value_type>::is_iec559>>
+constexpr auto
+log(value_type v)
+{
+	using limits = std::numeric_limits<value_type>;
+	constexpr auto bits = sizeof(value_type) * 8;
+	constexpr auto digits = limits::digits;
+	constexpr auto minexp = limits::min_exponent;
+	constexpr auto maxexp = limits::max_exponent;
+	constexpr value_type loge = 1.442695040888963407359924681001892137426645954152985934135l;
+	constexpr long int emask = (1l << (bits - digits)) - 1;
+	typedef union { value_type v; long int i; } map;
+
+	long int logn = 0;
+	map m;
+
+	m.v = v;
+	if (!(m.i & (emask << (digits-1)))) { // subnormal number
+		logn = maxexp-2;
+		v *= limits::max();
+		m.v = v;
+	}
+	auto e = (m.i >> (digits-1)) & emask;
+	auto logb = maxexp-1 - e;
+	auto diff = logb - minexp;
+	long int n[] = {diff+1, 1l};
+	double s[] = {1.0, 1.0 / (1 << -diff)};
+	m.i = n[diff < 0] << (digits-1);
+	v *= s[diff < 0] * m.v;
+	// v now in (0.5, 2)
+
+	int i = 1;
+	value_type c = 1 - v;
+	value_type z = 0;
+	auto y = c;
+
+	while (c) {
 		auto t = z + y / i;
-		if (t == z) return t;
+		if (t == z) break;
 		y *= c;
 		i += 1;
 		z = t;
 	}
+
+	return z-(logn+logb+1)/loge;
 }
 
 constexpr double
@@ -103,7 +149,7 @@ abs(double x)
 constexpr double
 floor(double x)
 {
-	return (long long) (x - (x < 0));
+	return (long) (x - (x < 0));
 }
 
 constexpr double
@@ -119,8 +165,7 @@ log(double x)
 	if (x < 0) return limits::quiet_NaN();
 	if (x == 0) return -limits::infinity();
 	if (x == 1) return 0;
-	if (x > 1) return -log(1/x);
-	return -impl::log(x);
+	return impl::log(x);
 }
 
 constexpr double
@@ -135,13 +180,31 @@ sqrt(double x)
 	return exp(0.5 * log(x));
 }
 
+constexpr double sin(double);
+constexpr double cos(double);
+
 constexpr double
 pow(double b, double e)
 {
-	return exp(e * log(b));
+	int p = floor(e);
+	if (e != p) return std::numeric_limits<double>::quiet_NaN();
+	return (1 - 2 * (p & 1)) * exp(e * log(b));
 }
 
-constexpr double sin(double);
+template <typename value_type,
+          typename = std::enable_if_t<std::is_integral_v<value_type>>>
+constexpr double
+pow(double b, value_type e)
+{
+	double v = 1.0;
+	for (auto i = msb(e); i >= 0; --i) {
+		v *= v;
+		if (e & (value_type(1) << i))
+			v *= b;
+	}
+	return v;
+}
+
 
 constexpr double
 cos(double a)

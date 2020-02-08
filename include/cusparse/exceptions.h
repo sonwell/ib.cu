@@ -5,7 +5,7 @@
 #include <system_error>
 #include "types.h"
 
-namespace std { template <> struct is_error_code_enum<cusparse::status_t> : std::true_type {}; }
+template <> struct std::is_error_code_enum<cusparse::status_t> : std::true_type {};
 
 namespace cusparse {
 #define codes(transform) \

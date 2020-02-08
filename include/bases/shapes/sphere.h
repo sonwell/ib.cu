@@ -31,8 +31,12 @@ public:
 				auto ss = sin(xs[i]);
 				double cyc[] = {ss, cs, -ss, -cs};
 				auto c = counts[i];
-				t = t * cyc[(1 + c) % 4] * cos(xd[i])
-				  + w * cyc[(0 + c) % 4] * sin(xd[i]);
+				auto cw = cyc[(1+c) % 4];
+				auto sw = cyc[(0+c) % 4];
+				auto cv = cos(xd[i]);
+				auto sv = sin(xd[i]);
+				t = t * 0.5 * (cw * cv + cv * cw)
+				  + w * 0.5 * (sw * sv + sv * sw);
 				if (c) w = 0.0;
 			}
 			return t;
@@ -54,6 +58,7 @@ public:
 		}
 	};
 protected:
+	using base::weights;
 	using params = double[2];
 	static constexpr auto pi = M_PI;
 	static constexpr metric d{};

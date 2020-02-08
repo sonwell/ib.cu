@@ -29,21 +29,29 @@ struct python_writer {
 
 	template <typename reference_type>
 	void
+	print(const bases::container<reference_type>& container)
+	{
+		const auto& [data, sample] = container.geometry(bases::current);
+		auto f = forces(container);
+		output << "x = " << linalg::io::numpy << data.position << '\n';
+		output << "y = " << linalg::io::numpy << sample.position << '\n';
+		output << "f = " << linalg::io::numpy << f << '\n';
+		output << "s = " << linalg::io::numpy << sample.sigma << '\n';
+	}
+
+	template <typename reference_type>
+	void
 	initialize(const bases::container<reference_type>& container)
 	{
 		output << "import numpy as np\n";
 		output << "from mayavi import mlab\n";
-		output << "import rbc_plotter\n\n";
+		output << "import plotting.rbc as rbc_plotter\n\n";
 
 		auto n = container.points().sample;
 		auto p = bases::traits<reference_type>::sample(n);
-		const auto& [data, sample] = container.geometry(bases::current);
-		auto f = forces(container);
 		output << "p = " << linalg::io::numpy << p << '\n';
-		output << "x0 = " << linalg::io::numpy << data.position << '\n';
-		output << "y0 = " << linalg::io::numpy << sample.position << '\n';
-		output << "f0 = " << linalg::io::numpy << f << '\n';
-		output << "plotter = rbc_plotter.Plotter(rbc_plotter.Sphere, p, x0, y0, f0)\n";
+		print(container);
+		output << "plotter = rbc_plotter.Plotter(rbc_plotter.Sphere, p, x, y, f, s)\n";
 	}
 
 
@@ -58,12 +66,8 @@ struct python_writer {
 	void
 	operator()(const bases::container<reference_type>& container)
 	{
-		const auto& [data, sample] = container.geometry(bases::current);
-		auto f = forces(container);
-		output << "x = " << linalg::io::numpy << data.position << '\n';
-		output << "y = " << linalg::io::numpy << sample.position << '\n';
-		output << "f = " << linalg::io::numpy << f << '\n';
-		output << "plotter.plot(x, y, f)\n";
+		print(container);
+		output << "plotter.plot(x, y, f, s)\n";
 	}
 };
 

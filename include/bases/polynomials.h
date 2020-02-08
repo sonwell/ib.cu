@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include "util/math.h"
 #include "differentiation.h"
 
 namespace bases {
@@ -144,6 +145,7 @@ private:
 	eval(const double (&xs)[n], util::sequence<int, exps...>,
 			util::sequence<int, coeffs...>) const
 	{
+		using util::math::pow;
 		constexpr int exponents[] = {exps...};
 		constexpr int coefficients[] = {coeffs...};
 		constexpr int np = sizeof...(coeffs);

@@ -11,6 +11,8 @@
 struct rbc : bases::shapes::sphere {
 private:
 	using matrix = bases::matrix;
+	using vector = bases::vector;
+	using base = bases::shapes::sphere;
 	static constexpr bases::traits<rbc> traits;
 	static constexpr bases::polynomials<0> p;
 public:
@@ -41,27 +43,55 @@ public:
 		return x;
 	}
 
+	static std::filesystem::path
+	filename(int n)
+	{
+		static std::filesystem::path root = "data";
+		std::stringstream ss;
+		ss << "rbc." << n << ".bin";
+		return root / ss.str();
+	}
+
+	static bool
+	is_specialized(int n)
+	{
+		return std::filesystem::exists(filename(n));
+	}
+
 	static matrix
 	sample(int n)
 	{
-		static std::filesystem::path root = "data";
-		std::fstream f;
-
-		std::filesystem::path file = root;
-		std::stringstream ss;
-		ss << "rbc." << n << ".bin";
-		file /= ss.str();
-
-		if (!std::filesystem::exists(file)) {
+		if (!is_specialized(n)) {
 			util::logging::warn(n, " is not specialized for rbc; ",
 					"falling back to sphere sampling.");
 			return bases::shapes::sphere::sample(n);
 		}
 
 		matrix m;
-		f.open(file, std::ios::in | std::ios::binary);
+		auto name = filename(n);
+		std::fstream f(name, std::ios::in | std::ios::binary);
 		f >> linalg::io::binary >> m;
 		return m;
+	}
+
+	template <typename rbf>
+	static vector
+	weights(const matrix& x, rbf phi)
+	{
+		if (!is_specialized(x.rows()))
+			return base::weights(x, phi);
+		static constexpr double rel_surface_area = 8.77719219164;
+		static constexpr auto weight = [] __device__ (const params& x)
+		{
+			auto cphi = cos(x[1]);
+			auto r2 = cphi * cphi;
+			auto rphi = 0.5 * (0.21 + 2 * r2 - 1.12 * r2 * r2);
+			auto rphip = 1 - 1.12 * r2;
+			auto fac = rphi - 2 * (1-r2) * rphip;
+			auto scale = cphi * sqrt(1+r2*(fac * fac - 1));
+			return scale / rel_surface_area;
+		};
+		return base::weights(x, phi, weight);
 	}
 
 	template <typename basic>

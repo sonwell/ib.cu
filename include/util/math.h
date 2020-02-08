@@ -197,7 +197,7 @@ constexpr double
 pow(double b, value_type e)
 {
 	double v = 1.0;
-	for (auto i = msb(e); i >= 0; --i) {
+	for (auto i = impl::msb(e); i >= 0; --i) {
 		v *= v;
 		if (e & (value_type(1) << i))
 			v *= b;

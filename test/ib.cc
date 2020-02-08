@@ -18,6 +18,7 @@
 #include "bases/geometry.h"
 #include "ib/pmqe.h"
 #include "ib/novel.h"
+#include "ib/hat.h"
 #include "forces/bending.h"
 #include "forces/skalak.h"
 #include "forces/neohookean.h"
@@ -103,7 +104,8 @@ fill_flow(const grid_type& grid, fn_type fn)
 
 template <typename grid_type, typename domain_type, typename reference_type>
 decltype(auto)
-initialize(const grid_type& grid, const domain_type& domain, const reference_type& ref, units::unit<0, 0, -1> shear_rate)
+initialize(const grid_type& grid, const domain_type& domain,
+		const reference_type& ref, units::unit<0, 0, -1> shear_rate)
 {
 	static constexpr double pi_quarters = M_PI_4;
 	constexpr auto center = bases::translate({8_um, 8_um, 8_um});
@@ -183,10 +185,10 @@ main(int argc, char** argv)
 	constexpr auto time_scale = 1 / shear_rate;
 	constexpr auto length_scale = domain.unit();
 	constexpr auto h = domain.unit() / mac.refinement();
-	constexpr auto k = 0.0000016_s * (h / 1_um) * (h / 1_um);
+	constexpr auto k = 0.000016_s * (h / 1_um) * (h / 1_um);
 	constexpr ins::parameters params {k, time_scale, length_scale, 1_g / 1_mL, 1_cP, 1e-8};
 
-	constexpr forces::skalak tension{2.5e-3_dyn/1_cm, 2.5e-1_dyn/1_cm};
+	constexpr forces::neohookean tension{2.5e-3_dyn/1_cm, 2.5e-1_dyn/1_cm};
 	constexpr forces::bending bending{2e-12_erg};
 	constexpr forces::repelling repelling{2.5e-3_dyn/1_cm};
 	constexpr forces::combine forces{tension, bending, repelling};
@@ -203,7 +205,7 @@ main(int argc, char** argv)
 	util::logging::info("tension info: shear =  ", tension.shear, " bulk = ", tension.bulk);
 	util::logging::info("bending info: modulus = ", bending.modulus);
 
-	constexpr ib::delta::roma phi;
+	constexpr ib::delta::hat phi;
 	constexpr ib::novel::spread spread{mac, domain, phi};
 	constexpr ib::novel::interpolate interpolate{mac, domain, phi};
 
@@ -219,7 +221,7 @@ main(int argc, char** argv)
 	auto n = rows * cols / domain.dimensions;
 	ins::solver step{mac, domain, params};
 
-	null_writer write;
+	binary_writer write;
 	auto f = [&] (const auto& v)
 	{
 		auto& x = rbcs.geometry(bases::current).data.position;
@@ -248,4 +250,6 @@ main(int argc, char** argv)
 		rbcs.x += v;
 		write(u, ub, rbcs.x);
 	}
+
+	return 0;
 }

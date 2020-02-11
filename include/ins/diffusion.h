@@ -27,12 +27,18 @@ private:
 		return id;
 	};
 
+	static double
+	lambda(const parameters& p)
+	{
+		return p.timestep * p.coefficient / 2;
+	}
+
 	struct chebyshev : solvers::chebpcg {
 		chebyshev(const grid_type& grid, double tolerance, double l) :
 			chebpcg(tolerance, helmholtz(l, grid)) {}
 
 		chebyshev(const grid_type& grid, const parameters& p) :
-			chebyshev(grid, p.tolerance, p.timestep * p.coefficient / 2) {}
+			chebyshev(grid, p.tolerance, lambda(p)) {}
 	};
 
 	struct multigrid : solvers::mgpcg {
@@ -45,7 +51,7 @@ private:
 			mgpcg(grid, tolerance, [=] (auto&& g) { return helmholtz(l, g); }, smoother) {}
 
 		multigrid(const grid_type& grid, const parameters& p):
-			multigrid(grid, p.tolerance, p.timestep * p.coefficient / 2) {}
+			multigrid(grid, p.tolerance, lambda(p)) {}
 	};
 
 	units::time timestep;

@@ -29,7 +29,7 @@ private:
 		using util::math::log;
 		using util::math::pow;
 		constexpr auto m = sizeof...(ds);
-		static_assert(n - 2 * m > 0, "attempting to use a polyharmonic "
+		static_assert(n - 2 * m >= 0, "attempting to use a polyharmonic "
 				"spline that is not as smooth as needed. Increase the "
 				"order of your polyharmonic spline and try again.");
 		using coeff_type = coefficients<n, m>;

@@ -99,8 +99,6 @@ struct chebw<4> {
 class chebyshev {
 private:
 	impl::chebw<4> chebw;
-protected:
-	const matrix& m;
 
 	auto
 	polynomial(vector r) const
@@ -116,10 +114,12 @@ protected:
 		}
 		return s;
 	}
+protected:
+	matrix m;
 public:
 	auto operator()(vector r) const { return polynomial(std::move(r)); }
-	chebyshev(double a, double b, const matrix& m) : chebw(a, b), m(m) {}
-	chebyshev(chebyshev&& o) : chebw(std::move(o.chebw)), m(o.m) {}
+	chebyshev(double a, double b, matrix m) : chebw(a, b), m(m) {}
+	chebyshev(chebyshev&& o) : chebw(std::move(o.chebw)), m(std::move(o.m)) {}
 };
 
 } // namespace algo

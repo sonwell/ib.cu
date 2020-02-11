@@ -29,8 +29,8 @@ struct rbf : differentiable {
 	constexpr double
 	eval(const double (&xs)[n], const double (&xd)[n], partials<d0, d1>) const
 	{
-		partials<d0> p0;
-		partials<d1> p1;
+		constexpr partials<d0> p0;
+		constexpr partials<d1> p1;
 		auto r = distance(xs, xd);
 		auto rd0r = diff(distance, p0)(xs, xd);
 		auto rd1r = d0 == d1 ? rd0r : diff(distance, p1)(xs, xd);

@@ -285,7 +285,7 @@ write(std::ostream& out, const text& fmt, base_t<value_type> scale,
 	for (int i = 0; i < n; ++i) {
 		if (i) out << fmt.vector_delim;
 		if (offset < nnz && k[offset] == i)
-			text_value(out, v[offset++] * scale);
+			text_value(out, w[offset++] * scale);
 		else
 			text_value(out, (value_type) 0);
 	}
@@ -339,7 +339,7 @@ write(std::ostream& out, const text& fmt, base_t<value_type> scale,
 		for (int j = 0; j < m; ++j) {
 			if (j) out << fmt.matrix_delim;
 			if (offset < end && k[offset] == j)
-				text_value(out, v[offset] * scale);
+				text_value(out, w[offset++] * scale);
 			else
 				text_value(out, (value_type) 0);
 		}
@@ -377,6 +377,20 @@ magic(std::istream& in, const object_type& v)
 	assert(n == magic_number);
 }
 
+template <typename value_type>
+auto
+nonzeros(const sparse<value_type>& v)
+{
+	return v.nonzero();
+}
+
+template <typename value_type>
+auto
+nonzeros(const dense<value_type>& v)
+{
+	return v.rows() * v.cols();
+}
+
 template <typename object_type,
 		typename = std::enable_if_t<detail::is_linalg_v<object_type>>>
 void
@@ -390,7 +404,7 @@ template <typename object_type,
 void
 write(std::ostream& out, const algebraic& fmt, const object_type& v)
 {
-	int exp = detail::exponent(v.rows(), v.values());
+	int exp = detail::exponent(nonzeros(v), v.values());
 	if (exp) out << "1e" << exp << " * " << fmt.continuation << '\n';
 	write(out, fmt, std::pow(10., -exp), v);
 }
@@ -560,7 +574,7 @@ copy(const matrix<sparse<value_type>>& v, transfer_type&& transfer)
 	auto* s = v.starts();
 	auto* k = v.indices();
 	auto* w = v.values();
-	return {n, m, nnz, transfer(n ? n+1 : 0, s),
+	return {n, m, nnz, transfer(nnz ? n+1 : 0, s),
 		transfer(nnz, k), transfer(nnz, w)};
 }
 

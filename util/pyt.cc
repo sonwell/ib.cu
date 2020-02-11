@@ -94,7 +94,7 @@ main(int argc, char** argv)
 	util::set_default_resource(cuda::default_device().memory());
 	constexpr bases::polyharmonic_spline<7> basic;
 
-	auto m = 2744;
+	auto m = 3439;
 	if (argc > 1)
 		m = atoi(argv[1]);
 

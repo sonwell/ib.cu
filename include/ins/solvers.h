@@ -19,17 +19,21 @@ namespace __1 {
 
 struct chebyshev : algo::chebyshev, algo::preconditioner {
 private:
-	chebyshev(std::pair<double, double> range, const algo::matrix& m) :
-		algo::chebyshev(range.second, range.first, m) {}
+	chebyshev(std::pair<double, double> range, algo::matrix m) :
+		algo::chebyshev(range.second, range.first, std::move(m)) {}
+protected:
+	using algo::chebyshev::m;
 public:
+	const matrix& op() const { return m; }
+
 	virtual vector
 	operator()(vector b) const
 	{
 		return algo::chebyshev::operator()(std::move(b));
 	}
 
-	chebyshev(const algo::matrix& m) :
-		chebyshev(algo::gershgorin(m), m) {}
+	chebyshev(algo::matrix m) :
+		chebyshev(algo::gershgorin(m), std::move(m)) {}
 };
 
 struct ilu : algo::symmilu {
@@ -58,24 +62,18 @@ struct chebpcg : solver {
 private:
 	using chebyshev = __1::chebyshev;
 	double tolerance;
-	matrix m;
-	chebyshev preconditioner;
+	chebyshev pr;
 public:
 	virtual vector
 	operator()(vector v) const
 	{
 		using algo::krylov::pcg;
-		return pcg(preconditioner, m, std::move(v), tolerance);
+		return pcg(pr, pr.op(), std::move(v), tolerance);
 	}
 
 	chebpcg(double tolerance, matrix op) :
 		tolerance(tolerance),
-		m(std::move(op)),
-		preconditioner(m) {}
-	chebpcg(chebpcg&& o) :
-		tolerance(o.tolerance),
-		m(std::move(o.m)),
-		preconditioner(m) {}
+		pr(std::move(op)) {}
 };
 
 struct ilupcg : solver {

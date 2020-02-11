@@ -118,8 +118,7 @@ protected:
 	matrix m;
 public:
 	auto operator()(vector r) const { return polynomial(std::move(r)); }
-	chebyshev(double a, double b, matrix m) : chebw(a, b), m(m) {}
-	chebyshev(chebyshev&& o) : chebw(std::move(o.chebw)), m(std::move(o.m)) {}
+	chebyshev(double a, double b, matrix m) : chebw(a, b), m(std::move(m)) {}
 };
 
 } // namespace algo

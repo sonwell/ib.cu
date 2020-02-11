@@ -74,8 +74,9 @@ private:
 		};
 		auto v = [] (auto ... v) { return std::array{std::move(v)...}; };
 		auto c = [] (auto ... v) { return info_type{std::move(v)...}; };
-		auto objects = apply(zip, map(k, fd::components(domain)));
-		return apply(c, map(partial(apply, v), std::move(objects)));
+		const auto& components = fd::components(domain);
+		auto [steppers, ops, phis] = map(partial(apply, v), apply(zip, map(k, components)));
+		return info_type{std::move(steppers), std::move(ops), std::move(phis)};
 	}
 
 	template <typename u0_type, typename ub_type, typename u1_type, typename f_type>

@@ -81,7 +81,7 @@ private:
 	projection(const tag_type& tag, const domain_type& domain, const shifted_tag_type& stag,
 			const interm_type& interm, const parameters& params) :
 		tolerance(params.tolerance),
-		solver(fd::grid{stag, domain}, tolerance),
+		solver(fd::grid{stag, interm}, tolerance),
 		div(tag, domain),
 		grad(stag, interm) {}
 public:

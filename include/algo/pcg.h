@@ -7,32 +7,32 @@ namespace algo {
 namespace krylov {
 
 inline vector
-pcg(const preconditioner& pr, const matrix& m, vector b, double tol)
+pcg(const preconditioner& pr, const matrix& m, vector r, double tol)
 {
-	auto d = solve(pr, b);
-	double delta_new = dot(b, d);
-	vector x{linalg::size(b), linalg::zero};
-	auto r = std::move(b);
+	auto n = r.rows();
+	auto d = solve(pr, r);
+	double delta_new = dot(r, d);
+	vector x{n, linalg::zero};
 
 	int count = 0;
-	while (abs(r) > tol) {
-		{
-			auto q = m * d;
-			auto nu = dot(d, q);
-			if (nu == 0)
-				break;
-			auto alpha = delta_new / nu;
-			axpy(alpha, d, x);
-			axpy(-alpha, q, r);
+	vector q{n};
+	while (abs(d) > tol) {
+		gemv(1.0, m, d, 0.0, q);
+		auto nu = dot(d, q);
+		if (abs(nu) < tol * tol) {
+			util::logging::info("pcg bailing out early:〈P⁻¹r,AP⁻¹r〉= ", nu);
+			break;
 		}
-		{
-			auto s = solve(pr, r);
-			auto delta_old = delta_new;
-			delta_new = dot(r, s);
-			auto beta = delta_new / delta_old;
-			axpy(beta, d, s);
-			swap(d, s);
-		}
+		auto alpha = delta_new / nu;
+		axpy(alpha, d, x);
+		axpy(-alpha, q, r);
+
+		q = solve(pr, r);
+		auto delta_old = delta_new;
+		delta_new = dot(r, q);
+		auto beta = delta_new / delta_old;
+		axpy(beta, d, q);
+		swap(d, q);
 		++count;
 	}
 	util::logging::info("pcg iterations: ", count);

@@ -82,13 +82,15 @@ private:
 
 typedef struct { double lower, upper; } params;
 
+} // namespace __1
+
 template <typename> struct discretization;
-using correction::order;
 
 template <typename lbt, typename ubt>
 struct discretization<fd::dimension<lbt, ubt>> : fd::dimension<lbt, ubt> {
 private:
 	using entry = __1::entry;
+	using params = __1::params;
 	using base = fd::dimension<lbt, ubt>;
 
 	template <bool is_lower>
@@ -119,7 +121,7 @@ public:
 
 	template <std::size_t n = 0>
 	constexpr params
-	coefficient(order<n> = {}) const
+	coefficient(correction::order<n> = {}) const
 	{
 		static_assert(n < 3, "error coefficients only computed up to second order");
 		if constexpr (n < 2) return {0., 0.};
@@ -175,7 +177,7 @@ private:
 	double _resolution;
 	int _cells;
 	int _points;
-	coefficients weights[2];
+	__1::coefficients weights[2];
 };
 
 template <typename dimension_type>
@@ -189,9 +191,5 @@ discretization(const discretization<dimension_type>&, alignment)
 template <typename dimension_type>
 discretization(const discretization<dimension_type>&, double)
 	-> discretization<dimension_type>;
-
-} // namespace __1
-
-using __1::discretization;
 
 } // namespace ib

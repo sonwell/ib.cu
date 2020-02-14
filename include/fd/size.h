@@ -6,7 +6,6 @@
 #include "util/functional.h"
 
 namespace fd {
-namespace __1 {
 
 template <typename grid_type>
 constexpr auto
@@ -40,10 +39,5 @@ size(const grid_type& grid, const arg_types& ... args)
 	auto r = [] (auto ... v) { return (v * ... * 1); };
 	return apply(r, sizes(grid, args...));
 }
-
-} // namespace __1
-
-using __1::sizes;
-using __1::size;
 
 } // namespace fd

@@ -11,9 +11,6 @@
 #include "dimension.h"
 
 namespace fd {
-namespace __1 {
-
-using namespace util::functional;
 
 template <typename ... dimension_types>
 class domain {
@@ -21,8 +18,6 @@ class domain {
 public:
 	static constexpr auto dimensions = sizeof...(dimension_types);
 	using container_type = std::tuple<dimension_types...>;
-private:
-	static constexpr auto gcd = partial(foldl, algo::gcd);
 protected:
 	units::length _base_unit;
 	container_type _components;
@@ -31,7 +26,7 @@ public:
 	constexpr const auto& components() const { return _components; }
 
 	constexpr domain(const dimension_types& ... dimensions) :
-		_base_unit(gcd(dimensions.length()...)),
+		_base_unit(util::functional::foldl(algo::gcd, dimensions.length()...)),
 		_components{dimensions...} {}
 };
 
@@ -42,15 +37,10 @@ components(const domain<dimension_types...>& domain)
 	return domain.components();
 }
 
-} // namespace __1
-
-using __1::domain;
-using __1::components;
-
 template <typename> struct is_domain : std::false_type {};
 
 template <typename ... dimension_types>
-struct is_domain<__1::domain<dimension_types...>> :
+struct is_domain<domain<dimension_types...>> :
 	std::integral_constant<bool, (is_dimension_v<dimension_types> && ...)> {};
 
 template <typename domain_type>

@@ -174,7 +174,7 @@ template <typename vtype>
 int
 zeros(vtype&& v)
 {
-	return std::ceil(std::log10(std::fabs(v)/2));
+	return std::ceil(std::log10(std::abs(v)/2));
 }
 
 template <typename vtype>

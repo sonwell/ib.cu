@@ -41,15 +41,16 @@ protected:
 		differentials{construct(tag, domain)} {}
 };
 
+} // namespace __1
 
 template <typename> class divergence;
 
 template <typename ... dimension_types>
 class divergence<fd::domain<dimension_types...>> :
-	public differential<fd::domain<dimension_types...>> {
+	public __1::differential<fd::domain<dimension_types...>> {
 private:
 	using domain_type = fd::domain<dimension_types...>;
-	using base = differential<domain_type>;
+	using base = __1::differential<domain_type>;
 public:
 	using base::dimensions;
 
@@ -88,10 +89,10 @@ template <typename> class gradient;
 
 template <typename ... dimension_types>
 class gradient<fd::domain<dimension_types...>> :
-	public differential<fd::domain<dimension_types...>> {
+	public __1::differential<fd::domain<dimension_types...>> {
 private:
 	using domain_type = fd::domain<dimension_types...>;
-	using base = differential<domain_type>;
+	using base = __1::differential<domain_type>;
 public:
 	using base::dimensions;
 
@@ -111,10 +112,5 @@ public:
 
 template <typename tag_type, typename domain_type>
 gradient(const tag_type&, const domain_type&) -> gradient<domain_type>;
-
-} // namespace __1
-
-using __1::divergence;
-using __1::gradient;
 
 } // namespace ins

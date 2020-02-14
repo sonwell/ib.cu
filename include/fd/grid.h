@@ -102,6 +102,8 @@ operator*(container left, const container& right)
 	return left;
 }
 
+} // namespace __1
+
 template <typename> struct grid;
 
 template <typename ... dimension_types>
@@ -109,10 +111,10 @@ struct grid<fd::domain<dimension_types...>> {
 	using domain_type = fd::domain<dimension_types...>;
 	static constexpr auto dimensions = domain_type::dimensions;
 	using cell_type = std::array<fd::alignment, dimensions>;
-	using point_type = point<dimensions>;
-	using units_type = units<dimensions>;
-	using indices_type = indices<dimensions>;
-	using delta_type = delta<dimensions>;
+	using point_type = __1::point<dimensions>;
+	using units_type = __1::units<dimensions>;
+	using indices_type = __1::indices<dimensions>;
+	using delta_type = __1::delta<dimensions>;
 
 	static constexpr auto
 	discretizations(const domain_type& domain, double resolution, const cell_type& cell)
@@ -231,10 +233,6 @@ grid(const tag_type&, const domain_type&)
 
 template <typename domain_type>
 grid(const grid<domain_type>&, int) -> grid<domain_type>;
-
-} // namespace __1
-
-using __1::grid;
 
 template <typename> struct is_grid : std::false_type {};
 template <typename domain_type>

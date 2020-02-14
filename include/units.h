@@ -20,9 +20,9 @@ pow(double base, int exp)
 	return pow(base, exp & 1) * r * r;
 }
 
-static constexpr auto length_scale = 1. /* per cm */;
-static constexpr auto mass_scale   = 1. /* per  g */;
-static constexpr auto time_scale   = 1. /* per  s */;
+static constexpr auto length_scale = 1'000.     /* per cm */;
+static constexpr auto mass_scale   = 1'000'000. /* per  g */;
+static constexpr auto time_scale   = 1'000.     /* per  s */;
 
 template <tmpl_type dist, tmpl_type mass, tmpl_type time>
 inline constexpr auto scale =

@@ -23,15 +23,12 @@ namespace ins {
 struct parameters : simulation {
 	units::density density;
 	units::viscosity viscosity;
-	units::length length_scale;
-	units::time time_scale;
 
 	constexpr parameters(units::time k, units::time time,
 			units::length length, units::density rho,
 			units::viscosity mu, double tol) :
-		simulation{k, mu / rho, tol},
-		density(rho), viscosity(mu),
-		length_scale(length), time_scale(time) {}
+		simulation{k, time, length, mu / rho, tol},
+		density(rho), viscosity(mu) {}
 };
 
 namespace __1 {
@@ -73,7 +70,6 @@ private:
 				std::move(stepper), std::move(op), std::move(v)};
 		};
 		auto v = [] (auto ... v) { return std::array{std::move(v)...}; };
-		auto c = [] (auto ... v) { return info_type{std::move(v)...}; };
 		const auto& components = fd::components(domain);
 		auto [steppers, ops, phis] = map(partial(apply, v), apply(zip, map(k, components)));
 		return info_type{std::move(steppers), std::move(ops), std::move(phis)};

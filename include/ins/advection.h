@@ -8,7 +8,6 @@
 #include "differential.h"
 
 namespace ins {
-namespace __1 {
 
 template <typename> class average;
 
@@ -76,8 +75,8 @@ private:
 		auto k = [&] (const auto m)
 		{
 			static constexpr auto n = decltype(m)::value;
-			using shifted_tag = fd::shift::directionally<tag_type, n>;
-			return divergence{shifted_tag{tag.refinement()}, domain};
+			auto shifted = fd::shift::directionally<n>(tag);
+			return divergence{shifted, domain};
 		};
 		return map(k, std::make_index_sequence<dimensions>{});
 	}
@@ -118,9 +117,5 @@ public:
 
 template <typename tag_type, typename domain_type>
 advection(const tag_type&, const domain_type&) -> advection<domain_type>;
-
-} // namespace __1
-
-using __1::advection;
 
 } // namespace ins

@@ -37,10 +37,12 @@ constexpr decltype(auto)
 intermediate(const fd::domain<dimension_types...>& domain)
 {
 	using namespace util::functional;
-	auto k = [] (auto&& ... components) { return fd::domain{components...}; };
+	auto k = [] (auto ... components) { return fd::domain{std::move(components)...}; };
 	auto c = [] (const auto& component) { return dimension(component); };
 	return apply(k, map(c, fd::components(domain)));
 }
+
+} // namespace __1
 
 template <typename> class projection;
 
@@ -52,19 +54,20 @@ private:
 	struct multigrid : solvers::mgpcg {
 		template <typename grid_type>
 		multigrid(const grid_type& grid, double tolerance) :
-			mgpcg(grid, tolerance,
+			solvers::mgpcg(grid, tolerance,
 					[] (const auto& g) { return fd::laplacian(g); },
 					[] (const auto& g, const matrix& m) { return new mg::chebyshev(g, m); }
 			) {}
 	};
 
 	using domain_type = fd::domain<dimension_types...>;
-	using interm_domain_type = decltype(intermediate(std::declval<domain_type>()));
+	using interm_domain_type = decltype(__1::intermediate(std::declval<domain_type>()));
 	using divergence_functor_type = divergence<domain_type>;
 	using gradient_functor_type = gradient<interm_domain_type>;
 	using multigrid_solver_type = multigrid;
 
 	double tolerance;
+	double length_scale;
 	multigrid_solver_type solver;
 	divergence_functor_type div;
 	gradient_functor_type grad;
@@ -73,14 +76,14 @@ private:
 	static constexpr decltype(auto)
 	shift(const tag_type& tag)
 	{
-		using fd::shift::diagonally;
-		return diagonally<tag_type>{tag.refinement()};
+		return fd::shift::diagonally(tag);
 	}
 
 	template <typename tag_type, typename domain_type, typename shifted_tag_type, typename interm_type>
 	projection(const tag_type& tag, const domain_type& domain, const shifted_tag_type& stag,
 			const interm_type& interm, const parameters& params) :
 		tolerance(params.tolerance),
+		length_scale(params.length_scale),
 		solver(fd::grid{stag, interm}, tolerance),
 		div(tag, domain),
 		grad(stag, interm) {}
@@ -103,25 +106,21 @@ public:
 		util::logging::info("⟨1, ∇·u*⟩: ", alpha);
 		axpy(-alpha, ones, div_u);
 		// solve kΔϕ = ∇·u
-		auto dt_phi = solve(solver, std::move(div_u));
-		auto dt_grad_phi = grad(std::move(dt_phi));
+		auto dt_phi = solve(solver, length_scale * std::move(div_u));
+		auto dt_grad_phi = grad(std::move(dt_phi) / length_scale);
 		// update u := u - k∇ϕ
 		auto subtract = [] (auto& l, const auto& r) { l -= r; };
 		map(subtract, std::tie(vectors...), dt_grad_phi);
 		return dt_grad_phi;
 	}
 
-	template <typename tag_type, typename domain_type>
+	template <typename tag_type>
 	projection(const tag_type& tag, const domain_type& domain, const parameters& params) :
-		projection(tag, domain, shift(tag), intermediate(domain), params) {}
+		projection(tag, domain, shift(tag), __1::intermediate(domain), params) {}
 };
 
 template <typename tag_type, typename domain_type>
 projection(const tag_type&, const domain_type&, const simulation&) ->
 	projection<domain_type>;
-
-} // namespace __1
-
-using __1::projection;
 
 } // namespace ins

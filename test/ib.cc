@@ -119,13 +119,13 @@ initialize(const grid_type& grid, const domain_type& domain,
 	{
 		auto&& [x, y, z] = domain.components();
 		auto ymax = y.length();
-		auto twv = ymax * shear_rate / 2;
+		double twv = ymax * shear_rate / 2;
 		auto shear = [=] __device__ (const auto& x) { return -twv + 2 * twv * x[1] / ymax; };
 		using fd::correction::second_order;
 		fd::grid g{grid, domain, z};
 		auto b = fd::upper_boundary(g, y, second_order)
 			   - fd::lower_boundary(g, y, second_order);
-		std::get<2>(boundary_velocity) = b * vector{fd::size(g, y), algo::fill((double) twv)};
+		std::get<2>(boundary_velocity) = b * vector{fd::size(g, y), algo::fill(twv)};
 		std::get<2>(velocity) = fill_flow(g, shear);
 	}
 

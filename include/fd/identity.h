@@ -20,7 +20,7 @@ using correction::order;
 
 template <typename lower, typename upper, std::size_t n>
 auto
-identity(const discretization<dimension<lower, upper>>& view,
+identity(const discretization<fd::dimension<lower, upper>>& view,
 		const order<n>& correction)
 {
 	const auto rows = view.points();

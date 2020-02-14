@@ -21,32 +21,25 @@ public:
 template <bool is_lower>
 struct tag : std::integral_constant<bool, is_lower> {};
 
+} // namespace __1;
+
+using __1::tag;
 inline constexpr tag<true> lower;
 inline constexpr tag<false> upper;
 
 
-struct robin : boundary {
+struct robin : __1::boundary {
 	static constexpr auto solid = true;
 	constexpr robin(double a, double b) : boundary{{a, b}} {}
 };
 
-struct periodic : boundary {
+struct periodic : __1::boundary {
 	static constexpr auto solid = false;
 	constexpr periodic() : boundary{{0, 0}} {}
 };
 
 struct dirichlet : robin { constexpr dirichlet() : robin(1, 0) {} };
 struct neumann : robin { constexpr neumann() : robin(0, 1) {} };
-
-} // namespace __1
-
-using __1::robin;
-using __1::dirichlet;
-using __1::neumann;
-using __1::periodic;
-using __1::tag;
-using __1::lower;
-using __1::upper;
 
 } // namespace boundary
 

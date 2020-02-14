@@ -10,7 +10,6 @@
 #include "solvers.h"
 
 namespace ins {
-namespace __1 {
 
 template <typename grid_type>
 class diffusion {
@@ -90,9 +89,5 @@ public:
 template <typename grid_type>
 diffusion(const grid_type&, const simulation&)
 	-> diffusion<grid_type>;
-
-} // namespace __1
-
-using __1::diffusion;
 
 } // namespace ins

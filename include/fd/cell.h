@@ -6,7 +6,6 @@
 #include "types.h"
 
 namespace fd {
-namespace __1 {
 
 struct alignment {
 	constexpr auto on_boundary() const { return !shift; }
@@ -31,6 +30,8 @@ public:
 
 	constexpr auto operator[](int n) const { return alignments()[n]; }
 };
+
+namespace __1 {
 
 struct center {
 	static constexpr double shift = 0.5;
@@ -95,6 +96,8 @@ public:
 	constexpr int refinement() const { return ref; }
 protected:
 	constexpr cell_base(int ref) : ref(ref) {}
+	constexpr cell_base(const cell_base& base) :
+		cell_base(base.refinement()) {}
 private:
 	int ref;
 };
@@ -103,6 +106,7 @@ template <typename alignment_type>
 struct uniform : public cell_base {
 	template <std::size_t, std::size_t> using rule = alignment_type;
 	constexpr uniform(int ref) : cell_base(ref) {}
+	constexpr uniform(const cell_base& base) : cell_base(base) {}
 };
 
 template <template <typename, std::size_t, std::size_t, std::size_t ...> class ruleset,
@@ -111,6 +115,7 @@ struct shifted_tag : public cell_base {
 	template <std::size_t i, std::size_t j>
 	using rule = typename ruleset<tag, i, j, n...>::type;
 	constexpr shifted_tag(int ref) : cell_base(ref) {}
+	constexpr shifted_tag(const cell_base& base) : cell_base(base) {}
 };
 
 template <template <typename, std::size_t, std::size_t, std::size_t ...> class ruleset,
@@ -135,15 +140,26 @@ struct tag_shifter<ruleset1, shifted_tag<ruleset2, tag, m...>, n...> {
 
 } // namespace __1
 
-using __1::alignment;
-using __1::cell;
-
 namespace shift {
 
 template <typename T>
-	using diagonally = typename __1::tag_shifter<__1::diagonally, T>::type;
+	using diagonal = typename __1::tag_shifter<__1::diagonally, T>::type;
 template <typename T, std::size_t n>
-	using directionally = typename __1::tag_shifter<__1::directionally, T, n>::type;
+	using directional = typename __1::tag_shifter<__1::directionally, T, n>::type;
+
+template <typename T>
+constexpr auto
+diagonally(const T& t)
+{
+	return diagonal<T>{t.refinement()};
+}
+
+template <std::size_t n, typename T>
+constexpr auto
+directionally(const T& t)
+{
+	return directional<T, n>{t.refinement()};
+}
 
 constexpr auto
 alignment(const fd::alignment& alignment)

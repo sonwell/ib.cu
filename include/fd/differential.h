@@ -18,7 +18,7 @@ namespace __1 {
 
 template <typename lower_type, typename upper_type>
 decltype(auto)
-differential(const discretization<dimension<lower_type, upper_type>>& component)
+differential(const discretization<fd::dimension<lower_type, upper_type>>& component)
 {
 	using util::math::modulo;
 	auto src_shift = component.shift();

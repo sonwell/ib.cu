@@ -10,9 +10,10 @@
 #include "interpolation.h"
 
 namespace mg {
-namespace __1 {
 
 class solver;
+
+namespace __1 {
 
 class base_solver {
 protected:
@@ -30,7 +31,7 @@ protected:
 	base_solver(const grid_type& grid, double tolerance, op_func op) :
 		tolerance(tolerance), op(op(grid)) {}
 
-friend class solver;
+friend class mg::solver;
 friend class direct_solver;
 friend class iterative_solver;
 };
@@ -53,7 +54,7 @@ protected:
 	template <typename grid_type, typename op_func, typename sm_func>
 	direct_solver(const grid_type& grid, double tolerance, op_func op, sm_func sm) :
 		base_solver(grid, tolerance, op), sm(sm(grid, base_solver::op)) {}
-friend class solver;
+friend class mg::solver;
 friend class iterative_solver;
 };
 
@@ -115,9 +116,9 @@ protected:
 	{
 		auto x = smooth(b);
 		auto r = residual(x, b);
-		r = restriction * r;
+		r = restriction * std::move(r);
 		r = coarse->vcycle(std::move(r));
-		gemv(1.0, interpolation, r, 1.0, x);
+		gemv(1.0, interpolation, std::move(r), 1.0, x);
 		return smooth(x, std::move(b));
 	}
 
@@ -141,7 +142,7 @@ protected:
 		restriction(mg::restriction(grid)),
 		interpolation(mg::interpolation(grid)),
 		coarse(std::move(coarse)) {}
-	friend class solver;
+	friend class mg::solver;
 };
 
 template <typename grid_type>
@@ -155,14 +156,20 @@ refined(const grid_type& grid)
 	return apply(reduce, map(k, map(sz, grid.components())));
 }
 
+} // namespace __1
+
 class solver {
 private:
+	using solver_ptr = __1::solver_ptr;
 	solver_ptr slv;
 
 	template <typename grid_type, typename op_func, typename sm_func>
 	static solver_ptr
 	construct(const grid_type& grid, double tolerance, op_func op, sm_func sm)
 	{
+		using __1::iterative_solver;
+		using __1::direct_solver;
+		using __1::refined;
 		if (refined(grid)) {
 			auto refinement = grid.refinement() >> 1;
 			auto coarse = fd::grid{grid, refinement};
@@ -188,9 +195,5 @@ public:
 		slv(construct(grid, tolerance, op, sm)) {}
 	solver(solver&& o) : slv(nullptr) { swap(o); }
 };
-
-} // namespace __1
-
-using __1::solver;
 
 } // namespace mg

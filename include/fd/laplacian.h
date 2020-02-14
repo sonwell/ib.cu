@@ -16,7 +16,7 @@ namespace __1 {
 
 template <typename lower, typename upper>
 decltype(auto)
-laplacian(const discretization<dimension<lower, upper>>& component)
+laplacian(const discretization<fd::dimension<lower, upper>>& component)
 {
 	auto rows = component.points();
 	auto n = component.resolution();

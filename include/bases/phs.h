@@ -1,6 +1,6 @@
 #pragma once
 #include <array>
-#include "util/math.h"
+#include <cmath>
 #include "differentiation.h"
 
 namespace bases {
@@ -23,11 +23,9 @@ private:
 	};
 
 	template <int ... ds>
-	constexpr auto
+	__host__ __device__ __forceinline__ auto
 	eval(double r, partials<ds...>) const
 	{
-		using util::math::log;
-		using util::math::pow;
 		constexpr auto m = sizeof...(ds);
 		static_assert(n - 2 * m >= 0, "attempting to use a polyharmonic "
 				"spline that is not as smooth as needed. Increase the "
@@ -39,7 +37,7 @@ private:
 	}
 public:
 	template <int ... ds>
-	constexpr auto
+	__host__ __device__ __forceinline__ auto
 	operator()(double r, partials<ds...> p = partials<>()) const
 	{
 		return eval(r, p);

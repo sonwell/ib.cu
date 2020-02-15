@@ -102,16 +102,39 @@ fill_flow(const grid_type& grid, fn_type fn)
 }
 
 
+template <typename shape_fn>
+static matrix
+shapes(matrix x, shape_fn f)
+{
+	auto m = x.rows();
+	auto* xdata = x.values();
+	auto k = [=] __device__ (int tid)
+	{
+		constexpr bases::composition array{bases::impl::arrayifier{}};
+		std::array<double, 3> x;
+		for (int i = 0; i < 3; ++i)
+			x[i] = xdata[m * i + tid];
+		x = (f | array)(x);
+		for (int i = 0; i < 3; ++i)
+			xdata[m * i + tid] = x[i];
+	};
+	util::transform<128, 3>(k, m);
+	return x;
+}
+
 template <typename grid_type, typename domain_type, typename reference_type>
 decltype(auto)
 initialize(const grid_type& grid, const domain_type& domain,
-		const reference_type& ref, units::unit<0, 0, -1> shear_rate)
+			const reference_type& ref, units::unit<0, 0, -1> shear_rate)
 {
-	static constexpr double pi_quarters = M_PI_4;
-	constexpr auto center = bases::translate({8_um, 8_um, 8_um});
-	constexpr auto tilt = bases::rotate(pi_quarters, {1.0, 0.0, 0.0});
-	bases::container rbcs{ref, tilt | center};
-	matrix x = rbcs.x;
+	constexpr auto center = bases::translate({8_um, 8_um, 5_um});
+	using traits = bases::traits<reference_type>;
+	constexpr double scale = 3.06884952_um;
+	auto p = traits::sample(ref.num_data_sites);
+	double s = 0.01;
+	matrix x0 = traits::shape(p);
+	matrix x1 = scale * bases::shapes::sphere::shape(p);
+	matrix x = shapes(s * x1 + (1-s) * x0, center);
 
 	auto velocity = zeros(grid, domain);
 	auto boundary_velocity = zeros(grid, domain);

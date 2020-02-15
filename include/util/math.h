@@ -151,46 +151,13 @@ abs(double x)
 constexpr double
 floor(double x)
 {
-	return (long) (x - (x < 0));
+	return (long) (x - (x < 0 && (-x != (long) -x)));
 }
 
 constexpr double
 modulo(double x, double s)
 {
 	return x - s * floor(x / s);
-}
-
-constexpr double
-log(double x)
-{
-	using limits = std::numeric_limits<double>;
-	if (x < 0) return limits::quiet_NaN();
-	if (x == 0) return -limits::infinity();
-	if (x == 1) return 0;
-	return impl::log(x);
-}
-
-constexpr double
-exp(double x)
-{
-	return impl::exp(x);
-}
-
-constexpr double
-sqrt(double x)
-{
-	return exp(0.5 * log(x));
-}
-
-constexpr double sin(double);
-constexpr double cos(double);
-
-constexpr double
-pow(double b, double e)
-{
-	int p = floor(e);
-	if (e != p) return std::numeric_limits<double>::quiet_NaN();
-	return (1 - 2 * (p & 1)) * exp(e * log(b));
 }
 
 template <typename value_type,
@@ -209,37 +176,6 @@ pow(double b, value_type e)
 			v *= b;
 	}
 	return e < 0 ? 1.0 / v : v;
-}
-
-
-constexpr double
-cos(double a)
-{
-	constexpr auto pi2 = M_PI_2;
-	constexpr auto pi4 = M_PI_4;
-	auto q = (int) floor((a + pi4) / pi2);
-	auto b = a - q * pi2;
-	switch ((q % 4 + 4) % 4) {
-		case 1: return -impl::sinusoid(b, b, 1);
-		case 2: return -impl::sinusoid(b, 1.0, 0);
-		case 3: return  impl::sinusoid(b, b, 1);
-		default: return impl::sinusoid(b, 1.0, 0);
-	}
-}
-
-constexpr double
-sin(double a)
-{
-	constexpr auto pi2 = M_PI_2;
-	constexpr auto pi4 = M_PI_4;
-	auto q = (int) floor((a + pi4) / pi2);
-	auto b = a - q * pi2;
-	switch (q % 4) {
-		case 1: return  impl::sinusoid(b, 1.0, 0);
-		case 2: return -impl::sinusoid(b, b, 1);
-		case 3: return -impl::sinusoid(b, 1.0, 0);
-		default: return impl::sinusoid(b, b, 1);
-	}
 }
 
 }

@@ -67,16 +67,16 @@ public:
 inline constexpr struct {
 private:
 	template <typename axis_type>
-	constexpr decltype(auto)
+	__host__ __device__ decltype(auto)
 	evaluate(double angle, axis_type&& axis) const
 	{
 		using namespace util::functional;
 		using algo::dot;
 		using algo::cross;
 
-		auto l = util::math::sqrt(dot(axis, axis));
-		auto c = util::math::cos(angle);
-		auto s = util::math::sin(angle);
+		auto l = sqrt(dot(axis, axis));
+		auto c = cos(angle);
+		auto s = sin(angle);
 
 		return composition{
 			[=] (auto&& x) constexpr
@@ -92,7 +92,7 @@ private:
 		};
 	}
 public:
-	constexpr decltype(auto)
+	__host__ __device__ __forceinline__ decltype(auto)
 	operator()(double a, const double (&u)[3]) const
 	{
 		return evaluate(a, u);

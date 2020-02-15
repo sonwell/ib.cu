@@ -1,5 +1,5 @@
 #pragma once
-#include "util/math.h"
+#include <cmath>
 #include "differentiation.h"
 
 namespace bases {
@@ -9,17 +9,15 @@ private:
 	double gamma;
 
 	template <int ... ds>
-	constexpr auto
+	__host__ __device__ auto
 	eval(double r, partials<ds...>) const
 	{
-		using util::math::pow;
-		using util::math::exp;
 		constexpr auto n = sizeof...(ds);
 		return pow(-2 * gamma, n) * exp(-gamma * r * r);
 	}
 public:
 	template <int ... ds>
-	constexpr auto
+	__host__ __device__ auto
 	operator()(double r, partials<ds...> p = partials<>()) const
 	{
 		return eval(r, p);

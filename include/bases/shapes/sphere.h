@@ -51,10 +51,8 @@ public:
 			auto tmp = eval(xs, xd, count{});
 			if constexpr (sizeof...(ds) > 0)
 				return -tmp;
-			else {
-				tmp = 1-tmp < 0 ? 0 : 1-tmp;
-				return sqrt(2.0 * tmp);
-			}
+			else
+				return sqrt(2.0 * max(1.0-tmp, 0.0));
 		}
 	};
 protected:
@@ -77,7 +75,7 @@ public:
 			auto z = -1.0 + (2.0 * tid + 1.0) / n;
 			auto phi = asin(z);
 			auto theta = l * phi;
-			values[0 * n + tid] = theta;
+			values[0 * n + tid] = fmod(theta, 2 * pi);
 			values[1 * n + tid] = phi;
 		};
 		util::transform<128, 7>(k, n);

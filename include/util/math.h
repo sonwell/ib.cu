@@ -75,21 +75,24 @@ constexpr double
 exp(double x)
 {
 	int i = 1;
-	double z = 1;
+	double z = 0;
 	double y = x;
 
 	while (true) {
 		auto t = z + y;
-		if (t == z) return t;
+		if (t == z) break;
 		i += 1;
 		y *= x / i;
 		z = t;
 	}
+	return 1.0 + z;
 }
 
 constexpr double
 sinusoid(double a, double a0, int i)
 {
+	// a0 == a, i = 1 => sin
+	// a0 == 1, i = 0 => cos
 	constexpr double precomputed[] = {
 		1.0,       1.0,
 		1.0 / 2,   1.0 / 6,
@@ -122,7 +125,7 @@ sinusoid(double a, double a0, int i)
 	} while (true);
 }
 
-}
+} // namespace impl
 
 constexpr double
 min(double x, double y)
@@ -178,5 +181,5 @@ pow(double b, value_type e)
 	return e < 0 ? 1.0 / v : v;
 }
 
-}
-}
+} // namespace math
+} // namespace util

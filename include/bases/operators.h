@@ -66,7 +66,7 @@ private:
 	{
 		auto ops = std::tuple_cat(compute_second_derivative(xd, xs, phi, p, lu, bases::d<ns>,
 					util::make_sequence<int, dimensions-ns>())...);
-		auto k = [] (auto&& ... args) { return sdtype{std::forward<decltype(args)>(args)...}; };
+		auto k = [] (auto ... args) { return sdtype{std::move(args)...}; };
 		return apply(k, std::move(ops));
 	}
 

@@ -204,17 +204,17 @@ main(int argc, char** argv)
 	constexpr fd::domain domain{x, y, z};
 	constexpr fd::mac mac{64};
 
-	constexpr auto shear_rate = 100 / 1_s;
+	constexpr auto shear_rate = 50 / 1_s;
 	constexpr auto time_scale = 1 / shear_rate;
 	constexpr auto length_scale = domain.unit();
 	constexpr auto h = domain.unit() / mac.refinement();
 	constexpr auto k = 0.000016_s * (h / 1_um) * (h / 1_um);
 	constexpr ins::parameters params {k, time_scale, length_scale, 1_g / 1_mL, 1_cP, 1e-8};
 
-	constexpr forces::skalak tension{2.5e-3_dyn/1_cm, 2.5e-1_dyn/1_cm};
+	constexpr forces::skalak tension{2.5e-3_dyn/1_cm, 2.5e-2_dyn/1_cm};
 	constexpr forces::bending bending{2e-12_erg};
 	constexpr forces::repelling repelling{2.5e-3_dyn/1_cm};
-	constexpr forces::combine forces{tension/*, bending, repelling*/};
+	constexpr forces::combine forces{tension, bending/*, repelling*/};
 
 	util::logging::info("meter: ", units::m);
 	util::logging::info("time scale: ", params.time_scale);

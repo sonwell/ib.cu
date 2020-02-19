@@ -32,13 +32,9 @@ protected:
 	static vector
 	weights(const matrix& x, rbf phi, weight w)
 	{
-		static constexpr polynomials<0> p;
 		auto n = x.rows();
-		auto lu = algo::lu(fill<2>(x, phi, p));
-		auto f = [=] __device__ (int tid) { return tid >= n; };
-		return scale(x, solve(lu, vector{n+1, linalg::fill(f)}), w);
-		//auto f = [=] __device__ (int tid) { return 1.0 / n * (tid < n); };
-		//return scale(x, vector{n+1, linalg::fill(f)}, w);
+		auto f = [=] __device__ (int tid) { return 1.0 / n * (tid < n); };
+		return scale(x, vector{n+1, linalg::fill(f)}, w);
 	}
 
 	template <typename traits, typename basic, typename metric, typename poly>

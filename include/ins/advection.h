@@ -104,10 +104,9 @@ public:
 		using namespace util::functional;
 		static_assert(sizeof...(vector_types) == dimensions,
 				"Number of vectors must match domain dimension");
-		auto scale = [] (vector v) { return 0.5 * std::move(v); };
 
 		auto products = tensor_product(std::forward<vector_types>(vectors)...);
-		return map(scale, map(apply, divs, std::move(products)));
+		return map(apply, divs, std::move(products));
 	}
 
 	template <typename tag_type>

@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include "util/math.h"
 #include "util/wrapper.h"
 #include "util/functional.h"
 #include "util/iterators.h"
@@ -33,6 +34,15 @@ private:
 	static constexpr typename traits::template pattern<dimensions> pattern;
 	using shift_type = shift<dimensions>;
 	using point = ib::point<dimensions>;
+
+	static constexpr int
+	clamp(double r)
+	{
+		using util::math::floor;
+		constexpr double rounding = 0.5 * (meshwidths & 1);
+		return floor(r + rounding);
+	}
+
 public:
 	constexpr auto decompose(int index) const { return idx.decompose(index); }
 
@@ -44,10 +54,9 @@ public:
 		constexpr auto v = [] (auto ... v) { return difference{v...}; };
 		auto k = [] (double x, const auto& comp)
 		{
-			constexpr auto rounding = 0.5 * (meshwidths & 1);
 			auto shift = comp.shift();
 			auto diff = comp.units(x) - shift;
-			return ((int) (diff + rounding)) - diff;
+			return clamp(diff) - diff;
 		};
 		return apply(v, map(k, p, components(idx)));
 	}
@@ -58,11 +67,11 @@ public:
 		using index = typename indexer_type::sort_index_type;
 		constexpr auto k = [] (double x, const auto& comp)
 		{
-			constexpr auto rounding = 0.5 * (meshwidths & 1);
 			auto solid = comp.solid_boundary;
 			auto shift = comp.shift();
-			auto i = (int) (comp.units(x) - shift + rounding);
-			return index{i, -solid, comp.points()};
+			int i = clamp(comp.units(x) - shift);
+			int j = comp.index(i);
+			return index{j, -solid, comp.points()};
 		};
 		return (int) indexing::reduce(k, p, idx);
 	}

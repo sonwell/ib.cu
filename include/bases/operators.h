@@ -8,6 +8,8 @@
 #include "types.h"
 #include "differentiation.h"
 #include "fill.h"
+#include "rbf.h"
+#include "polynomials.h"
 
 namespace bases {
 
@@ -17,7 +19,6 @@ public:
 	static constexpr auto dimensions = dims;
 private:
 	using sequence = util::make_sequence<int, dims>;
-	using params = double[dimensions];
 
 	static constexpr auto nfd = dims;
 	static constexpr auto nsd = dims * (dims+1) / 2;
@@ -29,31 +30,29 @@ private:
 	compute_evaluator(const matrix& xd, const matrix& xs, rbf phi, poly p,
 			const algo::lu_factorization& lu)
 	{
-		if (&xd == &xs) return matrix{0, 0};
 		return solve(lu, fill<dimensions>(xs, xd, phi, p));
 	}
 
 	template <typename rbf, typename poly, int ... ns>
 	static matrix
-	compute_derivative(const matrix& xd, const matrix& xs, rbf phi,
-			poly p, const algo::lu_factorization& lu, partials<ns...> d)
+	compute_derivative(const matrix& xd, const matrix& xs, rbf phi, poly p,
+			const algo::lu_factorization& lu, partials<ns...> d)
 	{
 		return solve(lu, fill<dimensions>(xs, xd, diff(phi, d), diff(p, d)));
 	}
 
 	template <typename rbf, typename poly, int ... ns>
 	static auto
-	compute_first_derivatives(const matrix& xd, const matrix& xs, rbf phi,
-			poly p, const algo::lu_factorization& lu, util::sequence<int, ns...>)
+	compute_first_derivatives(const matrix& xd, const matrix& xs, rbf phi, poly p,
+			const algo::lu_factorization& lu, util::sequence<int, ns...>)
 	{
 		return fdtype{compute_derivative(xd, xs, phi, p, lu, bases::d<ns>)...};
 	}
 
 	template <typename rbf, typename poly, int n, int ... ms>
 	static auto
-	compute_second_derivative(const matrix& xd, const matrix& xs, rbf phi,
-			poly p, const algo::lu_factorization& lu, partials<n> d,
-			util::sequence<int, ms...>)
+	compute_second_derivative(const matrix& xd, const matrix& xs, rbf phi, poly p,
+			const algo::lu_factorization& lu, partials<n> d, util::sequence<int, ms...>)
 	{
 		return std::array{compute_derivative(xd, xs, phi, p, lu,
 				bases::d<n> * bases::d<n + ms>)...};
@@ -61,8 +60,8 @@ private:
 
 	template <typename rbf, typename poly, int ... ns>
 	static auto
-	compute_second_derivatives(const matrix& xd, const matrix& xs, rbf phi,
-			poly p, const algo::lu_factorization& lu, util::sequence<int, ns...>)
+	compute_second_derivatives(const matrix& xd, const matrix& xs, rbf phi, poly p,
+			const algo::lu_factorization& lu, util::sequence<int, ns...>)
 	{
 		auto ops = std::tuple_cat(compute_second_derivative(xd, xs, phi, p, lu, bases::d<ns>,
 					util::make_sequence<int, dimensions-ns>())...);
@@ -77,15 +76,16 @@ private:
 		int points;
 	} ops_type;
 
-	template <typename rbf, typename poly>
+	template <typename interp, typename eval, typename poly>
 	static ops_type
-	compute_operators(const matrix& xd, const matrix& xs, rbf phi, poly p)
+	compute_operators(const matrix& xd, const matrix& xs,
+			interp phi, eval psi, poly p)
 	{
 		constexpr sequence seq;
 		auto lu = algo::lu(fill<dimensions>(xd, phi, p));
-		return {compute_evaluator(xd, xs, phi, p, lu),
-				compute_first_derivatives(xd, xs, phi, p, lu, seq),
-				compute_second_derivatives(xd, xs, phi, p, lu, seq),
+		return {compute_evaluator(xd, xs, psi, p, lu),
+				compute_first_derivatives(xd, xs, psi, p, lu, seq),
+				compute_second_derivatives(xd, xs, psi, p, lu, seq),
 				xs.rows()};
 	}
 
@@ -102,9 +102,18 @@ public:
 	vector weights;
 	int points;
 
-	template <typename rbf, typename poly>
+	template <typename interp, typename eval, typename poly,
+			 typename = std::enable_if_t<is_rbf_v<interp>>,
+			 typename = std::enable_if_t<is_rbf_v<eval>>,
+			 typename = std::enable_if_t<is_polynomial_basis_v<poly>>>
+	operators(const matrix& xd, const matrix& xs, vector weights, interp phi, eval psi, poly p) :
+		operators(compute_operators(xd, xs, phi, psi, p), std::move(weights)) {}
+
+	template <typename rbf, typename poly,
+			typename = std::enable_if_t<is_rbf_v<rbf>>,
+			typename = std::enable_if_t<is_polynomial_basis_v<poly>>>
 	operators(const matrix& xd, const matrix& xs, vector weights, rbf phi, poly p) :
-		operators(compute_operators(xd, xs, phi, p), std::move(weights)) {}
+		operators(xd, xs, std::move(weights), phi, phi, p) {}
 };
 
 } // namespace bases

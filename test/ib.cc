@@ -13,21 +13,22 @@
 #include "bases/types.h"
 #include "bases/container.h"
 #include "bases/transforms.h"
+#include "bases/gmq.h"
 #include "bases/phs.h"
+#include "bases/scaled.h"
 #include "bases/polynomials.h"
 #include "bases/geometry.h"
 #include "ib/pmqe.h"
 #include "ib/novel.h"
-#include "ib/hat.h"
+#include "ib/roma.h"
+#include "forces/hookean.h"
 #include "forces/bending.h"
-#include "forces/skalak.h"
-#include "forces/neohookean.h"
 #include "forces/repelling.h"
 #include "forces/combine.h"
 #include "ins/solver.h"
 #include "cuda/event.h"
 #include "units.h"
-#include "rbc.h"
+#include "platelet.h"
 
 using bases::matrix;
 using bases::vector;
@@ -127,14 +128,10 @@ decltype(auto)
 initialize(const grid_type& grid, const domain_type& domain,
 			const reference_type& ref, units::unit<0, 0, -1> shear_rate)
 {
-	constexpr auto center = bases::translate({8_um, 8_um, 5_um});
-	using traits = bases::traits<reference_type>;
-	constexpr double scale = 3.06884952_um;
-	auto p = traits::sample(ref.num_data_sites);
-	double s = 0.01;
-	matrix x0 = traits::shape(p);
-	matrix x1 = scale * bases::shapes::sphere::shape(p);
-	matrix x = shapes(s * x1 + (1-s) * x0, center);
+	constexpr auto transa = bases::translate({ 8_um, 8_um, 8_um});
+	constexpr auto transb = bases::translate({16_um, 8_um, 8_um});
+	bases::container cells{ref, transa, transb};
+	matrix x = cells.x;
 
 	auto velocity = zeros(grid, domain);
 	auto boundary_velocity = zeros(grid, domain);
@@ -147,7 +144,7 @@ initialize(const grid_type& grid, const domain_type& domain,
 		using fd::correction::second_order;
 		fd::grid g{grid, domain, z};
 		auto b = fd::upper_boundary(g, y, second_order)
-			   - fd::lower_boundary(g, y, second_order);
+		       - fd::lower_boundary(g, y, second_order);
 		std::get<2>(boundary_velocity) = b * vector{fd::size(g, y), algo::fill(twv)};
 		std::get<2>(velocity) = fill_flow(g, shear);
 	}
@@ -208,13 +205,13 @@ main(int argc, char** argv)
 	constexpr auto time_scale = 1 / shear_rate;
 	constexpr auto length_scale = domain.unit();
 	constexpr auto h = domain.unit() / mac.refinement();
-	constexpr auto k = 0.000016_s * (h / 1_um) * (h / 1_um);
-	constexpr ins::parameters params {k, time_scale, length_scale, 1_g / 1_mL, 1_cP, 1e-8};
+	constexpr auto k = 0.0000016_s * (h / 1_um) * (h / 1_um);
+	constexpr ins::parameters params {k, time_scale, length_scale, 1_g / 1_mL, 1_cP, 1e-11};
 
-	constexpr forces::skalak tension{2.5e-3_dyn/1_cm, 2.5e-2_dyn/1_cm};
-	constexpr forces::bending bending{2e-12_erg};
+	constexpr forces::hookean tension{2.5e-2_dyn/1_cm};
+	constexpr forces::bending bending{2e-11_erg};
 	constexpr forces::repelling repelling{2.5e-3_dyn/1_cm};
-	constexpr forces::combine forces{tension, bending/*, repelling*/};
+	constexpr forces::combine forces{tension, /*bending, repelling*/};
 
 	util::logging::info("meter: ", units::m);
 	util::logging::info("time scale: ", params.time_scale);
@@ -225,29 +222,31 @@ main(int argc, char** argv)
 	util::logging::info("ρ: ", params.density);
 	util::logging::info("λ: ", params.coefficient * k / (h * h));
 
-	util::logging::info("tension info: shear =  ", tension.shear, " bulk = ", tension.bulk);
+	util::logging::info("tension info: shear =  ", tension.shear);
 	util::logging::info("bending info: modulus = ", bending.modulus);
+	util::logging::info("repelling info: strength = ", repelling.modulus);
 
-	constexpr ib::delta::hat phi;
+	constexpr ib::delta::roma phi;
 	constexpr ib::novel::spread spread{mac, domain, phi};
 	constexpr ib::novel::interpolate interpolate{mac, domain, phi};
 
 	constexpr bases::polyharmonic_spline<7> basic;
-	rbc ref{864, 3439, basic};
+	constexpr bases::generalized_multiquadric<7> smooth{0.0001};
+	platelet ref{605, 1552, basic, bases::scaled{smooth, 1.0, 1.00000000875}};
 
 	auto [u, ub, rx] = (argc > 2) ?
 		resume(domain, argv[2]) :
 		initialize(mac, domain, ref, shear_rate);
-	bases::container rbcs{ref, std::move(rx)};
+	bases::container cells{ref, std::move(rx)};
 
-	auto [rows, cols] = linalg::size(rbcs.x);
+	auto [rows, cols] = linalg::size(cells.x);
 	auto n = rows * cols / domain.dimensions;
 	ins::solver step{mac, domain, params};
 
 	binary_writer write;
 	auto f = [&] (const auto& v)
 	{
-		auto& x = rbcs.geometry(bases::current).data.position;
+		auto& x = cells.geometry(bases::current).data.position;
 		auto n = x.rows() * x.cols() / domain.dimensions;
 		auto w = interpolate(n, x, v);
 		auto z = (double) k * std::move(w) + x;
@@ -261,17 +260,17 @@ main(int argc, char** argv)
 	};
 
 	timer t{"runtime"};
-	write(u, ub, rbcs.x);
+	write(u, ub, cells.x);
 	for (int i = 0; i < iterations; ++i) {
 		util::logging::info("simulation time: ", i * params.timestep);
-		try { u = step(u, ub, f); }
+		try { u = step(std::move(u), ub, f); }
 		catch (std::runtime_error& e) {
 			util::logging::error(e.what());
 			return -1;
 		}
-		auto v = (double) k * interpolate(n, rbcs.x, u);
-		rbcs.x += v;
-		write(u, ub, rbcs.x);
+		auto v = (double) k * interpolate(n, cells.x, u);
+		cells.x += std::move(v);
+		write(u, ub, cells.x);
 	}
 
 	return 0;

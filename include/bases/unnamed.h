@@ -4,7 +4,7 @@
 
 namespace bases {
 
-struct unnamed : differentiable {
+struct unnamed : basic_function {
 	template <int d0, int d1>
 	constexpr auto
 	eval(double r, partials<d0, d1>) const

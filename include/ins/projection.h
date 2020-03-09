@@ -20,6 +20,9 @@
 #include "exceptions.h"
 
 namespace ins {
+
+template <typename> class solver;
+
 namespace __1 {
 
 template <typename lower_type, typename upper_type>
@@ -67,7 +70,7 @@ private:
 	using multigrid_solver_type = multigrid;
 
 	double tolerance;
-	double length_scale;
+	double time_scale;
 	multigrid_solver_type solver;
 	divergence_functor_type div;
 	gradient_functor_type grad;
@@ -83,7 +86,7 @@ private:
 	projection(const tag_type& tag, const domain_type& domain, const shifted_tag_type& stag,
 			const interm_type& interm, const parameters& params) :
 		tolerance(params.tolerance),
-		length_scale(params.length_scale),
+		time_scale(params.time_scale),
 		solver(fd::grid{stag, interm}, tolerance),
 		div(tag, domain),
 		grad(stag, interm) {}
@@ -97,6 +100,7 @@ public:
 		static_assert(sizeof...(vector_types) == dimensions,
 				"number of supplied vectors matches dimensions");
 		using namespace util::functional;
+		auto& sc = time_scale;
 		auto div_u = div(vectors...);
 		// project out nullspace
 		vector ones{size(div_u), linalg::one};
@@ -106,17 +110,14 @@ public:
 		util::logging::info("⟨1, ∇·u*⟩: ", alpha);
 		axpy(-alpha, ones, div_u);
 		// solve kΔϕ = ∇·u
-		auto dt_phi = solve(solver, length_scale * std::move(div_u));
-		auto dt_grad_phi = grad(std::move(dt_phi) / length_scale);
-		// update u := u - k∇ϕ
-		auto subtract = [] (auto& l, const auto& r) { l -= r; };
-		map(subtract, std::tie(vectors...), dt_grad_phi);
-		return dt_grad_phi;
+		auto dt_phi = solve(solver, sc * std::move(div_u)) / sc;
+		return grad(dt_phi);
 	}
 
 	template <typename tag_type>
 	projection(const tag_type& tag, const domain_type& domain, const parameters& params) :
 		projection(tag, domain, shift(tag), __1::intermediate(domain), params) {}
+
 };
 
 template <typename tag_type, typename domain_type>

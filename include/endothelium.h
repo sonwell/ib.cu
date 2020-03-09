@@ -35,7 +35,14 @@ public:
 		return x;
 	}
 
-	template <typename basic>
+	template <typename interp, typename eval,
+			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
+			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>>
+	endothelium(int nd, int ns, interp phi, eval psi) :
+		bases::shapes::periodic_sheet(nd, ns, traits, phi, psi) {}
+
+	template <typename basic,
+			 typename = std::enable_if_t<bases::is_basic_function_v<basic>>>
 	endothelium(int nd, int ns, basic phi) :
-		bases::shapes::periodic_sheet(nd, ns, traits, phi) {}
+		endothelium(nd, ns, phi, phi) {}
 };

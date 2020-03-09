@@ -34,7 +34,7 @@ trsm_batched(handle_t h, side_mode_adaptor side, fill_mode_adaptor uplo,
 		int ldb, int batch_count)
 {
 	throw_if_error(cublasStrsmBatched(h, side, uplo, trans, diag, m, n,
-		alpha, a[], lda, b[], ldb, batch_count));
+		alpha, a, lda, b, ldb, batch_count));
 }
 
 inline void
@@ -44,7 +44,7 @@ trsm_batched(handle_t h, side_mode_adaptor side, fill_mode_adaptor uplo,
 		double* const b[], int ldb, int batch_count)
 {
 	throw_if_error(cublasDtrsmBatched(h, side, uplo, trans, diag, m, n,
-		alpha, a[], lda, b[], ldb, batch_count));
+		alpha, a, lda, b, ldb, batch_count));
 }
 
 } // namespace cublas

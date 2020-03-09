@@ -94,7 +94,14 @@ public:
 		return base::weights(x, phi, weight);
 	}
 
-	template <typename basic>
+	template <typename interp, typename eval,
+			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
+			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>>
+	rbc(int nd, int ns, interp phi, eval psi) :
+		bases::shapes::sphere(nd, ns, traits, phi, psi, p) {}
+
+	template <typename basic,
+			 typename = std::enable_if_t<bases::is_basic_function_v<basic>>>
 	rbc(int nd, int ns, basic phi) :
-		bases::shapes::sphere(nd, ns, traits, phi, p) {}
+		rbc(nd, ns, phi, phi) {}
 };

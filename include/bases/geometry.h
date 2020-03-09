@@ -77,7 +77,7 @@ private:
 		tangents_type tangents;
 		matrix normal;
 		seconds_type seconds;
-		vector sigma;
+		matrix sigma;
 	} return_type;
 
 	static return_type
@@ -91,9 +91,10 @@ private:
 		auto seconds = compute_second_derivatives(hdl, ops, x);
 
 		auto ns = y.rows();
-		auto count = ns * x.cols() / (dimensions + 1);
-		vector sigma{count};
-		matrix n{count, dimensions+1};
+		auto nc = x.cols() / (dimensions + 1);
+		auto count = ns * nc;
+		matrix sigma{ns, nc};
+		matrix n{linalg::size(y)};
 
 		auto* wdata = w.values();
 		auto tdata = map([] (const matrix& m) { return m.values(); }, tangents);
@@ -154,7 +155,7 @@ public:
 	tangents_type tangents;
 	matrix normal;
 	seconds_type second_derivatives;
-	vector sigma;
+	matrix sigma;
 
 	geometry& operator=(geometry&& g) { swap(g); return *this; }
 

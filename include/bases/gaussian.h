@@ -4,7 +4,7 @@
 
 namespace bases {
 
-struct gaussian : differentiable {
+struct gaussian : basic_function {
 private:
 	double gamma;
 

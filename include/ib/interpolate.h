@@ -8,8 +8,6 @@
 #include "fd/discretization.h"
 #include "fd/grid.h"
 #include "delta.h"
-#include "roma.h"
-#include "cosine.h"
 #include "types.h"
 #include "sweep.h"
 #include "indexing.h"

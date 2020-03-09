@@ -15,12 +15,12 @@ private:
 	using base = bases::shapes::sphere;
 	static constexpr bases::traits<platelet> traits;
 	static constexpr bases::polynomials<0> p;
+	static constexpr double major = 1.82_um;
+	static constexpr double minor = 0.46_um;
 public:
 	static matrix
 	shape(const matrix& params)
 	{
-		static constexpr double major = 1.82_um;
-		static constexpr double minor = 0.46_um;
 		auto rows = params.rows();
 		matrix x(rows, 3);
 
@@ -35,8 +35,8 @@ public:
 			auto z = sin(p);
 
 			xdata[0 * rows + tid] = major * x;
-			xdata[1 * rows + tid] = minor * y;
-			xdata[2 * rows + tid] = major * z;
+			xdata[1 * rows + tid] = major * y;
+			xdata[2 * rows + tid] = minor * z;
 		};
 		util::transform<128, 8>(k, rows);
 		return x;
@@ -79,18 +79,28 @@ public:
 	{
 		if (!is_specialized(x.rows()))
 			return base::weights(x, phi);
+		static constexpr auto sc = 1_um;
 		static constexpr double surface_area = 13.68084640609756467093;
 		static constexpr auto weight = [] __device__ (const params& x)
 		{
+			constexpr double smin = minor / sc;
+			constexpr double smaj = major / sc;
 			auto cphi = cos(x[1]);
 			auto r2 = cphi * cphi;
-			auto scale = 1.82 * cphi * sqrt(0.46 * 0.46 + (1.82 * 1.82 - 0.46 * 0.46) * r2);
+			auto scale = smaj * cphi * sqrt(smaj * smaj + (smin * smin - smaj * smaj) * r2);
 			return scale / surface_area;
 		};
 		return base::weights(x, phi, weight);
 	}
 
-	template <typename basic>
+	template <typename interp, typename eval,
+			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
+			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>>
+	platelet(int nd, int ns, interp phi, eval psi) :
+		bases::shapes::sphere(nd, ns, traits, phi, psi, p) {}
+
+	template <typename basic,
+			 typename = std::enable_if_t<bases::is_basic_function_v<basic>>>
 	platelet(int nd, int ns, basic phi) :
-		bases::shapes::sphere(nd, ns, traits, phi, p) {}
+		platelet(nd, ns, phi, phi) {}
 };

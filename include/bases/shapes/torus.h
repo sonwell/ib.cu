@@ -12,7 +12,7 @@ struct torus : closed_surface<2> {
 private:
 	static constexpr bases::traits<torus> traits;
 public:
-	struct metric : differentiable {
+	struct metric : bases::metric {
 	private:
 		template <typename ... arg_types>
 		static constexpr bool
@@ -52,9 +52,18 @@ protected:
 	static constexpr auto pi = M_PI;
 	static constexpr metric d{};
 
-	template <typename traits, typename basic, typename poly>
-	torus(int nd, int ns, traits tr, basic phi, poly p) :
-		closed_surface(nd, ns, tr, phi, d, p) {}
+	template <typename traits_type, typename interp, typename eval, typename poly,
+			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
+			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>,
+			 typename = std::enable_if_t<bases::is_polynomial_basis_v<poly>>>
+	torus(int nd, int ns, bases::traits<traits_type> tr, interp phi, eval psi, poly p) :
+		closed_surface(nd, ns, tr, phi, psi, d, p) {}
+
+	template <typename traits_type, typename basic, typename poly,
+			 typename = std::enable_if_t<bases::is_basic_function_v<basic>>,
+			 typename = std::enable_if_t<bases::is_polynomial_basis_v<poly>>>
+	torus(int nd, int ns, bases::traits<traits_type> tr, basic phi, poly p) :
+		torus(nd, ns, tr, phi, phi, p) {}
 public:
 	static matrix
 	sample(int n)
@@ -107,8 +116,17 @@ public:
 		return vector{n, linalg::fill(4 * pi * pi / n)};
 	}
 
-	template <typename basic, typename poly>
-	torus(int nd, int ns, basic phi, poly p) :
+	template <typename interp, typename eval, typename poly = polynomials<0>,
+			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
+			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>,
+			 typename = std::enable_if_t<bases::is_polynomial_basis_v<poly>>>
+	torus(int nd, int ns, interp phi, eval psi, poly p = {}) :
+		torus(nd, ns, traits, phi, psi, p) {}
+
+	template <typename basic, typename poly = polynomials<0>,
+			 typename = std::enable_if_t<bases::is_basic_function_v<basic>>,
+			 typename = std::enable_if_t<bases::is_polynomial_basis_v<poly>>>
+	torus(int nd, int ns, basic phi, poly p = {}) :
 		torus(nd, ns, traits, phi, p) {}
 };
 

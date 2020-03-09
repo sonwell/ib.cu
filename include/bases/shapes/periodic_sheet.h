@@ -11,9 +11,16 @@ private:
 	static constexpr bases::traits<periodic_sheet> traits;
 	static constexpr bases::polynomials<1> p;
 protected:
-	template <typename traits, typename basic>
+	template <typename traits, typename interp, typename eval,
+			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
+			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>>
+	periodic_sheet(int n, int m, traits tr, interp phi, eval psi) :
+		torus(n, m, tr, phi, psi, p) {}
+
+	template <typename traits, typename basic,
+			 typename = std::enable_if_t<bases::is_basic_function_v<basic>>>
 	periodic_sheet(int n, int m, traits tr, basic phi) :
-		torus(n, m, tr, phi, p) {}
+		periodic_sheet(n, m, tr, phi, phi, p) {}
 public:
 	static matrix
 	shape(const matrix& params)
@@ -39,10 +46,17 @@ public:
 		return x;
 	}
 
-	template <typename basic>
+	template <typename interp, typename eval,
+			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
+			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>>
+	periodic_sheet(int n, int m, interp phi, eval psi) :
+		periodic_sheet(n, m, traits, phi, psi) {}
+
+	template <typename basic,
+			 typename = std::enable_if_t<bases::is_basic_function_v<basic>>>
 	periodic_sheet(int n, int m, basic phi) :
-		periodic_sheet(n, m, traits, phi) {}
+		periodic_sheet(n, m, traits, phi, phi) {}
 };
 
-}
+} // namespace shapes
 }

@@ -61,7 +61,7 @@ private:
 	chebyshev solver;
 public:
 	vector
-	operator()(double frac, const vector& u, vector rhs, vector f) const
+	operator()(double frac, const vector& u, vector rhs, const vector& f) const
 	{
 		double mu = coefficient;
 		double k = frac * timestep;

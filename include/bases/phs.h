@@ -6,7 +6,7 @@
 namespace bases {
 
 template <unsigned int n>
-struct polyharmonic_spline : differentiable {
+struct polyharmonic_spline : basic_function {
 private:
 	static constexpr auto eps = std::numeric_limits<double>::min();
 

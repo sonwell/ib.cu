@@ -31,8 +31,6 @@ struct parameters : simulation {
 		density(rho), viscosity(mu) {}
 };
 
-namespace __1 {
-
 template <typename> class solver;
 
 template <typename ... dimension_types>
@@ -89,8 +87,8 @@ private:
 		auto axpy = [&] (const vector& f, vector h)
 		{
 			using linalg::axpy;
-			axpy(-1 / (double) density, f, h);
 			scal(-1, h);
+			axpy(1 / (double) density, f, h);
 			return h;
 		};
 		auto spmv = [&] (vector b, const matrix& op, const vector& dp)
@@ -103,7 +101,8 @@ private:
 		auto g = map(axpy, f, std::move(h));
 		auto vb = map(spmv, ub, _operators, k_grad_phi);
 		auto w = map(step, _steppers, u0, std::move(vb), std::move(g));
-		assign(k_grad_phi, apply(projection, w));
+		k_grad_phi = apply(projection, w);
+		map([] (vector& l, const vector& r) { l -= r; }, w, k_grad_phi);
 		return w;
 	}
 
@@ -116,16 +115,6 @@ private:
 	projection_type projection;
 	gradient_type k_grad_phi;
 	operators_type _operators;
-
-	template <typename to_type, typename from_type>
-	static constexpr decltype(auto)
-	assign(to_type&& to, from_type&& from)
-	{
-		using namespace util::functional;
-		auto k = [] (auto& t, auto&& f) { t = std::forward<decltype(f)>(f); };
-		map(k, to, std::forward<from_type>(from));
-		return to;
-	}
 
 	template <typename tag_type>
 	solver(const tag_type& tag, const domain_type& domain,
@@ -171,9 +160,5 @@ public:
 template <typename tag_type, typename grid_type>
 solver(const tag_type&, const grid_type, const parameters&) ->
 	solver<grid_type>;
-
-} // namespace __1
-
-using __1::solver;
 
 } // namespace ins

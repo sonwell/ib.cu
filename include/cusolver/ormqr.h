@@ -3,12 +3,12 @@
 #include "exceptions.h"
 #include "handle.h"
 #include "operation.h"
-#include "side_mode.h"
+#include "cublas/side_mode.h"
 
 namespace cusolver {
 
 inline void
-ormqr_buffer_size(dense::handle_t h, side_mode_adaptor side,
+ormqr_buffer_size(dense::handle_t h, cublas::side_mode_adaptor side,
 		operation_adaptor trans, int m, int n, int k, const float* a, int lda,
 		const float* tau, const float* c, int ldc, int* work_size)
 {
@@ -17,7 +17,7 @@ ormqr_buffer_size(dense::handle_t h, side_mode_adaptor side,
 }
 
 inline void
-ormqr_buffer_size(dense::handle_t h, side_mode_adaptor side,
+ormqr_buffer_size(dense::handle_t h, cublas::side_mode_adaptor side,
 		operation_adaptor trans, int m, int n, int k, const double* a, int lda,
 		const double* tau, const double* c, int ldc, int* work_size)
 {
@@ -26,8 +26,8 @@ ormqr_buffer_size(dense::handle_t h, side_mode_adaptor side,
 }
 
 inline void
-ormqr(dense::handle_t h, side_mode_adaptor side, operation_adaptor trans, int m,
-		int n, int k, const float* a, int lda, const float* tau, float* c,
+ormqr(dense::handle_t h, cublas::side_mode_adaptor side, operation_adaptor trans,
+		int m, int n, int k, const float* a, int lda, const float* tau, float* c,
 		int ldc, float* work, int work_size, int* info)
 {
 	throw_if_error(cusolverDnSormqr(h, side, trans, m, n, k, a, lda, tau, c,
@@ -35,8 +35,8 @@ ormqr(dense::handle_t h, side_mode_adaptor side, operation_adaptor trans, int m,
 }
 
 inline void
-ormqr(dense::handle_t h, side_mode_adaptor side, operation_adaptor trans, int m,
-		int n, int k, const double* a, int lda, const double* tau, double* c,
+ormqr(dense::handle_t h, cublas::side_mode_adaptor side, operation_adaptor trans,
+		int m, int n, int k, const double* a, int lda, const double* tau, double* c,
 		int ldc, double* work, int work_size, int* info)
 {
 	throw_if_error(cusolverDnDormqr(h, side, trans, m, n, k, a, lda, tau, c,

@@ -13,6 +13,7 @@ using keep = decltype(util::unique(util::sort(
 constexpr inline int
 nchoosek(int n, int k)
 {
+	if (k < 0) return 0;
 	int v = 1;
 	for (int i = 1; i <= k; ++i)
 		v = (v * (n - k + i)) / i;
@@ -218,5 +219,16 @@ public:
 		return eval(xs, p, keep_type{});
 	}
 };
+
+template <typename> struct is_polynomial_basis : std::false_type {};
+
+template <int degree>
+struct is_polynomial_basis<polynomials<degree>> : std::true_type {};
+
+template <int degree, int ... ns>
+struct is_polynomial_basis<polynomial_subset<degree, util::sequence<int, ns...>>> : std::true_type {};
+
+template <typename T>
+inline constexpr bool is_polynomial_basis_v = is_polynomial_basis<T>::value;
 
 } // namespace bases

@@ -100,9 +100,10 @@ public:
 	operator()(const vector& v) const
 	{
 		using namespace util::functional;
+		auto a = [] (auto ... v) { return std::array{std::move(v)...}; };
 		auto spmv = [] (const matrix& m, const vector& v) { return m * v; };
 		auto multiply = [&] (const matrix& m) { return spmv(m, v); };
-		return map(multiply, base::differentials);
+		return apply(a, map(multiply, base::differentials));
 	}
 
 	template <typename tag_type, typename domain_type>

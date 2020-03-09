@@ -106,8 +106,7 @@ public:
 		auto k = [&] (const auto& comp)
 		{
 			auto solid = comp.solid_boundary;
-			auto points = comp.points();
-			auto [index, weight] = clamped{0, -solid, points};
+			auto [index, weight] = clamped{0, -solid, comp.points()};
 			auto j = i % weight - index;
 			i /= weight;
 			return j;

@@ -57,6 +57,29 @@ template <int n>
 inline constexpr auto d = partials<n>{};
 
 struct differentiable {};
+struct basic_function {};
+struct metric {};
+
+template <typename T>
+struct is_differentiable : std::is_base_of<differentiable, T> {};
+
+template <typename T>
+inline constexpr bool is_differentiable_v =
+	is_differentiable<T>::value;
+
+template <typename T>
+struct is_basic_function : std::is_base_of<basic_function, T> {};
+
+template <typename T>
+inline constexpr bool is_basic_function_v =
+	is_basic_function<T>::value;
+
+template <typename T>
+struct is_metric : std::is_base_of<metric, T> {};
+
+template <typename T>
+inline constexpr bool is_metric_v =
+	is_metric<T>::value;
 
 template <typename base, typename wrt, int ... ds>
 constexpr auto
@@ -66,12 +89,11 @@ diff(derivative<base, wrt> m, partials<ds...> p)
 }
 
 template <typename base, int ... ds,
-		 typename = std::enable_if_t<std::is_base_of_v<differentiable, base>>>
+		 typename = std::enable_if_t<is_differentiable_v<base>>>
 constexpr auto
 diff(base m, partials<ds...> p)
 {
 	return derivative{m, p};
 }
-
 
 } // namespace bases

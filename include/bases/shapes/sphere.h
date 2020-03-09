@@ -16,7 +16,7 @@ private:
 	static constexpr bases::traits<sphere> traits;
 	using base = closed_surface<2>;
 public:
-	struct metric : differentiable {
+	struct metric : bases::metric {
 	private:
 		template <std::size_t n, int ... cnts>
 		constexpr double
@@ -60,6 +60,19 @@ protected:
 	using params = double[2];
 	static constexpr auto pi = M_PI;
 	static constexpr metric d{};
+
+	template <typename traits_type, typename interp, typename eval, typename poly,
+			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
+			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>,
+			 typename = std::enable_if_t<bases::is_polynomial_basis_v<poly>>>
+	sphere(int nd, int ns, bases::traits<traits_type> tr, interp phi, eval psi, poly p) :
+		base(nd, ns, tr, phi, psi, d, p) {}
+
+	template <typename traits_type, typename basic, typename poly,
+			 typename = std::enable_if_t<bases::is_basic_function_v<basic>>,
+			 typename = std::enable_if_t<bases::is_polynomial_basis_v<poly>>>
+	sphere(int nd, int ns, bases::traits<traits_type> tr, basic phi, poly p) :
+		sphere(nd, ns, tr, phi, phi, p) {}
 public:
 	static matrix
 	sample(int n)
@@ -115,13 +128,18 @@ public:
 		return base::weights(x, phi, weight);
 	}
 
-	template <typename trait_type, typename basic, typename poly = polynomials<0>>
-	sphere(int nd, int ns, bases::traits<trait_type> traits, basic phi, poly p = {}) :
-		base(nd, ns, traits, phi, d, p) {}
+	template <typename interp, typename eval, typename poly = polynomials<0>,
+			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
+			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>,
+			 typename = std::enable_if_t<bases::is_polynomial_basis_v<poly>>>
+	sphere(int nd, int ns, interp phi, eval psi, poly p = {}) :
+		sphere(nd, ns, traits, phi, psi, p) {}
 
-	template <typename basic, typename poly = polynomials<0>>
+	template <typename basic, typename poly = polynomials<0>,
+			 typename = std::enable_if_t<bases::is_basic_function_v<basic>>,
+			 typename = std::enable_if_t<bases::is_polynomial_basis_v<poly>>>
 	sphere(int nd, int ns, basic phi, poly p = {}) :
-		sphere(nd, ns, traits, phi, p) {}
+		sphere(nd, ns, phi, phi, p) {}
 };
 
 } // namespace shapes

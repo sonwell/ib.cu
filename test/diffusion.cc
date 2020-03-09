@@ -54,20 +54,17 @@ fill(const grid_type& grid, fn_type fn)
 int
 main(void)
 {
-	static constexpr auto pi = M_PI;
-
-	constexpr fd::dimension x{16_um, fd::boundary::periodic()};
-	constexpr fd::dimension y{16_um, fd::boundary::dirichlet()};
-	constexpr fd::dimension z{16_um, fd::boundary::periodic()};
-	constexpr fd::domain domain{x, y, z};
-	constexpr fd::centered mac{64};
+	constexpr fd::dimension x{16_um, fd::boundary::dirichlet()};
+	constexpr fd::domain domain{x};
+	constexpr fd::centered mac{256};
 
 	auto density = 1_g / (1_cm * 1_cm * 1_cm);
 	auto viscosity = 1_cP;
 	auto refinement = mac.refinement();
-	units::length h = domain.unit() / refinement;
-	units::time k = 0.00004096_s / (refinement * refinement);
-	ins::simulation params{k, viscosity / density, 1e-8};
+	auto scale = domain.unit();
+	units::length h = scale / refinement;
+	units::time k = 0.0000001_s;
+	ins::simulation params{k, 1_s, scale, viscosity / density, 1e-11};
 
 	util::set_default_resource(cuda::default_device().memory());
 
@@ -79,20 +76,24 @@ main(void)
 
 	constexpr fd::grid grid{mac, domain, x};
 	ins::diffusion step{grid, params};
-	auto scale = domain.unit();
-	auto sinusoid = [=] __device__ (auto x) { return sin(62 * pi * x[1] / scale); };
-	auto u = fill(grid, sinusoid);
+	auto quadratic = [=] __device__ (auto x) { return 0.5 * x[0] * (scale - x[0]); };
+	auto constant = [=] __device__ (auto x) { return (double) (viscosity / density); };
+	auto u = fill(grid, quadratic);
+	auto b = fill(grid, constant);
 	auto ub = 0 * u;
-	auto b = 0 * u;
 
 	std::cout << "import numpy as np\n";
 	std::cout << "import matplotlib.pyplot as plt\n";
-	std::cout << "u0 = " << linalg::io::numpy << u << '\n'
-		<< "plt.plot(u0)\n";
-	for (int i = 0; i < 1; ++i)
-		std::cout << "u" << (i+1) << " = " <<
-			linalg::io::numpy << (u = step(1.0, u, ub, b)) << '\n'
-			<< "plt.plot(u" << (i+1) << ")\n";
+	std::cout << "n = " << mac.refinement() << '\n';
+	std::cout << "x = (np.arange(n) + 0.5) / n\n";
+	std::cout << "u0 = " << linalg::io::numpy << u << '\n';
+		//<< "plt.plot(x, u0)\n";
+	for (int i = 0; i < 1000; ++i) {
+		u = step(1.0, u, ub, b);
+		if (i % 100 == 0)
+		std::cout << "u" << (i+1) << " = " << linalg::io::numpy << u << '\n'
+			<< "plt.plot(x, u" << (i+1) << ")\n";
+	}
 
 	std::cout << "plt.show()\n";
 	return 0;

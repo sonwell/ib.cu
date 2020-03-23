@@ -12,7 +12,8 @@ public:
 	static matrix
 	shape(const matrix& params)
 	{
-		double height = 2_um;
+		constexpr double height = 2_um;
+		constexpr double stretch = 16_um;
 		auto rows = params.rows();
 		matrix x(rows, 3);
 
@@ -24,12 +25,11 @@ public:
 			auto v = pdata[1 * rows + tid] / (2 * pi);
 			auto r = 2 * (u - 0.5 * v);
 			auto s = 2 * (u + 0.5 * v);
-			auto t = 0.25 * (1 + cos(4 * pi * r)) * (1 + cos(4 * pi * s));
-			double w = height * t;
+			auto w = 0.25 * (1 + cos(4 * pi * r)) * (1 + cos(4 * pi * s));
 
-			xdata[0 * rows + tid] = u;
-			xdata[1 * rows + tid] = v;
-			xdata[2 * rows + tid] = w;
+			xdata[0 * rows + tid] = stretch * v;
+			xdata[1 * rows + tid] = height * (w + 0.5);
+			xdata[2 * rows + tid] = stretch * u;
 		};
 		util::transform<128, 8>(k, rows);
 		return x;

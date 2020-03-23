@@ -92,7 +92,7 @@ main(void)
 		u = step(1.0, u, ub, b);
 		if (i % 100 == 0)
 		std::cout << "u" << (i+1) << " = " << linalg::io::numpy << u << '\n'
-			<< "plt.plot(x, u" << (i+1) << ")\n";
+			<< "plt.plot(x, u" << (i+1) << " - u0)\n";
 	}
 
 	std::cout << "plt.show()\n";

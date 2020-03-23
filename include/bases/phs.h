@@ -8,8 +8,6 @@ namespace bases {
 template <unsigned int n>
 struct polyharmonic_spline : basic_function {
 private:
-	static constexpr auto eps = std::numeric_limits<double>::min();
-
 	static constexpr
 	std::array<int, 2>
 	coefficients(int r)
@@ -25,20 +23,24 @@ private:
 	__host__ __device__ __forceinline__ auto
 	eval(double r, partials<ds...>) const
 	{
+		constexpr auto eps = std::numeric_limits<double>::min();
 		constexpr auto m = sizeof...(ds);
-		static_assert(n - 2 * m >= 0, "attempting to use a polyharmonic "
+		static_assert(n >= 2 * m, "attempting to use a polyharmonic "
 				"spline that is not as smooth as needed. Increase the "
 				"order of your polyharmonic spline and try again.");
 		constexpr auto coeffs = coefficients(m);
-		return (coeffs[0] * log(r + eps) + coeffs[1]) * pow(r, n-2*m);
+		return (coeffs[0] * log(r + eps) + coeffs[1]) * pow(r, n - 2*m);
 	}
 public:
 	template <int ... ds>
-	__host__ __device__ __forceinline__ auto
-	operator()(double r, partials<ds...> p = partials<>()) const
+	constexpr auto
+	operator()(double r, partials<ds...> p = {}) const
 	{
 		return eval(r, p);
 	}
 };
+
+template <unsigned int n>
+using phs = polyharmonic_spline<n>;
 
 } // namespace bases

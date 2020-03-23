@@ -78,7 +78,7 @@ private:
 			idata[tid] = j;
 			jdata[tid] = tid;
 		};
-		util::transform<128, 7>(k, n);
+		util::transform<128, 3>(k, n);
 
 		thrust::sort_by_key(exec, idata, idata+n, jdata);
 		return std::pair{std::move(indices), std::move(permutation)};
@@ -110,12 +110,10 @@ private:
 		auto* jdata = permutation.data();
 		auto* xdata = x.values();
 
-		vector outputs[per_sweep];
-		double* odata[per_sweep];
-		for (int i = 0; i < per_sweep; ++i) {
-			outputs[i] = vector(size, linalg::zero);
-			odata[i] = outputs[i].values();
-		}
+		vector output(size);
+		vector buffer(size * per_sweep, linalg::zero);
+		auto* odata = buffer.values();
+		auto* gdata = output.values();
 
 		indexing::sorter idx{grid};
 		auto k = [=] __device__ (int tid, int s)
@@ -138,7 +136,7 @@ private:
 			auto v = wdata[tid];
 			auto j = sweep.indices(k);
 			for (auto [i, j]: j | enumerate)
-				if (j >= 0) odata[i][j] += res * v[i];
+				if (j >= 0) odata[i * size + j] += res * v[i];
 		};
 
 		for (int i = 0; i < sweeps; ++i) {
@@ -147,9 +145,15 @@ private:
 			{util::transform(l, q, i);}
 		}
 
-		for (int i = 1; i < per_sweep; ++i)
-			outputs[0] += outputs[i];
-		return outputs[0];
+		auto r = [=] __device__ (int tid)
+		{
+			double t = 0.0;
+			for (int i = 0; i < per_sweep; ++i)
+				t += odata[i * size + tid];
+			gdata[tid] = t;
+		};
+		util::transform(r, size);
+		return output;
 	}
 
 	using grids_type = decltype(construct(std::declval<grid_tag>(),

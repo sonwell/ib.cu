@@ -14,7 +14,6 @@
 #include "boundary.h"
 
 namespace fd {
-
 namespace __1 {
 
 template <typename lower_type, typename upper_type, bool is_lower>
@@ -26,7 +25,7 @@ boundary(const discretization<fd::dimension<lower_type, upper_type>>& component,
 	return component.boundary(rows, component.solid_boundary, 1.0, tag);
 }
 
-}
+} // namespace __1
 
 template <typename grid_type, typename view_type, std::size_t n = 0>
 decltype(auto)

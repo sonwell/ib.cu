@@ -34,14 +34,15 @@ operator|(const composition<left...>& f, const composition<right...>& g)
 }
 
 
-inline constexpr struct {
+
+inline constexpr struct translate {
 private:
 	template <typename shift_type>
 	constexpr decltype(auto)
 	evaluate(shift_type&& dx) const
 	{
 		return composition{
-			[=] (auto&& x) constexpr
+			[=] __host__ __device__ (auto&& x) constexpr
 			{
 				using namespace util::functional;
 				return map(std::plus<void>{}, x, dx);
@@ -64,7 +65,41 @@ public:
 	}
 } translate;
 
-inline constexpr struct {
+inline constexpr struct shear {
+private:
+	template <typename matrix_type>
+	constexpr decltype(auto)
+	evaluate(matrix_type&& m) const
+	{
+		using namespace util::functional;
+		return composition{
+			[=] (auto&& x) constexpr
+			{
+				auto k = [&] (const auto& y)
+				{
+					return algo::dot(x, y);
+				};
+				return map(k, m);
+			}
+		};
+	}
+public:
+	template <std::size_t n, std::size_t m>
+	constexpr decltype(auto)
+	operator()(const double (&y)[n][m]) const
+	{
+		return evaluate(y);
+	}
+
+	template <typename matrix_type>
+	constexpr decltype(auto)
+	operator()(matrix_type&& y) const
+	{
+		return evaluate(std::forward<matrix_type>(y));
+	}
+} shear;
+
+inline constexpr struct rotate {
 private:
 	template <typename axis_type>
 	__host__ __device__ decltype(auto)

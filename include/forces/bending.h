@@ -115,7 +115,7 @@ struct bending {
 			auto h = (l * g + n * e - 2 * m * f) / (2 * detg);
 			auto k = detb / detg;
 
-			auto mag = -curr.s * modulus * (lh / detf + h * (h * h - k));
+			auto mag = -curr.s * modulus * (lh / detf + 2 * h * (h * h - k));
 			for (int i = 0; i < 3; ++i)
 				fdata[ns * i + tid] = mag * curr.n[i];
 		};

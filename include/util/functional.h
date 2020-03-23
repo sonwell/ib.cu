@@ -203,7 +203,7 @@ struct apply_functor {
 	constexpr decltype(auto)
 	operator()(Fn&& fn, Tpl&& args) const
 	{
-		using sequence = std::make_index_sequence<std::tuple_size_v<plain_tuple_t<Tpl>>>;
+		using sequence = std::make_index_sequence<tuple_size_v<plain_tuple_t<Tpl>>>;
 		return apply(sequence{}, std::forward<Fn>(fn), std::forward<Tpl>(args));
 	}
 };

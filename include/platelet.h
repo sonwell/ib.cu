@@ -73,26 +73,6 @@ public:
 		return m;
 	}
 
-	template <typename rbf>
-	static vector
-	weights(const matrix& x, rbf phi)
-	{
-		if (!is_specialized(x.rows()))
-			return base::weights(x, phi);
-		static constexpr auto sc = 1_um;
-		static constexpr double surface_area = 13.68084640609756467093;
-		static constexpr auto weight = [] __device__ (const params& x)
-		{
-			constexpr double smin = minor / sc;
-			constexpr double smaj = major / sc;
-			auto cphi = cos(x[1]);
-			auto r2 = cphi * cphi;
-			auto scale = smaj * cphi * sqrt(smaj * smaj + (smin * smin - smaj * smaj) * r2);
-			return scale / surface_area;
-		};
-		return base::weights(x, phi, weight);
-	}
-
 	template <typename interp, typename eval,
 			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
 			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>>

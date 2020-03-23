@@ -2,6 +2,7 @@
 
 #include <typeinfo>
 #include <cxxabi.h>
+#include <string>
 
 namespace dbg {
 
@@ -18,7 +19,8 @@ template <typename T>
 struct demangler {
 	static const char* name;
 
-	operator const char*() const { return name; };
+	operator const char*() const { return name; }
+	operator std::string() const { return name; }
 };
 
 template <typename T>

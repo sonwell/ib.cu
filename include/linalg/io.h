@@ -7,7 +7,9 @@
 #include <limits>
 #include <array>
 #include <tuple>
+#include "util/getset.h"
 #include "cuda/copy.h"
+#include "cuda/device.h"
 #include "types.h"
 #include "vector.h"
 #include "matrix.h"

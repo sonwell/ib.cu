@@ -4,6 +4,7 @@
 #include "bases/traits.h"
 #include "bases/closed_surface.h"
 #include "bases/differentiation.h"
+#include "bases/scaled.h"
 
 namespace bases {
 namespace shapes {
@@ -29,7 +30,7 @@ public:
 			auto t = 0.0;
 			for (int i = 0; i < n; ++i)
 				t += 1 - cos(xs[i] - xd[i]);
-			return sqrt(2 * t);
+			return sqrt(2 * t / n);
 		}
 
 		template <std::size_t n, int d, int ... ds>
@@ -42,7 +43,7 @@ public:
 				auto c = cos(delta);
 				auto s = sin(delta);
 				double cyc[] = {-c, s, c, -s};
-				return cyc[(1 + sizeof...(ds)) % 4];
+				return cyc[(1 + sizeof...(ds)) % 4] / n;
 			}
 			else return 0.0;
 		}
@@ -57,7 +58,7 @@ protected:
 			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>,
 			 typename = std::enable_if_t<bases::is_polynomial_basis_v<poly>>>
 	torus(int nd, int ns, bases::traits<traits_type> tr, interp phi, eval psi, poly p) :
-		closed_surface(nd, ns, tr, phi, psi, d, p) {}
+		closed_surface(nd, ns, tr, phi, bases::scaled{psi, 1.0, phi(2) / psi(2)}, d, p) {}
 
 	template <typename traits_type, typename basic, typename poly,
 			 typename = std::enable_if_t<bases::is_basic_function_v<basic>>,

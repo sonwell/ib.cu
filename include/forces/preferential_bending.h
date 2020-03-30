@@ -56,15 +56,15 @@ struct preferential_bending {
 
 			auto cg = loadc[tid];
 			auto rg = loadr[tid];
-			auto mag = -modulus * (m(cg) - m(rg));
+			auto mag = -cg.s * modulus * (m(cg) - m(rg));
 			for (int i = 0; i < 3; ++i)
 				fdata[n * i + tid] = mag * cg.n[i];
 		};
 		util::transform(k, n);
-
+		return f;
 	}
 
-	constexpr bending(units::energy modulus) :
+	constexpr preferential_bending(units::energy modulus) :
 		modulus(modulus) {}
 };
 

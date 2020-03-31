@@ -17,23 +17,26 @@ public:
 	using parameters = simulation;
 	static constexpr auto dimensions = grid_type::dimensions;
 private:
-	static constexpr auto helmholtz = [] (double l, const auto& g)
+	static constexpr auto helmholtz = [] (units::unit<2, 0, 0> l, const auto& g)
 	{
 		using fd::correction::second_order;
 		auto id = fd::identity(g, second_order);
 		auto lh = fd::laplacian(g);
-		axpy(-l, lh, id);
+		axpy(-(double) l, lh, id);
+		auto [lower, upper] = algo::gershgorin(lh);
+		std::cerr << dbg::demangled<decltype(g)> << ' ' << lower << ' ' << upper << '\n';
+		throw std::runtime_error("heh");
 		return id;
 	};
 
-	static double
+	static units::unit<2, 0, 0>
 	lambda(const parameters& p)
 	{
 		return p.timestep * p.coefficient / 2;
 	}
 
 	struct chebyshev : solvers::chebpcg {
-		chebyshev(const grid_type& grid, double tolerance, double l) :
+		chebyshev(const grid_type& grid, double tolerance, units::unit<2, 0, 0> l) :
 			chebpcg(tolerance, helmholtz(l, grid)) {}
 
 		chebyshev(const grid_type& grid, const parameters& p) :
@@ -46,7 +49,7 @@ private:
 			return new mg::chebyshev(g, m);
 		};
 
-		multigrid(const grid_type& grid, double tolerance, double l) :
+		multigrid(const grid_type& grid, double tolerance, units::unit<2, 0, 0> l) :
 			mgpcg(grid, tolerance, [=] (auto&& g) { return helmholtz(l, g); }, smoother) {}
 
 		multigrid(const grid_type& grid, const parameters& p):

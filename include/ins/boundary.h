@@ -20,8 +20,9 @@ boundary(const fd::discretization<fd::dimension<lower, upper>>& comp, const dim_
 	const auto rows = comp.points();
 	if (comp == dim)
 		return matrix{rows, rows};
-	return fd::__1::single_entry(rows, rows, comp.solid_boundary, {false, false, 1.0})
-	     + fd::__1::single_entry(rows, rows, comp.solid_boundary, {true, true, 1.0});
+	auto solid = comp.solid_boundary;
+	return comp.boundary(rows, rows, solid, fd::boundary::lower) +
+	       comp.boundary(rows, rows, solid, fd::boundary::upper);
 }
 
 } // namespace __1

@@ -23,9 +23,6 @@ private:
 		auto id = fd::identity(g, second_order);
 		auto lh = fd::laplacian(g);
 		axpy(-(double) l, lh, id);
-		auto [lower, upper] = algo::gershgorin(lh);
-		std::cerr << dbg::demangled<decltype(g)> << ' ' << lower << ' ' << upper << '\n';
-		throw std::runtime_error("heh");
 		return id;
 	};
 

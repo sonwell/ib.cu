@@ -84,3 +84,46 @@ public:
 	platelet(int nd, int ns, basic phi) :
 		platelet(nd, ns, phi, phi) {}
 };
+
+struct platelet1d : bases::shapes::circle {
+private:
+	using matrix = bases::matrix;
+	using vector = bases::vector;
+	using base = bases::shapes::circle;
+	static constexpr bases::traits<platelet1d> traits;
+	static constexpr bases::polynomials<0> p;
+	static constexpr double major = 1.82_um;
+	static constexpr double minor = 0.46_um;
+public:
+	static matrix
+	shape(const matrix& params)
+	{
+		auto rows = params.rows();
+		matrix x(rows, 2);
+
+		auto* pdata = params.values();
+		auto* xdata = x.values();
+		auto k = [=] __device__ (int tid)
+		{
+			auto t = pdata[0 * rows + tid];
+			auto x = cos(t);
+			auto y = sin(t);
+
+			xdata[0 * rows + tid] = major * x;
+			xdata[1 * rows + tid] = minor * y;
+		};
+		util::transform<128, 8>(k, rows);
+		return x;
+	}
+
+	template <typename interp, typename eval,
+			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
+			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>>
+	platelet1d(int nd, int ns, interp phi, eval psi) :
+		bases::shapes::circle(nd, ns, traits, phi, psi, p) {}
+
+	template <typename basic,
+			 typename = std::enable_if_t<bases::is_basic_function_v<basic>>>
+	platelet1d(int nd, int ns, basic phi) :
+		platelet1d(nd, ns, phi, phi) {}
+};

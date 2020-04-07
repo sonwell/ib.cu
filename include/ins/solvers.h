@@ -11,7 +11,12 @@
 namespace ins {
 namespace solvers {
 
-struct solver { virtual vector operator()(vector) const = 0; };
+struct solver {
+	double tolerance;
+
+	virtual vector operator()(vector) const = 0;
+	constexpr solver(double t) : tolerance(t) {}
+};
 
 inline auto solve(const solver& slv, vector b) { return slv(std::move(b)); }
 
@@ -61,9 +66,10 @@ struct multigrid : algo::preconditioner, mg::solver {
 struct chebpcg : solver {
 private:
 	using chebyshev = __1::chebyshev;
-	double tolerance;
 	chebyshev pr;
 public:
+	using solver::tolerance;
+
 	virtual vector
 	operator()(vector v) const
 	{
@@ -72,17 +78,18 @@ public:
 	}
 
 	chebpcg(double tolerance, matrix op) :
-		tolerance(tolerance),
+		solver{tolerance},
 		pr(std::move(op)) {}
 };
 
 struct ilupcg : solver {
 private:
 	using ilu = __1::ilu;
-	double tolerance;
 	matrix m;
 	ilu preconditioner;
 public:
+	using solver::tolerance;
+
 	virtual vector
 	operator()(vector v) const
 	{
@@ -92,7 +99,7 @@ public:
 
 	template <typename grid_type>
 	ilupcg(const grid_type& grid, double tolerance, matrix op) :
-		tolerance(tolerance),
+		solver{tolerance},
 		m(std::move(op)),
 		preconditioner(grid, m) {}
 };
@@ -100,9 +107,10 @@ public:
 struct mgpcg : solver {
 private:
 	using multigrid = __1::multigrid;
-	double tolerance;
 	multigrid preconditioner;
 public:
+	using solver::tolerance;
+
 	virtual vector
 	operator()(vector v) const
 	{
@@ -114,7 +122,7 @@ public:
 	template <typename grid_type, typename sm_gen_type, typename op_gen_type>
 	mgpcg(const grid_type& grid, double tolerance,
 			const sm_gen_type& sm_gen, const op_gen_type& op_gen) :
-		tolerance(tolerance),
+		solver{tolerance},
 		preconditioner(grid, tolerance, sm_gen, op_gen) {}
 };
 

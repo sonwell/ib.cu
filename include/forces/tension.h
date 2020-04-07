@@ -93,4 +93,64 @@ protected:
 	constexpr tension() = default;
 };
 
+struct tension1d {
+private:
+	struct helper {
+		double i, di;
+
+		constexpr helper(const info<1>& load) :
+			i(algo::dot(load.t[0], load.t[0])),
+			di(2 * algo::dot(load.t[0], load.tt[0])) {}
+	};
+protected:
+	template <typename object_type, typename constitutive_law_type>
+	decltype(auto)
+	operator()(const object_type& object, constitutive_law_type&& w) const
+	{
+		using bases::reference;
+		using bases::current;
+		const auto& orig = object.geometry(reference).sample;
+		const auto& curr = object.geometry(current).sample;
+		loader original{orig};
+		loader deformed{curr};
+
+		auto size = linalg::size(curr.position);
+		auto n = size.rows * size.cols / 2;
+		matrix f{size};
+
+		auto* fdata = f.values();
+		auto k = [=] __device__ (int tid, auto w)
+		{
+			auto orig = original(tid);
+			auto curr = deformed(tid);
+			auto [oi, odi] = helper{orig};
+			auto [ci, cdi] = helper{curr};
+
+			// invariants
+			auto i = ci / oi;
+			auto iu = (cdi - i * odi) / oi;
+
+			// material functions
+			auto [phi, phi1] = w(i);
+
+			auto phiu = phi1 * iu;
+
+			auto& [u] = curr.t;
+			auto& [uu] = curr.tt;
+			auto& nrml = curr.n;
+
+			for (int j = 0; j < 2; ++j)
+				fdata[n * j + tid] = orig.s / oi * (
+						+ (phi / i) * uu[j]
+						- 0.5 * iu / i * phi * u[j]
+						+ phiu * u[j]
+				);
+		};
+		util::transform(k, n, w);
+		return f;
+	}
+
+	constexpr tension1d() = default;
+};
+
 } // namespace forces

@@ -40,13 +40,14 @@ struct binary_writer {
 
 	template <typename u_type, typename ub_type>
 	void
-	operator()(const u_type& u, const ub_type& ub, const matrix& x)
+	operator()(const u_type& u, const ub_type& ub, const vector& p, const matrix& x)
 	{
 		if ((count++) % steps_per_print) return;
 		using namespace util::functional;
 		auto store = [&] (auto&& v) { output << linalg::io::binary << v; };
 		map(store, u);
 		map(store, ub);
+		store(p);
 		store(x);
 	}
 
@@ -58,7 +59,7 @@ struct null_writer {
 	null_writer(std::ostream& = std::cout) {}
 
 	template <typename u_type, typename ub_type>
-	void operator()(const u_type&, const ub_type&, const matrix&) {}
+	void operator()(const u_type&, const ub_type&, const vector&, const matrix&) {}
 };
 
 template <typename tag_type, typename domain_type>
@@ -102,39 +103,18 @@ fill_flow(const grid_type& grid, fn_type fn)
 	return v;
 }
 
-
-template <typename shape_fn>
-static matrix
-shapes(matrix x, shape_fn f)
-{
-	auto m = x.rows();
-	auto* xdata = x.values();
-	auto k = [=] __device__ (int tid)
-	{
-		constexpr bases::composition array{bases::impl::arrayifier{}};
-		std::array<double, 3> x;
-		for (int i = 0; i < 3; ++i)
-			x[i] = xdata[m * i + tid];
-		x = (f | array)(x);
-		for (int i = 0; i < 3; ++i)
-			xdata[m * i + tid] = x[i];
-	};
-	util::transform<128, 3>(k, m);
-	return x;
-}
-
 template <typename grid_type, typename domain_type, typename reference_type>
 decltype(auto)
 initialize(const grid_type& grid, const domain_type& domain,
 			const reference_type& ref, units::unit<0, 0, -1> shear_rate)
 {
 	constexpr auto transa = bases::translate({ 8_um, 8_um, 8_um});
-	constexpr auto transb = bases::translate({16_um, 8_um, 8_um});
-	bases::container cells{ref, transa, transb};
+	bases::container cells{ref, transa};
 	matrix x = cells.x;
 
 	auto velocity = zeros(grid, domain);
 	auto boundary_velocity = zeros(grid, domain);
+	auto r = grid.refinement();
 
 	{
 		auto&& [x, y, z] = domain.components();
@@ -149,9 +129,12 @@ initialize(const grid_type& grid, const domain_type& domain,
 		std::get<2>(velocity) = fill_flow(g, shear);
 	}
 
+	vector p{r * r * r, linalg::zero};
+
 	return std::make_tuple(
 		std::move(velocity),
 		std::move(boundary_velocity),
+		std::move(p),
 		std::move(x)
 	);
 }
@@ -170,11 +153,12 @@ resume(const domain_type& domain, const char* filename)
 	auto load = [&] (auto&&) { vector v; input >> linalg::io::binary >> v; return v; };
 	auto u = map(load, domain.components());
 	auto ub = map(load, domain.components());
+	auto p = load(0);
 	input >> linalg::io::binary >> x;
 	if (input.eof())
 		throw std::runtime_error("expected initialization state");
 
-	return std::make_tuple(std::move(u), std::move(ub), std::move(x));
+	return std::make_tuple(std::move(u), std::move(ub), std::move(p), std::move(x));
 }
 
 struct timer {
@@ -205,7 +189,7 @@ main(int argc, char** argv)
 	constexpr auto time_scale = 1 / shear_rate;
 	constexpr auto length_scale = domain.unit();
 	constexpr auto h = domain.unit() / mac.refinement();
-	constexpr auto k = 0.0000016_s * (h / 1_um) * (h / 1_um);
+	constexpr auto k = 0.000016_s * (h / 1_um) * (h / 1_um);
 	constexpr ins::parameters params {k, time_scale, length_scale, 1_g / 1_mL, 1_cP, 1e-11};
 
 	constexpr forces::hookean tension{1e-1_dyn/1_cm};
@@ -232,7 +216,7 @@ main(int argc, char** argv)
 
 	constexpr bases::polyharmonic_spline<7> basic;
 	constexpr bases::generalized_multiquadric<7> smooth{0.0001};
-	platelet ref{361, 1552, basic, smooth};
+	platelet ref{386, 1552, basic, smooth};
 
 	auto [u, ub, rx] = (argc > 2) ?
 		resume(domain, argv[2]) :
@@ -260,17 +244,21 @@ main(int argc, char** argv)
 	};
 
 	timer t{"runtime"};
-	write(u, ub, cells.x);
+	write(u, ub, p, cells.x);
 	for (int i = 0; i < iterations; ++i) {
 		util::logging::info("simulation time: ", i * params.timestep);
-		try { u = step(std::move(u), ub, f); }
+		try {
+			auto [un, pn] = step(std::move(u), ub, f);
+			u = std::move(un);
+			p = std::move(pn);
+		}
 		catch (std::runtime_error& e) {
 			util::logging::error(e.what());
 			return -1;
 		}
 		auto v = (double) k * interpolate(n, cells.x, u);
 		cells.x += std::move(v);
-		write(u, ub, cells.x);
+		write(u, ub, p, cells.x);
 	}
 
 	return 0;

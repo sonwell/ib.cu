@@ -18,8 +18,8 @@ struct pair {
 template <typename reference_type>
 struct base_container {
 private:
-	using operator_type = bases::operators<2>;
-	using geometry_type = bases::geometry<2>;
+	using operator_type = decltype(reference_type::data_to_data);
+	using geometry_type = decltype(reference_type::data_geometry);
 	using operator_pair_type = pair<const operator_type&>;
 	using geometry_pair_type = pair<const geometry_type&>;
 	using reference_tag = decltype(bases::reference);
@@ -105,23 +105,24 @@ private:
 	{
 		using namespace util::functional;
 		static constexpr int n = sizeof...(fs);
+		static constexpr auto dims = reference_type::dimensions+1;
 		using seq = std::make_integer_sequence<int, n>;
 		auto m = ref.num_data_sites;
 		const auto& y = ref.data_geometry.position;
-		matrix x{m, n * 3};
+		matrix x{m, n * dims};
 
 		auto* ydata = y.values();
 		auto* xdata = x.values();
 		auto k = [=] __device__ (int tid)
 		{
 			constexpr composition array{impl::arrayifier{}};
-			std::array<double, 3> x;
-			for (int i = 0; i < 3; ++i)
+			std::array<double, dims> x;
+			for (int i = 0; i < dims; ++i)
 				x[i] = ydata[m * i + tid];
 			auto z = std::make_tuple((fs | array)(x)...);
 			auto s = [&] (const auto& x, int j)
 			{
-				for (int i = 0; i < 3; ++i)
+				for (int i = 0; i < dims; ++i)
 					xdata[n * m * i + m * j + tid] = x[i];
 			};
 			map(s, z, seq{});

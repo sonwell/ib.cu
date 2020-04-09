@@ -21,25 +21,16 @@ public:
 	static matrix
 	shape(const matrix& params)
 	{
-		auto rows = params.rows();
-		matrix x(rows, 3);
-
-		auto* pdata = params.values();
-		auto* xdata = x.values();
-		auto k = [=] __device__ (int tid)
+		using point = std::array<double, 3>;
+		auto k = [=] __device__ (auto params) -> point
 		{
-			auto t = pdata[0 * rows + tid];
-			auto p = pdata[1 * rows + tid];
+			auto [t, p] = params;
 			auto x = cos(t) * cos(p);
 			auto y = sin(t) * cos(p);
 			auto z = sin(p);
-
-			xdata[0 * rows + tid] = major * x;
-			xdata[1 * rows + tid] = major * y;
-			xdata[2 * rows + tid] = minor * z;
+			return {major * x, major * y, minor * z};
 		};
-		util::transform<128, 8>(k, rows);
-		return x;
+		return base::shape(params, k);
 	}
 
 	static std::filesystem::path
@@ -93,27 +84,20 @@ private:
 	static constexpr bases::traits<platelet1d> traits;
 	static constexpr bases::polynomials<0> p;
 	static constexpr double major = 1.82_um;
-	static constexpr double minor = 0.46_um;
+	static constexpr double minor = 1.82_um;
+protected:
+	using base::shape;
 public:
 	static matrix
 	shape(const matrix& params)
 	{
-		auto rows = params.rows();
-		matrix x(rows, 2);
-
-		auto* pdata = params.values();
-		auto* xdata = x.values();
-		auto k = [=] __device__ (int tid)
+		using point = std::array<double, 2>;
+		auto k = [=] __device__ (auto p) -> point
 		{
-			auto t = pdata[0 * rows + tid];
-			auto x = cos(t);
-			auto y = sin(t);
-
-			xdata[0 * rows + tid] = major * x;
-			xdata[1 * rows + tid] = minor * y;
+			auto [t] = p;
+			return {major * cos(t), minor * sin(t)};
 		};
-		util::transform<128, 8>(k, rows);
-		return x;
+		return base::shape(params, k);
 	}
 
 	template <typename interp, typename eval,

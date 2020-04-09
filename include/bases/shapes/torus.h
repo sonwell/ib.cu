@@ -49,6 +49,7 @@ public:
 		}
 	};
 protected:
+	using closed_surface<2>::shape;
 	using params = double[2];
 	static constexpr auto pi = M_PI;
 	static constexpr metric d{};

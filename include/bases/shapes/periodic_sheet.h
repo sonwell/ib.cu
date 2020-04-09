@@ -11,6 +11,7 @@ private:
 	static constexpr bases::traits<periodic_sheet> traits;
 	static constexpr bases::polynomials<1> p;
 protected:
+	using torus::shape;
 	template <typename traits, typename interp, typename eval,
 			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
 			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>>

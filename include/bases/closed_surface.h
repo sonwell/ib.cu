@@ -8,6 +8,8 @@ namespace bases {
 template <int dims>
 struct closed_surface : surface<dims> {
 protected:
+	using surface<dims>::shape;
+
 	template <typename weight>
 	static vector
 	scale(const matrix& x, vector v, weight w)

@@ -6,33 +6,26 @@
 
 struct endothelium : bases::shapes::periodic_sheet {
 private:
+	using base = bases::shapes::periodic_sheet;
 	using matrix = bases::matrix;
 	static constexpr bases::traits<endothelium> traits;
 public:
 	static matrix
 	shape(const matrix& params)
 	{
+		using point = std::array<double, 3>;
 		constexpr double height = 2_um;
 		constexpr double stretch = 16_um;
-		auto rows = params.rows();
-		matrix x(rows, 3);
-
-		auto* pdata = params.values();
-		auto* xdata = x.values();
-		auto k = [=] __device__ (int tid)
+		auto k = [=] __device__ (auto x) -> point
 		{
-			auto u = pdata[0 * rows + tid] / (2 * pi);
-			auto v = pdata[1 * rows + tid] / (2 * pi);
+			auto u = x[0] / (2 * pi);
+			auto v = x[1] / (2 * pi);
 			auto r = 2 * (u - 0.5 * v);
 			auto s = 2 * (u + 0.5 * v);
 			auto w = 0.25 * (1 + cos(4 * pi * r)) * (1 + cos(4 * pi * s));
-
-			xdata[0 * rows + tid] = stretch * v;
-			xdata[1 * rows + tid] = height * (w + 0.5);
-			xdata[2 * rows + tid] = stretch * u;
+			return {stretch * v, height * (w + 0.5), stretch * u};
 		};
-		util::transform<128, 8>(k, rows);
-		return x;
+		return base::shape(params, k);
 	}
 
 	template <typename interp, typename eval,

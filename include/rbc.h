@@ -20,27 +20,18 @@ public:
 	shape(const matrix& params)
 	{
 		static constexpr double radius = 3.91_um;
-		auto rows = params.rows();
-		matrix x(rows, 3);
-
-		auto* pdata = params.values();
-		auto* xdata = x.values();
-		auto k = [=] __device__ (int tid)
+		using point = std::array<double, 3>;
+		auto k = [=] __device__ (auto params) -> point
 		{
-			auto t = pdata[0 * rows + tid];
-			auto p = pdata[1 * rows + tid];
+			auto [t, p] = params;
 			auto x = cos(t) * cos(p);
 			auto y = sin(t) * cos(p);
 			auto z0 = sin(p);
 			auto r2 = x*x + y*y;
 			auto z = 0.5 * z0 * (0.21 + 2.0 * r2 - 1.12 * r2*r2);
-
-			xdata[0 * rows + tid] = radius * x;
-			xdata[1 * rows + tid] = radius * y;
-			xdata[2 * rows + tid] = radius * z;
+			return {radius * x, radius * y, radius * z};
 		};
-		util::transform<128, 8>(k, rows);
-		return x;
+		return base::shape(params, k);
 	}
 
 	static std::filesystem::path

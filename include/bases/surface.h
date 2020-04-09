@@ -62,6 +62,28 @@ private:
 	template <typename traits_type, typename interp, typename eval, typename poly>
 	surface(int nd, int ns, traits<traits_type> tr, interp phi, eval psi, poly p) :
 		surface(nd, ns, get_info(nd, ns, tr, phi), phi, psi, p) {}
+protected:
+	template <typename f_type>
+	static matrix
+	shape(const matrix& params, f_type&& f)
+	{
+		auto rows = params.rows();
+		matrix x(rows, dimensions+1);
+
+		auto* pdata = params.values();
+		auto* xdata = x.values();
+		auto k = [=] __device__ (int tid, auto f)
+		{
+			std::array<double, dimensions> p;
+			for (int i = 0; i < dimensions; ++i)
+				p[i] = pdata[i * rows + tid];
+			auto x = f(std::move(p));
+			for (int i = 0; i < dimensions+1; ++i)
+				xdata[i * rows + tid] = x[i];
+		};
+		util::transform<128, 8>(k, rows, std::forward<f_type>(f));
+		return x;
+	}
 public:
 	int num_data_sites;
 	int num_sample_sites;

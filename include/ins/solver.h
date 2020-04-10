@@ -2,6 +2,7 @@
 #include <utility>
 #include <tuple>
 
+#include "cuda/timer.h"
 #include "algo/chebyshev.h"
 #include "algo/preconditioner.h"
 #include "util/functional.h"
@@ -49,6 +50,7 @@ private:
 		virtual vector
 		operator()(vector v) const
 		{
+			cuda::timer timer{"poisson solve"};
 			vector ones{size(v), linalg::one};
 			double alpha = dot(v, ones) / ones.rows();
 			util::logging::info("⟨1, ɸ⟩: ", alpha);
@@ -206,6 +208,7 @@ public:
 			return partial(map, [=] (vector v) { return mu * std::move(v); });
 		};
 
+		cuda::timer timer{"ins step"};
 		auto u_scale = length_scale / time_scale;
 		auto nondim = scalem(1.0 / u_scale);
 		auto redim = scalem(u_scale);

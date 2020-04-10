@@ -1,6 +1,6 @@
 #pragma once
 #include <thrust/execution_policy.h>
-#include "cuda/event.h"
+#include "cuda/timer.h"
 #include "util/log.h"
 #include "util/functional.h"
 #include "util/iterators.h"
@@ -85,7 +85,7 @@ public:
 	auto
 	operator()(int n, const matrix& x, const tuple_type& u) const
 	{
-		timer s{"interpolate"};
+		cuda::timer timer{"ib interpolate"};
 		using namespace util::functional;
 		using sequence = std::make_index_sequence<dimensions>;
 

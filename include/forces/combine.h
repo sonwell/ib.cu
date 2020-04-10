@@ -1,6 +1,7 @@
 #pragma once
 #include <tuple>
 #include <functional>
+#include "cuda/timer.h"
 #include "util/functional.h"
 #include "bases/geometry.h"
 #include "types.h"
@@ -15,6 +16,7 @@ struct combine {
 	decltype(auto)
 	operator()(const object_type& obj) const
 	{
+		cuda::timer timer{"lagrangian forces"};
 		constexpr auto nfuncs = sizeof...(force_types);
 		if constexpr (!nfuncs) {
 			using bases::current;

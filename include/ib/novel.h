@@ -1,5 +1,6 @@
 #pragma once
 #include <thrust/execution_policy.h>
+#include "cuda/timer.h"
 #include "util/functional.h"
 #include "util/iterators.h"
 #include "util/ranges.h"
@@ -166,7 +167,7 @@ public:
 	auto
 	operator()(int n, const matrix& x, const matrix& f) const
 	{
-		timer s{"spread"};
+		cuda::timer timer{"ib spread"};
 		using namespace util::functional;
 		using sequence = std::make_index_sequence<dimensions>;
 		auto* fdata = f.values();

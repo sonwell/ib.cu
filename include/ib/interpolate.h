@@ -71,7 +71,7 @@ private:
 				if (k >= 0) v += w * udata[k];
 			vdata[tid] = v;
 		};
-		util::transform(k, n);
+		util::strong_transform(k, n);
 	}
 
 	using grids_type = decltype(construct(std::declval<grid_tag>(),

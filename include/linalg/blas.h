@@ -64,7 +64,7 @@ template <template <typename> class container, typename vtype>
 void
 scal(scalar<vtype> s, container<dense<vtype>>& y)
 {
-	if (s == 1) return;
+	if (s == 1 || !length(y)) return;
 	if (!s) return (void) (y = container<dense<vtype>>{size(y), zero});
 	auto n = length(y);
 	auto* values = y.values();
@@ -76,7 +76,7 @@ template <template <typename> class container, typename vtype>
 void
 scal(scalar<vtype> s, container<sparse<vtype>>& y)
 {
-	if (s == 1) return;
+	if (s == 1 || !length(y)) return;
 	if (!s) return (void) (y = container<sparse<vtype>>{size(y)});
 	auto n = length(y);
 	auto* values = y.values();

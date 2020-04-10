@@ -39,7 +39,7 @@ lower_boundary(const grid_type& grid, const view_type& view,
 	{
 		auto r = pow(comp.resolution(), n);
 		return comp == view ?
-			__1::boundary(comp, lower) * r:
+			r * __1::boundary(comp, lower) :
 			identity(comp, correction);
 	};
 	auto op = [] (const matrix& l, const matrix& r) { return kron(l, r); };
@@ -59,7 +59,7 @@ upper_boundary(const grid_type& grid, const view_type& view,
 	{
 		auto r = pow(comp.resolution(), n);
 		return comp == view ?
-			__1::boundary(comp, upper) * r :
+			r * __1::boundary(comp, upper) :
 			identity(comp, correction);
 	};
 	auto op = [] (const matrix& l, const matrix& r) { return kron(l, r); };

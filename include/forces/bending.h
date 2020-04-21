@@ -27,8 +27,27 @@ struct second_fundamental_form {
 		ii(l * n - m * m) {}
 };
 
+constexpr double
+mean_curvature(const first_fundamental_form& fff,
+		const second_fundamental_form& sff)
+{
+	auto [e, f, g, i] = fff;
+	auto [l, m, n, ii] = sff;
+	return (l * g + n * e - 2 * m * f) / (2 * i);
+}
+
+constexpr double
+gaussian_curvature(const first_fundamental_form& fff,
+		const second_fundamental_form& sff)
+{
+	auto [e, f, g, i] = fff;
+	auto [l, m, n, ii] = sff;
+	return ii / i;
+}
+
 struct bending {
 	units::energy modulus;
+	bool preferred;
 
 	decltype(auto)
 	multiply(cublas::handle& k, const matrix& op, const matrix& x) const
@@ -44,48 +63,53 @@ struct bending {
 		return r;
 	}
 
-	decltype(auto)
-	mean_curvature(const loader<2>& current) const
-	{
-		auto [n, m] = current.size();
-		matrix h{n, m};
-		auto* hdata = h.values();
-		auto k = [=] __device__ (int tid)
-		{
-			auto curr = current(tid);
-			auto [e, f, g, detg] = first_fundamental_form{curr};
-			auto [l, m, n, detb] = second_fundamental_form{curr};
-			auto h = (l * g + n * e - 2 * m * f) / (2 * detg);
-			hdata[tid] = h;
-		};
-		util::transform(k, n * m);
-		return h;
-	}
-
 	template <typename object_type>
 	decltype(auto)
-	operator()(const object_type& object) const
+	laplacian_mean_curvature(cublas::handle& handle,
+			const object_type& object) const
 	{
+		using fff = first_fundamental_form;
+		using sff = second_fundamental_form;
 		using bases::current;
-		cublas::handle handle;
+		using bases::reference;
 		auto [d2d, d2s] = object.operators();
-		auto [currd, currs] = object.geometry(current);
-		loader loadd{currd};
-		loader loads{currs};
+		auto& curr = object.geometry(current).data;
+		auto& orig = object.geometry(reference).data;
 
-		auto lh = mean_curvature(loadd);
+		loader loadc{curr};
+		loader loado{orig};
+
+		auto [n, m] = loadc.size();
+		matrix lh{n, m};
+		auto* hdata = lh.values();
+
+		auto h = [=, p=preferred] __device__ (int tid)
+		{
+			auto curr = loadc[tid];
+			auto cfff = fff{curr};
+			auto csff = sff{curr};
+			auto dh = mean_curvature(cfff, csff);
+			if (p) {
+				auto orig = loado[tid];
+				auto offf = fff{orig};
+				auto osff = sff{orig};
+				dh -= mean_curvature(offf, osff);
+			}
+			hdata[tid] = dh;
+		};
+		util::transform(h, n * m);
+
 		auto hu = multiply(handle, d2d.first_derivatives[0], lh);
 		auto hv = multiply(handle, d2d.first_derivatives[1], lh);
 
-		auto sd = loadd.size();
-		auto nd = sd.rows * sd.cols;
 		auto* udata = hu.values();
 		auto* vdata = hv.values();
+
 		auto k = [=] __device__ (int tid)
 		{
-			auto curr = loadd(tid);
-			auto [e, f, g, detg] = first_fundamental_form{curr};
-			auto detf = sqrt(detg);
+			auto curr = loadc[tid];
+			auto [e, f, g, i] = first_fundamental_form{curr};
+			auto detf = sqrt(i);
 			auto u = udata[tid];
 			auto v = vdata[tid];
 
@@ -95,36 +119,61 @@ struct bending {
 			udata[tid] = a;
 			vdata[tid] = b;
 		};
-		util::transform(k, nd);
+		util::transform(k, n * m);
 
-		lh = multiply(handle, d2s.first_derivatives[0], hu)
+		return multiply(handle, d2s.first_derivatives[0], hu)
 		   + multiply(handle, d2s.first_derivatives[1], hv);
-		matrix f{linalg::size(currs.position)};
+	}
 
-		auto ss = loads.size();
-		auto ns = ss.rows * ss.cols;
+	template <typename object_type>
+	decltype(auto)
+	operator()(const object_type& object) const
+	{
+		/* F_bend = - Δ(H-H₀) - (H-H₀)(H²-K)n̂ */
+
+		using bases::current;
+		using bases::reference;
+
+		cublas::handle handle;
+		auto& curr = object.geometry(current).sample;
+		auto& orig = object.geometry(reference).sample;
+		loader loadc{curr};
+		loader loado{orig};
+
+		auto [n, m] = loadc.size();
+		matrix lh = laplacian_mean_curvature(handle, object);
+		matrix f{linalg::size(curr.position)};
 		auto* ldata = lh.values();
 		auto* fdata = f.values();
-		auto l = [=, modulus=modulus] __device__ (int tid)
-		{
-			auto curr = loads(tid);
-			auto [e, f, g, detg] = first_fundamental_form{curr};
-			auto [l, m, n, detb] = second_fundamental_form{curr};
-			auto detf = sqrt(detg);
-			auto lh = ldata[tid];
-			auto h = (l * g + n * e - 2 * m * f) / (2 * detg);
-			auto k = detb / detg;
 
-			auto mag = -curr.s * modulus * (lh / detf + 2 * h * (h * h - k));
+		auto l = [=, ns=n*m, modulus=modulus, p=preferred] __device__ (int tid)
+		{
+			auto curr = loadc[tid];
+			auto cfff = first_fundamental_form{curr};
+			auto csff = second_fundamental_form{curr};
+			auto h = mean_curvature(cfff, csff);
+			auto k = gaussian_curvature(cfff, csff);
+
+			auto detf = sqrt(cfff.i);
+			auto lh = ldata[tid];
+			auto dh = h;
+			if (p) {
+				auto orig = loado[tid];
+				auto offf = first_fundamental_form{orig};
+				auto osff = second_fundamental_form{orig};
+				dh -= mean_curvature(offf, osff);
+			}
+
+			auto mag = -curr.s * modulus * (lh / detf + 2 * dh * (h * h - k));
 			for (int i = 0; i < 3; ++i)
 				fdata[ns * i + tid] = mag * curr.n[i];
 		};
-		util::transform(l, ns);
+		util::transform(l, n * m);
 		return f;
 	}
 
-	constexpr bending(units::energy modulus) :
-		modulus(modulus) {}
+	constexpr bending(units::energy modulus, bool preferred=false) :
+		modulus(modulus), preferred(preferred) {}
 };
 
 } // namespace forces

@@ -4,6 +4,7 @@
 struct state {
 	bases::vector u[3];
 	bases::vector ub[3];
+	bases::vector p;
 	bases::matrix x;
 };
 

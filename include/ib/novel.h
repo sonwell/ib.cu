@@ -141,9 +141,9 @@ private:
 		};
 
 		for (int i = 0; i < sweeps; ++i) {
-			{util::strong_transform(k, n, i);}
-			{thrust::reduce_by_key(exec, idata, idata+n, vdata, kdata, wdata);}
-			{util::strong_transform(l, q, i);}
+			util::transform(k, n, i);
+			thrust::reduce_by_key(exec, idata, idata+n, vdata, kdata, wdata);
+			util::transform(l, q, i);
 		}
 
 		auto r = [=] __device__ (int tid)
@@ -153,7 +153,7 @@ private:
 				t += odata[i * size + tid];
 			gdata[tid] = t;
 		};
-		util::strong_transform(r, size);
+		util::transform<128, 3>(r, size);
 		return output;
 	}
 

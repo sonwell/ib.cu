@@ -34,7 +34,7 @@ private:
 	}
 
 	struct chebyshev : solvers::chebpcg {
-		decltype(auto)
+		virtual vector
 		operator()(vector b) const
 		{
 			cuda::timer timer{"helmholtz solve"};

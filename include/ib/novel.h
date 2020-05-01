@@ -79,7 +79,7 @@ private:
 			idata[tid] = j;
 			jdata[tid] = tid;
 		};
-		util::strong_transform<128, 3>(k, n);
+		util::transform<128, 3>(k, n);
 
 		thrust::sort_by_key(exec, idata, idata+n, jdata);
 		return std::pair{std::move(indices), std::move(permutation)};

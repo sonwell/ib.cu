@@ -41,6 +41,9 @@ private:
 		return 1;
 	}
 
+	static constexpr auto per_sweep = largest_divisor_under(10);
+	using container_type = values_container<per_sweep>;
+
 	static constexpr auto
 	construct(const grid_tag& tag, const domain_type& domain)
 	{
@@ -88,13 +91,11 @@ private:
 	template <typename grid_type>
 	static auto
 	reduce(int n, int q, const grid_type& grid, const matrix& x, const double* fdata,
-			const util::memory<int>& indices, const util::memory<int>& permutation)
+			vector& buf, const util::memory<int>& indices, const util::memory<int>& permutation)
 	{
 		using namespace util::functional;
 		using namespace util::math;
 		using util::ranges::enumerate;
-		constexpr auto per_sweep = largest_divisor_under(10);
-		using container_type = values_container<per_sweep>;
 		constexpr auto sweeps = (values + per_sweep - 1) / per_sweep;
 		constexpr auto gr = [] (auto&& ... c) { return (c.resolution() * ... * 1); };
 
@@ -112,9 +113,8 @@ private:
 		auto* xdata = x.values();
 
 		vector output(size);
-		vector buffer(size * per_sweep, linalg::zero);
-		auto* odata = buffer.values();
 		auto* gdata = output.values();
+		auto* odata = buf.values();
 
 		indexing::sorter idx{grid};
 		auto k = [=] __device__ (int tid, int s)
@@ -126,8 +126,10 @@ private:
 			for (int i = 0; i < dimensions; ++i)
 				z[i] = xdata[n * i + j];
 			auto w = sweep.values(z);
+			container_type v;
 			for (auto [i, w]: w | enumerate)
-				vdata[tid][i] = w * f;
+				v[i] = w * f;
+			vdata[tid] = v;
 		};
 
 		auto l = [=] __device__ (int tid, int s)
@@ -140,6 +142,7 @@ private:
 				if (j >= 0) odata[i * size + j] += res * v[i];
 		};
 
+		thrust::counting_iterator<int> count(n);
 		for (int i = 0; i < sweeps; ++i) {
 			util::transform(k, n, i);
 			thrust::reduce_by_key(exec, idata, idata+n, vdata, kdata, wdata);
@@ -149,8 +152,10 @@ private:
 		auto r = [=] __device__ (int tid)
 		{
 			double t = 0.0;
-			for (int i = 0; i < per_sweep; ++i)
+			for (int i = 0; i < per_sweep; ++i) {
 				t += odata[i * size + tid];
+				odata[i * size + tid] = 0.0;
+			}
 			gdata[tid] = t;
 		};
 		util::transform<128, 3>(r, size);
@@ -159,6 +164,16 @@ private:
 
 	using grids_type = decltype(construct(std::declval<grid_tag>(),
 	                                      std::declval<domain_type>()));
+
+	static auto
+	buffer_size(const grids_type& grids)
+	{
+		using namespace util::functional;
+		constexpr auto max = partial(foldl, [] (auto l, auto r) { return l < r ? r : l; });
+		constexpr auto size = [] (const auto& g) { return fd::size(g); };
+		return per_sweep * apply(max, map(size, grids));
+	}
+
 	grids_type grids;
 public:
 	constexpr spread(const grid_tag& tag, const domain_type& domain, delta_type) :
@@ -170,6 +185,7 @@ public:
 		cuda::timer timer{"ib spread"};
 		using namespace util::functional;
 		using sequence = std::make_index_sequence<dimensions>;
+		vector buf{buffer_size(grids), linalg::zero};
 		auto* fdata = f.values();
 		auto k = [&] (const auto& grid, auto m)
 		{
@@ -177,7 +193,7 @@ public:
 			auto [indices, permutation] = index(n, grid, x);
 			auto unique = uniques(n, indices);
 			auto* f = &fdata[n * i];
-			return reduce(n, unique, grid, x, f, indices, permutation);
+			return reduce(n, unique, grid, x, f, buf, indices, permutation);
 		};
 		return map(k, grids, sequence{});
 	}

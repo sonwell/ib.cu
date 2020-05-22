@@ -11,7 +11,7 @@ struct roma {
 	operator()(double r) const
 	{
 		auto s = abs(r);
-		return s < 0.5 ?
+		return s >= 1.5 ? 0 : s < 0.5 ?
 			(1 + sqrt(1-3*s*s)) / 3 :
 			(5 - 3*s - sqrt(1-3*(1-s)*(1-s))) / 6;
 	}

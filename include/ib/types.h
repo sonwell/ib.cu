@@ -5,7 +5,6 @@
 #include "linalg/dense.h"
 #include "linalg/matrix.h"
 #include "linalg/vector.h"
-#include "cuda/event.h"
 
 namespace ib {
 
@@ -54,18 +53,5 @@ operator+(indices<dimensions> l, shift<dimensions> r)
 	map([] (int& l, const int& r) { l += r; }, l, r);
 	return l;
 }
-
-struct timer {
-	std::string id;
-	cuda::event start, end;
-
-	timer(std::string id) :
-		id(id) { start.record(); }
-	~timer()
-	{
-		end.record();
-		util::logging::info(id, ": ", end - start, "ms");
-	}
-};
 
 } // namespace ib

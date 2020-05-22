@@ -84,7 +84,7 @@ private:
 	static constexpr bases::traits<platelet1d> traits;
 	static constexpr bases::polynomials<0> p;
 	static constexpr double major = 1.82_um;
-	static constexpr double minor = 1.82_um;
+	static constexpr double minor = 0.46_um;
 protected:
 	using base::shape;
 public:

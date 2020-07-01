@@ -147,7 +147,7 @@ private:
 		{
 			double t = 0.0;
 			for (int i = 0; i < per_sweep; ++i) {
-				t += odata[i * size + tid];
+				t += bdata[i * size + tid];
 				bdata[i * size + tid] = 0.0;
 			}
 			odata[tid] = t;

@@ -182,7 +182,7 @@ public:
 		util::memory<int> perm(n);
 		vector buf{buffer_size(grids), linalg::zero};
 		auto* fdata = fl.values();
-		auto k = [&] (const auto& grid, const vector& fe, auto m)
+		auto k = [&] (const auto& grid, vector& fe, auto m)
 		{
 			static constexpr auto i = decltype(m)::value;
 			index(n, grid, x, keys, perm);

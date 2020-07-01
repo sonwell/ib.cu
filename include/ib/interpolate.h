@@ -1,7 +1,5 @@
 #pragma once
 #include <thrust/execution_policy.h>
-#include "cuda/timer.h"
-#include "util/log.h"
 #include "util/functional.h"
 #include "util/iterators.h"
 #include "fd/domain.h"
@@ -82,23 +80,28 @@ public:
 		grids(construct(tag, domain)) {}
 
 	template <typename tuple_type>
-	auto
-	operator()(int n, const matrix& x, const tuple_type& u) const
+	void
+	operator()(int n, const matrix& x, const tuple_type& ue, matrix& ul) const
 	{
-		cuda::timer timer{"ib interpolate"};
 		using namespace util::functional;
 		using sequence = std::make_index_sequence<dimensions>;
 
-		matrix v{linalg::size(x)};
-		auto* vdata = v.values();
+		auto* vdata = ul.values();
 		auto k = [&] (const auto& grid, const vector& u, auto m)
 		{
 			static constexpr auto i = decltype(m)::value;
-			auto* v = &vdata[n * i];
-			return accumulate(n, grid, v, x, u);
+			accumulate(n, grid, &vdata[n * i], x, u);
 		};
-		map(k, grids, u, sequence{});
-		return v;
+		map(k, grids, ue, sequence{});
+	}
+
+	template <typename tuple_type>
+	matrix
+	operator()(int n, const matrix& x, const tuple_type& ue) const
+	{
+		matrix ul{linalg::size(x)};
+		operator()(n, x, ue, ul);
+		return ul;
 	}
 };
 

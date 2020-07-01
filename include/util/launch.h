@@ -1,6 +1,4 @@
 #pragma once
-#include "cuda/exceptions.h"
-#include "cuda/device.h"
 
 namespace util {
 
@@ -15,7 +13,7 @@ landing(func_t f, arg_t ... args)
 }
 
 template <int nt, int vt, typename func_t, typename ... arg_t>
-__host__ void
+void
 launch(func_t&& f, int num_ctas, arg_t&& ... args)
 {
 	if (num_ctas > 0)
@@ -24,7 +22,7 @@ launch(func_t&& f, int num_ctas, arg_t&& ... args)
 }
 
 template <int nt=128, int vt=1, typename func_t, typename ... arg_t>
-__host__ void
+void
 transform(func_t&& f, int count, arg_t&& ... args)
 {
 	enum { nv = nt * vt };

@@ -25,22 +25,21 @@ private:
 		matrix positions;
 	} info;
 
-	template <typename traits_type, typename rbf>
+	template <typename traits_type>
 	static partial_info
-	do_sample(int n, traits<traits_type>, rbf phi)
+	do_sample(int n, traits<traits_type>)
 	{
 		auto sites = traits<traits_type>::sample(n);
-		auto weights = traits<traits_type>::weights(sites, phi);
+		auto weights = traits<traits_type>::weights(sites);
 		return {std::move(sites), std::move(weights)};
 	}
 
-	template <typename traits_type, typename rbf>
+	template <typename traits_type>
 	static info
-	get_info(int nd, int ns, traits<traits_type> tr, rbf phi)
+	get_info(int nd, int ns, traits<traits_type> tr)
 	{
-		auto data = do_sample(nd, tr, phi);
-		auto sample = nd == ns ?
-			data : do_sample(ns, tr, phi);
+		auto data = do_sample(nd, tr);
+		auto sample = nd == ns ?  data : do_sample(ns, tr);
 		auto x = traits<traits_type>::shape(data.sites);
 		return {
 			std::move(data),
@@ -53,15 +52,18 @@ private:
 	surface(int nd, int ns, info info, interp phi, eval psi, poly p) :
 		num_data_sites(nd), num_sample_sites(ns),
 		data_to_data(info.data.sites, info.data.sites,
-				std::move(info.data.weights), phi, psi, p),
+				std::move(info.data.weights), phi, phi, p),
 		data_to_sample(info.data.sites, nd == ns ? info.data.sites : info.sample.sites,
 				std::move(info.sample.weights), phi, psi, p),
 		data_geometry(data_to_data, info.positions),
 		sample_geometry(data_to_sample, info.positions) {}
 
-	template <typename traits_type, typename interp, typename eval, typename poly>
+	template <typename traits_type, typename interp, typename eval, typename poly,
+	          typename = std::enable_if_t<is_rbf_v<interp> &&
+	                                      is_rbf_v<eval> &&
+	                                      is_polynomial_basis_v<poly>>>
 	surface(int nd, int ns, traits<traits_type> tr, interp phi, eval psi, poly p) :
-		surface(nd, ns, get_info(nd, ns, tr, phi), phi, psi, p) {}
+		surface(nd, ns, get_info(nd, ns, tr), phi, psi, p) {}
 protected:
 	template <typename f_type>
 	static matrix
@@ -92,14 +94,11 @@ public:
 	geometry_type data_geometry;
 	geometry_type sample_geometry;
 
-	template <typename traits_type, typename interp, typename eval, typename metric, typename poly,
-			 typename = std::enable_if_t<is_basic_function_v<interp> && is_basic_function_v<eval> &&
-				 is_metric_v<metric>>>
+	template <typename traits_type, typename interp, typename eval, typename metric, typename poly>
 	surface(int nd, int ns, traits<traits_type> tr, interp phi, eval psi, metric d, poly p) :
 		surface(nd, ns, tr, rbf{phi, d}, rbf{psi, d}, p) {}
 
-	template <typename traits_type, typename basic, typename metric, typename poly,
-			 typename = std::enable_if_t<is_basic_function_v<basic> && is_metric_v<metric>>>
+	template <typename traits_type, typename basic, typename metric, typename poly>
 	surface(int nd, int ns, traits<traits_type> tr, basic phi, metric d, poly p) :
 		surface(nd, ns, tr, phi, phi, d, p) {}
 };

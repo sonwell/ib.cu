@@ -14,16 +14,17 @@ public:
 	shape(const matrix& params)
 	{
 		using point = std::array<double, 3>;
-		constexpr double height = 2_um;
+		constexpr double offset = 0.75_um;
+		constexpr double height = 1_um;
 		constexpr double stretch = 16_um;
 		auto k = [=] __device__ (auto x) -> point
 		{
 			auto u = x[0] / (2 * pi);
 			auto v = x[1] / (2 * pi);
-			auto r = 2 * (u - 0.5 * v);
-			auto s = 2 * (u + 0.5 * v);
+			auto r = 2 * (0.5 * u - v);
+			auto s = 2 * (0.5 * u + v);
 			auto w = 0.25 * (1 + cos(4 * pi * r)) * (1 + cos(4 * pi * s));
-			return {stretch * v, height * (w + 0.5), stretch * u};
+			return {stretch * v, height * w + offset, stretch * u};
 		};
 		return base::shape(params, k);
 	}

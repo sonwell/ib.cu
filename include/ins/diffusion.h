@@ -34,12 +34,7 @@ private:
 	}
 
 	struct chebyshev : solvers::chebpcg {
-		virtual vector
-		operator()(vector b) const
-		{
-			cuda::timer timer{"helmholtz solve"};
-			return solvers::chebpcg::operator()(std::move(b));
-		}
+		using solvers::chebpcg::operator();
 
 		chebyshev(const grid_type& grid, double tolerance, units::unit<2, 0, 0> l) :
 			chebpcg(tolerance, op(l, grid)) {}
@@ -54,12 +49,7 @@ private:
 			return new mg::chebyshev(g, m);
 		};
 
-		decltype(auto)
-		operator()(vector b) const
-		{
-			cuda::timer timer{"helmholtz solve"};
-			return solvers::mgpcg::operator()(std::move(b));
-		}
+		using solvers::mgpcg::operator();
 
 		multigrid(const grid_type& grid, double tolerance, units::unit<2, 0, 0> l) :
 			mgpcg(grid, tolerance, [=] (auto&& g) { return op(l, g); }, smoother) {}

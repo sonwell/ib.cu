@@ -24,11 +24,14 @@ dep/*
 *.d
 *.s
 
-# python stuff
+# python/js stuff
 *.py
 __pycache__/*
 pyvenv.cfg
 pip-selfcheck.json
+node_modules/*
+plotting/*
+ldsm/*
 
 *.log
 *.bin
@@ -51,5 +54,15 @@ reference/
 share/
 
 # ingore old code
-./ib/
-./src/
+ib/*
+src/*
+
+*.png
+*.html
+*.pdf
+
+*.diff
+*.patch
+
+bak/*
+conv/*

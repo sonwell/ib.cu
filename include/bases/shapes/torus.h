@@ -55,15 +55,13 @@ protected:
 	static constexpr metric d{};
 
 	template <typename traits_type, typename interp, typename eval, typename poly,
-			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
-			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>,
-			 typename = std::enable_if_t<bases::is_polynomial_basis_v<poly>>>
+	          typename = std::enable_if_t<bases::is_basic_function_v<interp> &&
+	                                      bases::is_basic_function_v<eval>   &&
+	                                      bases::is_polynomial_basis_v<poly>>>
 	torus(int nd, int ns, bases::traits<traits_type> tr, interp phi, eval psi, poly p) :
 		closed_surface(nd, ns, tr, phi, bases::scaled{psi, 1.0, phi(2) / psi(2)}, d, p) {}
 
-	template <typename traits_type, typename basic, typename poly,
-			 typename = std::enable_if_t<bases::is_basic_function_v<basic>>,
-			 typename = std::enable_if_t<bases::is_polynomial_basis_v<poly>>>
+	template <typename traits_type, typename basic, typename poly>
 	torus(int nd, int ns, bases::traits<traits_type> tr, basic phi, poly p) :
 		torus(nd, ns, tr, phi, phi, p) {}
 public:
@@ -110,24 +108,18 @@ public:
 		return x;
 	}
 
-	template <typename rbf>
 	static vector
-	weights(const matrix& x, rbf phi)
+	weights(const matrix& x)
 	{
 		auto n = x.rows();
 		return vector{n, linalg::fill(4 * pi * pi / n)};
 	}
 
-	template <typename interp, typename eval, typename poly = polynomials<0>,
-			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
-			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>,
-			 typename = std::enable_if_t<bases::is_polynomial_basis_v<poly>>>
+	template <typename interp, typename eval, typename poly = polynomials<0>>
 	torus(int nd, int ns, interp phi, eval psi, poly p = {}) :
 		torus(nd, ns, traits, phi, psi, p) {}
 
-	template <typename basic, typename poly = polynomials<0>,
-			 typename = std::enable_if_t<bases::is_basic_function_v<basic>>,
-			 typename = std::enable_if_t<bases::is_polynomial_basis_v<poly>>>
+	template <typename basic, typename poly = polynomials<0>>
 	torus(int nd, int ns, basic phi, poly p = {}) :
 		torus(nd, ns, traits, phi, p) {}
 };

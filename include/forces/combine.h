@@ -16,7 +16,6 @@ struct combine {
 	decltype(auto)
 	operator()(const object_type& obj) const
 	{
-		cuda::timer timer{"lagrangian forces"};
 		constexpr auto nfuncs = sizeof...(force_types);
 		if constexpr (!nfuncs) {
 			using bases::current;

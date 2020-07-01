@@ -30,6 +30,7 @@ private:
 	compute_evaluator(const matrix& xd, const matrix& xs, rbf phi, poly p,
 			const algo::lu_factorization& lu)
 	{
+		if (&xd == &xs) return {};
 		return solve(lu, fill<dimensions>(xs, xd, phi, p));
 	}
 
@@ -83,7 +84,7 @@ private:
 	{
 		constexpr sequence seq;
 		auto lu = algo::lu(fill<dimensions>(xd, phi, p));
-		return {compute_evaluator(xd, xs, psi, p, lu),
+		return {compute_evaluator(xd, xs, phi, p, lu),
 				compute_first_derivatives(xd, xs, psi, p, lu, seq),
 				compute_second_derivatives(xd, xs, psi, p, lu, seq),
 				xs.rows()};

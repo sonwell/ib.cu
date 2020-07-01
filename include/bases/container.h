@@ -62,7 +62,16 @@ protected:
 	geometry_type data;
 	geometry_type sample;
 	const reference_type& ref;
+
+	template <typename T> friend const T& ref(const base_container<T>&);
 };
+
+template <typename reference_type>
+inline const reference_type&
+ref(const base_container<reference_type>& container)
+{
+	return container.ref;
+}
 
 struct arrayifier {
 	template <typename tuple_type>
@@ -83,6 +92,8 @@ struct arrayifier {
 };
 
 } // namespace impl
+
+using impl::ref;
 
 template <typename reference_type>
 struct container : impl::base_container<reference_type> {

@@ -129,7 +129,7 @@ struct bending {
 	decltype(auto)
 	operator()(const object_type& object) const
 	{
-		/* F_bend = - Δ(H-H₀) - (H-H₀)(H²-K)n̂ */
+		/* F_bend = -4(Δ(H-H₀) - (H-H₀)(H²-K))n̂ */
 
 		using bases::current;
 		using bases::reference;
@@ -164,7 +164,7 @@ struct bending {
 				dh -= mean_curvature(offf, osff);
 			}
 
-			auto mag = -curr.s * modulus * (lh / detf + 2 * dh * (h * h - k));
+			auto mag = -4 * curr.s * modulus * (lh / detf + 2 * dh * (h * h - k));
 			for (int i = 0; i < 3; ++i)
 				fdata[ns * i + tid] = mag * curr.n[i];
 		};

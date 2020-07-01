@@ -35,8 +35,7 @@ operator<<(std::ostream& out, const compute_mode& cm)
 }
 
 enum class schedule : unsigned int {
-	automatic = cudaDeviceScheduleAuto,
-	spin = cudaDeviceScheduleSpin,
+	automatic = cudaDeviceScheduleAuto, spin = cudaDeviceScheduleSpin,
 	yield = cudaDeviceScheduleYield,
 	blocking_sync = cudaDeviceScheduleBlockingSync
 };
@@ -218,12 +217,12 @@ public:
 
 	const int id;
 	const std::string name;
-	const int total_global_memory;
+	const std::size_t total_global_memory;
 	const int max_threads_per_block;
 	const int max_block_dim[3];
 	const int max_grid_dim[3];
 	const int max_shared_memory_per_block;
-	const int total_constant_memory;
+	const std::size_t total_constant_memory;
 	const int warp_size;
 	const int max_pitch;
 	const int max_registers_per_block;
@@ -283,65 +282,65 @@ operator<<(std::ostream& out, const device& d)
 		out << "  total global memory: " << (global_memory/1000.) << "KB" << std::endl;
 	else
 		out << "  total global memory: " << global_memory << "B" << std::endl;
-	out << "  total constant memory: " << d.total_constant_memory << std::endl;
-	out << "  global memory bus width: " << d.global_memory_bus_width << " bits" << std::endl;
-	out << "  number of multiprocessors: " << d.multiprocessor_count << std::endl;
-	if (clock_rate > 1000000)
-		out << "  clock rate: " << clock_rate / 1000000. << "GHz" << std::endl;
-	else if (clock_rate > 1000)
-		out << "  clock rate: " << clock_rate / 1000. << "MHz" << std::endl;
-	else
-		out << "  clock rate: " << clock_rate << "KHz" << std::endl;
-	out << "  compute mode: " << d.compute_mode << std::endl;
-	out << "  flags: " << d.flags << std::endl;
-	out << "  supports unified addressing: " << d.unified_addressing << std::endl;
-	out << "  warp size: " << d.warp_size;
-	return out;
-}
+		out << "  total constant memory: " << d.total_constant_memory << std::endl;
+		out << "  global memory bus width: " << d.global_memory_bus_width << " bits" << std::endl;
+		out << "  number of multiprocessors: " << d.multiprocessor_count << std::endl;
+		if (clock_rate > 1000000)
+			out << "  clock rate: " << clock_rate / 1000000. << "GHz" << std::endl;
+		else if (clock_rate > 1000)
+			out << "  clock rate: " << clock_rate / 1000. << "MHz" << std::endl;
+		else
+			out << "  clock rate: " << clock_rate << "KHz" << std::endl;
+		out << "  compute mode: " << d.compute_mode << std::endl;
+		out << "  flags: " << d.flags << std::endl;
+		out << "  supports unified addressing: " << d.unified_addressing << std::endl;
+		out << "  warp size: " << d.warp_size;
+		return out;
+	}
 
-inline void
-synchronize()
-{
-	cudaDeviceSynchronize();
-}
+	inline void
+	synchronize()
+	{
+		cudaDeviceSynchronize();
+	}
 
-inline void
-synchronize(const device& d)
-{
-	scope lock(d);
-	synchronize();
-}
+	inline void
+	synchronize(const device& d)
+	{
+		scope lock(d);
+		synchronize();
+	}
 
-inline void
-reset()
-{
-	cudaDeviceReset();
-}
+	inline void
+	reset()
+	{
+		cudaDeviceReset();
+	}
 
-inline void
-reset(const device& d)
-{
-	scope lock(d);
-	reset();
-}
+	inline void
+	reset(const device& d)
+	{
+		scope lock(d);
+		reset();
+	}
 
-inline auto&
-devices()
-{
-	return device::all();
-}
+	inline auto&
+	devices()
+	{
+		return device::all();
+	}
 
-inline device&
-default_device()
-{
-	return devices()[0];
-}
+	inline device&
+	default_device()
+	{
+		return devices()[0];
+	}
 
-inline void
-set_device(const device& d)
-{
-	throw_if_error(cudaSetDevice(d.id),
-			"could not set device id");
+	inline void
+	set_device(const device& d)
+	{
+		throw_if_error(cudaSetDevice(d.id),
+				"could not set device id");
 }
 
 inline device&

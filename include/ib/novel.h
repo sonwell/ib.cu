@@ -1,6 +1,5 @@
 #pragma once
 #include <thrust/execution_policy.h>
-#include "cuda/timer.h"
 #include "util/functional.h"
 #include "util/iterators.h"
 #include "util/ranges.h"
@@ -63,19 +62,18 @@ private:
 
 	template <typename grid_type>
 	static auto
-	index(int n, const grid_type& grid, const matrix& x)
+	index(int n, const grid_type& grid, const matrix& x,
+			util::memory<int>& i, util::memory<int>& p)
 	{
-		util::memory<int> indices(n);
-		util::memory<int> permutation(n);
 		auto* xdata = x.values();
-		auto* idata = indices.data();
-		auto* jdata = permutation.data();
+		auto* idata = i.data();
+		auto* jdata = p.data();
 
 		indexing::sorter idx{grid};
+		ib::sweep sweep{0, values, phi, idx};
 		auto k = [=] __device__ (int tid)
 		{
 			point z;
-			ib::sweep sweep{0, values, phi, idx};
 			for (int i = 0; i < dimensions; ++i)
 				z[i] = xdata[n * i + tid];
 			auto j = sweep.sort(z);
@@ -83,15 +81,13 @@ private:
 			jdata[tid] = tid;
 		};
 		util::transform<128, 3>(k, n);
-
 		thrust::sort_by_key(exec, idata, idata+n, jdata);
-		return std::pair{std::move(indices), std::move(permutation)};
 	}
 
 	template <typename grid_type>
 	static auto
 	reduce(int n, int q, const grid_type& grid, const matrix& x, const double* fdata,
-			vector& buf, const util::memory<int>& indices, const util::memory<int>& permutation)
+			vector& f, vector& buf, const util::memory<int>& i, const util::memory<int>& p)
 	{
 		using namespace util::functional;
 		using namespace util::math;
@@ -108,21 +104,20 @@ private:
 		auto* vdata = values.data();
 		auto* wdata = reduced_values.data();
 		auto* kdata = reduced_keys.data();
-		auto* idata = indices.data();
-		auto* jdata = permutation.data();
+		auto* idata = i.data();
+		auto* jdata = p.data();
 		auto* xdata = x.values();
 
-		vector output(size);
-		auto* gdata = output.values();
-		auto* odata = buf.values();
+		auto* odata = f.values();
+		auto* bdata = buf.values();
 
 		indexing::sorter idx{grid};
 		auto k = [=] __device__ (int tid, int s)
 		{
-			point z;
 			sweep sweep{s, per_sweep, phi, idx};
 			auto j = jdata[tid];
 			double f = fdata[j];
+			point z;
 			for (int i = 0; i < dimensions; ++i)
 				z[i] = xdata[n * i + j];
 			auto w = sweep.values(z);
@@ -139,10 +134,9 @@ private:
 			auto v = wdata[tid];
 			auto j = sweep.indices(k);
 			for (auto [i, j]: j | enumerate)
-				if (j >= 0) odata[i * size + j] += res * v[i];
+				if (j >= 0) bdata[i * size + j] += res * v[i];
 		};
 
-		thrust::counting_iterator<int> count(n);
 		for (int i = 0; i < sweeps; ++i) {
 			util::transform(k, n, i);
 			thrust::reduce_by_key(exec, idata, idata+n, vdata, kdata, wdata);
@@ -154,12 +148,11 @@ private:
 			double t = 0.0;
 			for (int i = 0; i < per_sweep; ++i) {
 				t += odata[i * size + tid];
-				odata[i * size + tid] = 0.0;
+				bdata[i * size + tid] = 0.0;
 			}
-			gdata[tid] = t;
+			odata[tid] = t;
 		};
 		util::transform<128, 3>(r, size);
-		return output;
 	}
 
 	using grids_type = decltype(construct(std::declval<grid_tag>(),
@@ -179,23 +172,35 @@ public:
 	constexpr spread(const grid_tag& tag, const domain_type& domain, delta_type) :
 		grids(construct(tag, domain)) {}
 
-	auto
-	operator()(int n, const matrix& x, const matrix& f) const
+	template <typename tuple_type>
+	void
+	operator()(int n, const matrix& x, const matrix& fl, tuple_type& fe) const
 	{
-		cuda::timer timer{"ib spread"};
 		using namespace util::functional;
 		using sequence = std::make_index_sequence<dimensions>;
+		util::memory<int> keys(n);
+		util::memory<int> perm(n);
 		vector buf{buffer_size(grids), linalg::zero};
-		auto* fdata = f.values();
-		auto k = [&] (const auto& grid, auto m)
+		auto* fdata = fl.values();
+		auto k = [&] (const auto& grid, const vector& fe, auto m)
 		{
 			static constexpr auto i = decltype(m)::value;
-			auto [indices, permutation] = index(n, grid, x);
-			auto unique = uniques(n, indices);
-			auto* f = &fdata[n * i];
-			return reduce(n, unique, grid, x, f, buf, indices, permutation);
+			index(n, grid, x, keys, perm);
+			auto unique = uniques(n, keys);
+			reduce(n, unique, grid, x, &fdata[n * i],
+			       fe, buf, keys, perm);
 		};
-		return map(k, grids, sequence{});
+		map(k, grids, fe, sequence{});
+	}
+
+	auto
+	operator()(int n, const matrix& x, const matrix& fl) const
+	{
+		using namespace util::functional;
+		auto s = [] (const auto& g) { return vector{fd::size(g), linalg::zero}; };
+		auto fe = map(s, grids);
+		operator()(n, x, fl, fe);
+		return fe;
 	}
 };
 

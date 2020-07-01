@@ -1,6 +1,7 @@
 #pragma once
 #include "types.h"
 #include "polynomials.h"
+#include "phs.h"
 #include "surface.h"
 
 namespace bases {
@@ -28,18 +29,25 @@ protected:
 		return v;
 	}
 
-	template <typename rbf, typename weight>
+	template <typename metric, typename weight,
+	          typename = std::enable_if_t<is_metric_v<metric>>>
 	static vector
-	weights(const matrix& x, rbf phi, weight w)
+	weights(const matrix& x, metric distance, weight w)
 	{
+		constexpr polyharmonic_spline<1> basic;
 		constexpr polynomials<0> p;
+		rbf phi{basic, distance};
 		auto n = x.rows();
 		auto lu = algo::lu(fill<dims>(x, phi, p));
 		auto f = [=] __device__ (int tid) { return tid >= n; };
 		return scale(x, solve(lu, vector{n+1, linalg::fill(f)}), w);
 	}
 
-	template <typename traits_type, typename interp, typename eval, typename metric, typename poly>
+	template <typename traits_type, typename interp, typename eval, typename metric, typename poly,
+	          typename = std::enable_if_t<is_basic_function_v<interp> &&
+	                                      is_basic_function_v<eval>   &&
+	                                      is_metric_v<metric>         &&
+	                                      is_polynomial_basis_v<poly>>>
 	closed_surface(int nd, int ns, traits<traits_type> tr, interp phi, eval psi, metric d, poly p) :
 		surface<dims>(nd, ns, tr, phi, psi, d, p) {}
 

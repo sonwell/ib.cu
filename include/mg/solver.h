@@ -150,10 +150,16 @@ constexpr bool
 refined(const grid_type& grid)
 {
 	using namespace util::functional;
-	auto sz = [] (const auto& comp) { return comp.cells(); };
-	auto k = [] (unsigned pts) { return !(pts & 1) && pts > 4; };
+	auto k = [] (const auto& comp)
+	{
+		auto pts = comp.cells();
+		auto solid = comp.solid_boundary;
+		if (pts & 1) return false;
+		if (solid) return pts > 2;
+		return pts > 4;
+	};
 	auto reduce = partial(foldl, std::logical_and<void>(), true);
-	return apply(reduce, map(k, map(sz, grid.components())));
+	return apply(reduce, map(k, grid.components()));
 }
 
 } // namespace __1

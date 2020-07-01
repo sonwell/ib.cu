@@ -29,7 +29,7 @@ public:
 			auto z0 = sin(p);
 			auto r2 = x*x + y*y;
 			auto z = 0.5 * z0 * (0.21 + 2.0 * r2 - 1.12 * r2*r2);
-			return {radius * x, radius * y, radius * z};
+			return {radius * x, radius * z, radius * y};
 		};
 		return base::shape(params, k);
 	}

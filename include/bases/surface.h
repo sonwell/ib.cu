@@ -58,10 +58,7 @@ private:
 		data_geometry(data_to_data, info.positions),
 		sample_geometry(data_to_sample, info.positions) {}
 
-	template <typename traits_type, typename interp, typename eval, typename poly,
-	          typename = std::enable_if_t<is_rbf_v<interp> &&
-	                                      is_rbf_v<eval> &&
-	                                      is_polynomial_basis_v<poly>>>
+	template <typename traits_type, typename interp, typename eval, typename poly>
 	surface(int nd, int ns, traits<traits_type> tr, interp phi, eval psi, poly p) :
 		surface(nd, ns, get_info(nd, ns, tr), phi, psi, p) {}
 protected:
@@ -98,7 +95,10 @@ public:
 	surface(int nd, int ns, traits<traits_type> tr, interp phi, eval psi, metric d, poly p) :
 		surface(nd, ns, tr, rbf{phi, d}, rbf{psi, d}, p) {}
 
-	template <typename traits_type, typename basic, typename metric, typename poly>
+	template <typename traits_type, typename basic, typename metric, typename poly,
+	          typename = std::enable_if_t<is_basic_function_v<basic> &&
+	                                      is_metric_v<metric> &&
+	                                      is_polynomial_basis_v<poly>>>
 	surface(int nd, int ns, traits<traits_type> tr, basic phi, metric d, poly p) :
 		surface(nd, ns, tr, phi, phi, d, p) {}
 };

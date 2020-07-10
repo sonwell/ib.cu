@@ -6,6 +6,12 @@
 namespace util {
 namespace iterators {
 
+// counting iterator counts up by 1
+//
+//    // prints 0-9 on their own line
+//    for (int i: counter<int>(0, 10))
+//       std::cout << i << '\n'
+//
 template <typename int_type>
 struct counter {
 private:
@@ -38,6 +44,17 @@ public:
 		from(from), to(to) {}
 };
 
+// zip iterator iterates over several iterators at once and combines the values
+// into a tuple. Stops when one of the iterators reaches its end
+//
+//     // simple enumerating iterator (see below)
+//     some_iterator a;
+//     counter<int> b(0, INT_MAX);
+//     for (auto&& [i, v]: zip(b, a))
+//         // i is an integer from the counting iterator
+//         // v is the ith value `a` produces
+//         do_something(i, v);
+//
 template <typename ... iterable_types>
 struct zip {
 private:
@@ -141,6 +158,14 @@ public:
 		iterables{std::move(iterables)...} {}
 };
 
+// transform iterator modifies each value before producing them
+//
+//     counter<int> a(0, 10);
+//     auto f = [] (int i) { return i*i; };
+//     // print each square between 0 and 81 on its own line
+//     for (auto sq: transform(a, f))
+//         std::cout << sq << '\n';
+//
 template <typename iterable_type, typename transform_type>
 struct transform {
 private:
@@ -177,6 +202,7 @@ public:
 		iterable(std::move(iterable)), fn(std::move(fn)) {}
 };
 
+// enumerate iterator creates a tuple of (index, value) from the given iterator
 template <typename iterable_type>
 struct enumerate : zip<counter<int>, iterable_type> {
 private:

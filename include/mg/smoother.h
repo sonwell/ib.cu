@@ -3,6 +3,7 @@
 
 namespace mg {
 
+// MG smoother base class
 struct smoother {
 	virtual vector operator()(vector) const = 0;
 	virtual ~smoother() = default;

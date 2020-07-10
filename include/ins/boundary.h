@@ -13,6 +13,8 @@
 namespace ins {
 namespace __1 {
 
+// 1D interpolation to the boundary for pseudo-pressure gradient. The boundary
+// conditions for the intermediate velocity field, w⃗, are w⃗ = u⃗ + k∇ɸ.
 template <typename lower, typename upper, typename dim_type>
 decltype(auto)
 boundary(const fd::discretization<fd::dimension<lower, upper>>& comp, const dim_type& dim)

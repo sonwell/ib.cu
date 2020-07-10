@@ -9,6 +9,8 @@
 
 namespace algo {
 
+// Apply Gershgorin's circle theorem to approximate the range of eigenvalues for
+// matrix `m`.
 inline std::pair<double, double>
 gershgorin(const matrix& m)
 {
@@ -16,8 +18,8 @@ gershgorin(const matrix& m)
 	auto* starts = m.starts();
 	auto* indices = m.indices();
 	auto* values = m.values();
-	util::memory<double> upper(rows);
-	util::memory<double> lower(rows);
+	util::memory<double> upper(rows); // Circle upper bounds
+	util::memory<double> lower(rows); // Circle lower bounds
 	auto* udata = upper.data();
 	auto* ldata = lower.data();
 

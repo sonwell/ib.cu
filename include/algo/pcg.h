@@ -20,6 +20,8 @@ pcg(const preconditioner& pr, const matrix& m, vector r, double tol)
 		gemv(1.0, m, d, 0.0, q);
 		auto nu = dot(d, q);
 		if (abs(nu) < tol * tol) {
+			// Typically means we have improved the approximation by a factor of
+			// 1/epsilon but still have not converged.
 			util::logging::info("pcg bailing out early:〈P⁻¹r,AP⁻¹r〉= ", nu);
 			break;
 		}

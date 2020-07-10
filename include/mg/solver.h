@@ -32,6 +32,7 @@ protected:
 		tolerance(tolerance), op(op(grid)) {}
 
 friend class mg::solver;
+// XXX: refactor?
 friend class direct_solver;
 friend class iterative_solver;
 };
@@ -39,6 +40,11 @@ friend class iterative_solver;
 using solver_ptr = std::unique_ptr<base_solver>;
 using smoother_ptr = std::unique_ptr<smoother>;
 
+// Direct solver: attempt to reduce errors in all modes
+// The linear solve should be pretty small at this point, but the operator of
+// interest is singular. So, we just use the same relaxer to improve our guess.
+// This seems to do well: with the 4th order Chebyshev smoother, we see
+// improvement of a factor of ~2500x per complete V-cycle.
 class direct_solver : public base_solver {
 private:
 	vector relax(const vector& v) const { return solve(*sm, v); }
@@ -58,6 +64,7 @@ friend class mg::solver;
 friend class iterative_solver;
 };
 
+// Iterative solver: reduce errors in high frequency modes on a refined grid
 class iterative_solver : public base_solver {
 private:
 	smoother_ptr sm;
@@ -149,13 +156,17 @@ template <typename grid_type>
 constexpr bool
 refined(const grid_type& grid)
 {
+	// We can coarsen the grid in one dimension if:
+	//  * the dimension has an even number of cells
+	//  * the dimension is periodic and has at least two cells
+	//  * the dimension is non periodic and has at least four cells
 	using namespace util::functional;
 	auto k = [] (const auto& comp)
 	{
 		auto pts = comp.cells();
 		auto solid = comp.solid_boundary;
 		if (pts & 1) return false;
-		if (solid) return pts > 2;
+		if (!solid) return pts > 2;
 		return pts > 4;
 	};
 	auto reduce = partial(foldl, std::logical_and<void>(), true);

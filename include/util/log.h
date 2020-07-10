@@ -5,6 +5,8 @@
 #include <cstdio>
 #include "functional.h"
 
+// Simple logging routines
+
 namespace util {
 
 enum class log_level {

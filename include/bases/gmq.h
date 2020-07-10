@@ -5,6 +5,17 @@
 
 namespace bases {
 
+// Generalized multiquadric RBF
+//
+//     ɸ(r) = (r^2 + c^2)^(n/2), n odd
+//     ɸ(r) = (r^2 + c^2)^(n/2) log(r^2 + c^2), n even
+//
+// Interesting special cases:
+//   * n =  1: MQ
+//   * n = -1: IMQ
+// Pairs well with PHS for smoothing.
+//
+// XXX r^2 + c^2 -> (r/eps)^2 + 1 ?
 template <int n>
 struct generalized_multiquadric : basic_function {
 private:

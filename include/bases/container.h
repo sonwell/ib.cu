@@ -95,6 +95,8 @@ struct arrayifier {
 
 using impl::ref;
 
+// container holds geometric information for multiple copies of the reference
+// object, possibly each in different configurations.
 template <typename reference_type>
 struct container : impl::base_container<reference_type> {
 private:
@@ -105,6 +107,7 @@ private:
 	void
 	set_x(const matrix& x)
 	{
+		// Update geometric information when the positions are updated
 		const auto& [data, sample] = base::operators();
 		base::data = {data, x};
 		base::sample = {sample, x};
@@ -114,6 +117,9 @@ private:
 	static matrix
 	shapes(const reference_type& ref, shape_fns ... fs)
 	{
+		// Construct one surface per shape function, each of which transforms a
+		// point in parameter space to a point in Cartesian coordinates. Some
+		// possibilities are in transforms.h.
 		using namespace util::functional;
 		static constexpr int n = sizeof...(fs);
 		static constexpr auto dims = reference_type::dimensions+1;

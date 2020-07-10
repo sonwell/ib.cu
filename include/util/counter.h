@@ -1,8 +1,22 @@
 #include <cstddef>
 
 namespace util {
-// XXX this crap will probably not compile eventually:
+
+// XXX this crap compiles for CUDA on clang-7 ONLY. It will probably not compile
+// eventually:
 // http://www.open-std.org/jtc1/sc22/wg21/docs/cwg_defects.html#1850
+//
+// C++20 hack:
+// template <class T>
+// struct unique_id {
+//     static constexpr auto value = 0;
+//     constexpr unique_id(const T&) {}
+//     constexpr operator auto() { return &value; }
+// };
+//
+// template <const int* id = unique_id([] {})>
+// ...
+
 namespace impl {
 
 template <std::size_t counter_id, std::size_t counter_state>

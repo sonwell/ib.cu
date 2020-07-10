@@ -12,12 +12,16 @@
 #include "correction.h"
 #include "domain.h"
 #include "discretization.h"
+#include "combine.h"
 
 namespace fd {
 namespace __1 {
 
 using correction::order;
 
+// 1D identity is a sparse diagonal matrix with 1s on the diagonal.
+// Modifications are made in the upper left and lower right entries in some
+// instances. See discretization.h for details.
 template <typename lower, typename upper, std::size_t n>
 auto
 identity(const discretization<fd::dimension<lower, upper>>& view,
@@ -53,11 +57,12 @@ template <typename grid_type, std::size_t n,
 auto
 identity(const grid_type& grid, __1::order<n> correction)
 {
-	using namespace util::functional;
+	//using namespace util::functional;
 	auto k = [&] (const auto& view) { return identity(view, correction); };
-	auto op = [] (const matrix& l, const matrix& r) { return kron(l, r); };
-	const auto& components = grid.components();
-	return apply(partial(foldl, op), reverse(map(k, components)));
+	return combine(grid, k);
+	//auto op = [] (const matrix& l, const matrix& r) { return kron(l, r); };
+	//const auto& components = grid.components();
+	//return apply(partial(foldl, op), reverse(map(k, components)));
 }
 
 } // namespace fd

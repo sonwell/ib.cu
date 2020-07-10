@@ -5,6 +5,11 @@
 #include <type_traits>
 
 namespace util {
+
+// class that acts as a getter/setter for class members a la Python's property
+// decorator. Lots of edge-cases aren't handled and with C++20's spaceship
+// operator, I don't know how this is going to fare.
+
 namespace detail {
 
 template <typename T>

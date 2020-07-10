@@ -7,6 +7,7 @@
 
 namespace forces {
 
+// Skalak Law. See Skalak, et al. (1973).
 struct skalak : tension {
 	using energy_per_area = units::unit<0, 1, -2>;
 	energy_per_area shear;

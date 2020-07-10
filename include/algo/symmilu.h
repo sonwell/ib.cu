@@ -9,6 +9,7 @@
 
 namespace algo {
 
+// Sparse-sparse dot product
 __host__ __device__ double
 spdot(double* vl, int* il, int jl,
 		double* vr, int* ir, int jr, double* d)
@@ -26,6 +27,23 @@ spdot(double* vl, int* il, int jl,
 	}
 	return value;
 }
+
+// Computes the ILU(0) of a symmetric sparse matrix by permuting into k-colored
+// ordering (see redblack.h). Let PAP^T be the permuted matrix. Its ILU(0) is
+//
+//           [ B11 B21^T ... Bk1^T ]   [ I1             ] [ U11 U12 ... U1k ]
+//   PAP^T = [ B21 B22   ... Bk2^T ] = [ L21 I2         ] [     U22 ... U2k ]
+//           [ ... ...   ... ...   ]   [ ... ... ...    ] [         ... ... ]
+//           [ Bk1 Bk2   ... Bkk   ]   [ Lk1 Lk2 ... Ik ] [             Ukk ]
+//
+// In general:
+//   Uij = Bji^T - Li1 U1j - Li2 U2j - ... - Li(i-1) U(i-1)j   i <= j
+//   Lij = (Bij -  Li1 U1j - Li2 U2j - ... - Li(j-1) U(j-1)j   i > j
+//
+// Note: (Lik Ukj)^T = Bjk Ukk^{-1} Bik^T = Ljk Uki
+// So: (Lij Ujj)^T = Uji, i < j, and we can compute just U and recover L.
+//
+// The solve is performed block-wise where blocks correspond to colors.
 
 class symmilu : public preconditioner {
 private:

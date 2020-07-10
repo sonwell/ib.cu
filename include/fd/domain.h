@@ -19,7 +19,7 @@ public:
 	static constexpr auto dimensions = sizeof...(dimension_types);
 	using container_type = std::tuple<dimension_types...>;
 protected:
-	units::length _base_unit;
+	units::length _base_unit; // GCD of lengths of each dimension
 	container_type _components;
 public:
 	constexpr auto unit() const { return _base_unit; }

@@ -17,6 +17,7 @@ struct memory_traits<void> : memory_traits<std::byte> {};
 
 } // namespace detail
 
+// A pared-down std::pmr::polymorphic_allocator
 template <typename type>
 class allocator {
 public:

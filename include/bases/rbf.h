@@ -3,6 +3,15 @@
 
 namespace bases {
 
+// Takes a basic function ɸ and a metric and makes a differentiable RBF using
+// the rule
+//
+//     Dɸ(‖·‖) = (1/‖·‖)ɸ'(‖·‖) (‖·‖ (D ‖·‖))
+//             = [(1/‖·‖)ɸ'(‖·‖)] [½ D ‖·‖²].
+//
+// Each of the bracketed terms is generally "nice".
+//
+// This only implements up to second derivatives.
 template <typename basic_function, typename metric>
 struct rbf : differentiable {
 	static_assert(is_basic_function_v<basic_function>,

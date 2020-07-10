@@ -10,10 +10,12 @@
 #include "identity.h"
 #include "boundary.h"
 #include "grid.h"
+#include "combine.h"
 
 namespace fd {
 namespace __1 {
 
+// 1D 3-point discrete Laplacian operator.
 template <typename lower, typename upper>
 decltype(auto)
 laplacian(const discretization<fd::dimension<lower, upper>>& component)
@@ -53,27 +55,16 @@ template <typename grid_type,
 decltype(auto)
 laplacian(const grid_type& grid)
 {
-	using namespace util::functional;
-	using correction::second_order;
-	struct container {
-		matrix laplacian;
-		matrix identity;
-	};
-
-	auto k = [] (const auto& comp) -> container
+	//using namespace util::functional;
+	auto k = [] (const auto& comp) -> detail::combine_by_sum
 	{
+		using correction::second_order;
 		return {laplacian(comp), identity(comp, second_order)};
 	};
-	auto op = [] (const container& l, const container& r) -> container
-	{
-		auto& [ll, li] = l;
-		auto& [rl, ri] = r;
-		auto lap = kron(ll, ri) + kron(li, rl);
-		return {std::move(lap), kron(li, ri)};
-	};
-	const auto& components = grid.components();
-	auto reduce = partial(foldl, op);
-	return apply(reduce, reverse(map(k, components))).laplacian;
+	return combine(grid, k).op;
+	//const auto& components = grid.components();
+	//auto reduce = partial(foldl, op);
+	//return apply(reduce, reverse(map(k, components))).laplacian;
 }
 
 } // namespace fd

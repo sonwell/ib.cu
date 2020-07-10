@@ -2,6 +2,10 @@
 
 namespace util {
 
+// A type simply for holding a list of typenames. Mostly this will be used in a
+// constexpr context, so it should never actually use memory, but doesn't
+// allocate memory for the listed types anyway.
+
 template <typename ...> struct container {};
 template <typename ... types>
 container(types&&...) -> container<types...>;

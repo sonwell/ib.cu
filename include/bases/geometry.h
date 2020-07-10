@@ -10,9 +10,15 @@
 
 namespace bases {
 
-inline constexpr struct {} reference;
-inline constexpr struct {} current;
+inline constexpr struct {} reference; // tag for getting reference geometry data
+inline constexpr struct {} current;   // tag for getting current geometry data
 
+// Container for geometric data:
+//   * positions
+//   * tangents
+//   * normal
+//   * second derivatives
+//   * surface patch areas
 template <int dims>
 struct geometry {
 public:
@@ -155,7 +161,7 @@ public:
 	tangents_type tangents;
 	matrix normal;
 	seconds_type second_derivatives;
-	matrix sigma;
+	matrix sigma; // surface patch area
 
 	geometry& operator=(geometry&& g) { swap(g); return *this; }
 

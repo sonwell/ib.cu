@@ -4,6 +4,7 @@
 
 namespace bases {
 
+// Gaussian RBF
 struct gaussian : basic_function {
 private:
 	double gamma;

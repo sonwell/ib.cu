@@ -5,6 +5,10 @@
 
 namespace util {
 
+// Used to give commonly used std:: types a unique name:
+//
+//     using point = wrapper<struct point_tag, std::array<double, 3>>;
+//
 template <typename /*tag*/, typename wrapped>
 struct wrapper : wrapped {
 	constexpr explicit operator wrapped&() { return *this; }

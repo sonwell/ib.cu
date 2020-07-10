@@ -11,6 +11,38 @@
 #include "types.h"
 #include "coloring.h"
 
+// k-colors a regular grid (smallest allowed k determined by connectivity, but
+// typically k=2 or 3).
+//
+//   r--b--r--b--r--b
+//   |  |  |  |  |  |
+//   b--r--b--r--b--r
+//   |  |  |  |  |  |     +----------+
+//   r--b--r--b--r--b     | Legend   |
+//   |  |  |  |  |  |     | r: red   |
+//   b--r--b--r--b--r     | b: black |
+//   |  |  |  |  |  |     +----------+
+//   r--b--r--b--r--b
+//   |  |  |  |  |  |
+//   b--r--b--r--b--r
+//
+// Then permutes data on the grid so that values at nodes colored 0 are listed
+// consecutively, followed by 1s, 2s, ..., ks.
+//
+//   E--F--G--H--I--J
+//   |  |  |  |  |  |
+//   y--z--A--B--C--D
+//   |  |  |  |  |  |
+//   s--t--u--v--w--x      a c e h j l m o q t v x
+//   |  |  |  |  |  |  ->  y A C F H J b d f g i k
+//   m--n--o--p--q--r      n p r s u w z B D E G I
+//   |  |  |  |  |  |
+//   g--h--i--j--k--l
+//   |  |  |  |  |  |
+//   a--b--c--d--e--f
+//
+// Used by symmetric incomplete LU factorization, Gauss-Seidel iteration
+
 namespace algo {
 namespace impl {
 

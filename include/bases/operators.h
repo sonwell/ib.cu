@@ -13,6 +13,9 @@
 
 namespace bases {
 
+// Constructs geometric operators (eval, differentiate, etc.) used in `geometry`
+// (geometry.h), except for surface patch areas, which are handled on a
+// surface-by-surface basis.
 template <int dims>
 class operators {
 public:

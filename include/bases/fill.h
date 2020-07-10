@@ -4,6 +4,14 @@
 
 namespace bases {
 
+// Fills the Φ portion of a matrix of the form
+//
+//     [  Φ   P ]  or  [ Φ  P ],
+//     [ P^T  0 ]
+//
+// which are values from (a derivative of) an RBF.
+// NB: Derivatives of RBFs are not themselves RBFs, so we do not check that
+// `rbf` is actually an RBF type.
 template <int dimensions, typename rbf>
 static auto
 fill(const matrix& xs, const matrix& xd, rbf phi, matrix& r)
@@ -67,6 +75,11 @@ fill(const matrix& xs, const matrix& xd, rbf phi, matrix& r)
 	util::launch<nt, vt>(k, num_ctas, phi);
 }
 
+// Construct a matrix of the form
+//
+//     [  Φ   P ]
+//     [ P^T  0 ]
+//
 template <int dimensions, typename rbf, typename poly>
 static auto
 fill(const matrix& x, rbf phi, poly p)
@@ -101,6 +114,10 @@ fill(const matrix& x, rbf phi, poly p)
 	return r;
 }
 
+// Construct a matrix of the form
+//
+//     [ Φ  P ]
+//
 template <int dimensions, typename rbf, typename poly>
 static auto
 fill(const matrix& xs, const matrix& xd, rbf phi, poly p)

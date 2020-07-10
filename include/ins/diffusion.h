@@ -12,6 +12,10 @@
 
 namespace ins {
 
+// Implicitly solve diffusion equation by writing discretization as
+//
+//     (I-½λΔₕ)δu = λΔₕu + kf.
+//
 template <typename grid_type>
 class diffusion {
 public:

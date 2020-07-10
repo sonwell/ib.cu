@@ -7,6 +7,8 @@
 
 namespace forces {
 
+// ds^2 = e da^1 + 2f da db + g db^2
+// Tells us stuff about lengths / areas
 struct first_fundamental_form {
 	double e, f, g, i;
 
@@ -17,6 +19,8 @@ struct first_fundamental_form {
 		i(e * g - f * f) {}
 };
 
+// l da^2 + 2 m da db + n db^2
+// Tells us stuff about curvature
 struct second_fundamental_form {
 	double l, m, n, ii;
 
@@ -26,6 +30,10 @@ struct second_fundamental_form {
 		n(algo::dot(load.tt[2], load.n)),
 		ii(l * n - m * m) {}
 };
+
+// Shape function:
+//     [ l m ] /[ e f ]
+//     [ m n ]/ [ f g ]
 
 constexpr double
 mean_curvature(const first_fundamental_form& fff,

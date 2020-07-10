@@ -15,6 +15,7 @@ swap(double& a, double& b)
 constexpr double
 gcd(double a, double b)
 {
+	// Euclid's GCD algorithm modified for floating point values
 	using limits = std::numeric_limits<double>;
 	constexpr auto eps = limits::epsilon();
 
@@ -31,6 +32,7 @@ gcd(double a, double b)
 constexpr double
 gcd(double a, double b)
 {
+	// std::swap not constexpr until C++20
 	if (a < b) impl::swap(a, b);
 	return impl::gcd(1.0, b / a) * a;
 }

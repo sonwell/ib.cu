@@ -8,6 +8,20 @@
 
 namespace util {
 
+// Functions that operate on tuple-like objects and plain arrays:
+// zip({a1, a2, ...}, {b1, b2, ...}, ...) -> {{a1, b1, ...}, {a2, b2, ...}, ...}
+// apply(f, {a1, a2, ...}) -> f(a1, a2, ...)
+// map(f, {a1, a2, ...}, {b1, b2, ...}, ...) ->
+//         {f(a1, b1, ...), f(a2, b2, ...), ...}
+// bind(f, ...) -> std::bind(f, ...)
+// partial(f, a, b, ...) -> [] (c ...) f(a, b, ..., c...)
+// foldl(f, a, b, ..., y, z) -> f(f(...(f(a, b), ...), y), z)
+// foldr(f, a, b, ..., y, z) -> f(a, f(b, f(..., f(y, z)) ...))
+// reverse({a1, a2, ..., an}) -> {an, an-1, ..., a2, a2}
+// iterate<iterations, init, stride>(f) ->
+//         for (auto j = 0, i = init; j < iterations; ++j, i += stride)
+//             f(i); /* i is actually std::integral_constant<auto, i> */
+
 namespace functional {
 namespace impl {
 

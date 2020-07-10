@@ -45,11 +45,11 @@ public:
 		return load;
 	}
 
-	constexpr auto
-	operator()(int tid) const
-	{
-		return operator[](tid);
-	}
+//	constexpr auto
+//	operator()(int tid) const
+//	{
+//		return operator[](tid);
+//	}
 
 	loader(const bases::geometry<dims>& g) :
 		sz{g.position.rows(), g.position.cols() / (dimensions+1)},

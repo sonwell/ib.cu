@@ -3,6 +3,7 @@
 
 namespace algo {
 
+// Vector dot product
 template <typename left_type, typename right_type>
 constexpr decltype(auto)
 dot(const left_type& left, const right_type& right)

@@ -7,6 +7,7 @@
 
 namespace forces {
 
+// This isn't quite right...
 struct hookean : tension {
 	using energy_per_area = units::unit<0, 1, -2>;
 	energy_per_area shear;

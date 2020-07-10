@@ -7,12 +7,13 @@
 
 namespace algo {
 
+// Permutes vectors and sparse matrices based on graph coloring, so that nodes
+// of the same color are listed sequentially.
 class coloring {
 private:
 	int sz;
 	int ncolors;
 	int* cstarts;
-	//util::memory<int> cstarts;
 protected:
 	template <typename p_iterator>
 	vector

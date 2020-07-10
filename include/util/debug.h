@@ -6,6 +6,11 @@
 
 namespace dbg {
 
+// Use the c++ ABI library to get typename in human readable format. E.g.,
+//
+//     std::cout << demangled<T> << '\n'
+//
+
 template <typename T>
 const char*&
 demangle()

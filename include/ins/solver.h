@@ -32,6 +32,9 @@ struct parameters : simulation {
 		density(rho), viscosity(mu) {}
 };
 
+// Solve the incompressible Navier-Stokes equations using the time-stepping
+// scheme of Peskin (2002) and the projection method PmIII of Brown, et al.
+// (2001).
 template <typename> class solver;
 
 template <typename ... dimension_types>
@@ -46,6 +49,7 @@ private:
 	using vectors_type = std::array<vector, dimensions>;
 	using operators_type = std::array<matrix, dimensions>;
 
+	// Poisson solver using MG-preconditioned CG
 	struct poisson : solvers::mgpcg {
 		virtual vector
 		operator()(vector v) const
@@ -62,6 +66,7 @@ private:
 		poisson(const grid_type& grid, double tolerance) :
 			solvers::mgpcg(grid, tolerance,
 					[] (const auto& g) { return fd::laplacian(g); },
+					// Chebyshev smoothing
 					[] (const auto& g, const matrix& m) { return new mg::chebyshev(g, m); }
 			) {}
 	};

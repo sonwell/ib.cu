@@ -2,6 +2,8 @@
 
 namespace bases {
 
+// traits pattern for computing shapes, sampling parameter sites, and computing
+// integration weights methods for different surfaces.
 template <typename shape_type>
 struct traits {
 	static constexpr auto dimensions = shape_type::dimensions;

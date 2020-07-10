@@ -11,6 +11,10 @@
 #include "types.h"
 
 namespace mg {
+
+// Full weighting restriction and prolongation (interpolation). This is
+// hard-coded for 4-point interpolation per dimension.
+
 namespace __1 {
 
 struct interpolation_tag {};

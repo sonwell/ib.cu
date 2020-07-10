@@ -7,103 +7,121 @@
 #include "smoother.h"
 
 namespace mg {
-	class gauss_seidel : public smoother {
-	private:
-		using coloring_ptr = std::unique_ptr<algo::coloring>;
 
-		coloring_ptr colorer;
-		matrix op;
-		double omega;
+// Weighted Gauss-Seidel red-black smoother for Laplacian/Helmholtz operators
+//
+// Suppose x satisfies Ax = b. Let x_1 be a guess for x. We wish to construct an
+// improved guess, x_2. We do this by splitting A:
+//
+//     Ax = [(1/ω)(D-L) + (1-1/ω)(D-L) - U]x = b,
+//
+// where A = D-L-U and D is diagonal, L is strictly lower-triangular, and U is
+// strictly upper-triangular. We construct an iteration scheme:
+//
+//     (1/ω)(D-L)x_2 = b - [(1-1/ω)(D-L) - U]x_1
+//                   = b - Ax_1 + (1/ω)(D-L)x_1
+//         =>    x_2 = x_1 + ω(D-L)^{-1}(b - Ax_1).
+//
+// The algorithm proceeds blockwise. Since the red-black coloring makes the
+// diagonal blocks diagonal matrices, ω(D-L)^{-1} ends up being very simple.
+class gauss_seidel : public smoother {
+private:
+	using coloring_ptr = std::unique_ptr<algo::coloring>;
 
-		static double
-		compute_omega(const matrix& m)
+	coloring_ptr colorer;
+	matrix op;
+	double omega;
+
+	static double
+	compute_omega(const matrix& m)
+	{
+		// A guess at the weighting parameter.
+		auto [lower, upper] = algo::gershgorin(m);
+		auto diag = (lower + upper) / 2;
+		auto u = abs(lower) > abs(upper) ? lower : upper;
+		auto rho = u / diag - 1;
+		auto mu = rho / (1 + sqrt(1 - rho * rho));
+		auto eps = std::numeric_limits<double>::epsilon();
+		return (1 + mu * mu) * (1 - eps);
+	}
+
+	void
+	iterate_block_row(int color, const vector& b, vector& x) const
+	{
+		auto* cstarts = colorer->starts();
+		auto* starts = op.starts();
+		auto* indices = op.indices();
+		auto* values = op.values();
+		auto* bvalues = b.values();
+		auto* xvalues = x.values();
+
+		auto cstart = cstarts[color];
+		auto cend = cstarts[color+1];
+		auto count = cend - cstart;
+
+		auto k = [=, omega=omega] __device__ (int tid)
 		{
-			auto [lower, upper] = algo::gershgorin(m);
-			auto diag = (lower + upper) / 2;
-			auto u = abs(lower) > abs(upper) ? lower : upper;
-			auto rho = u / diag - 1;
-			auto mu = rho / (1 + sqrt(1 - rho * rho));
-			auto eps = std::numeric_limits<double>::epsilon();
-			return (1 + mu * mu) * (1 - eps);
-		}
-
-		void
-		iterate_block_row(int color, const vector& b, vector& x) const
-		{
-			auto* cstarts = colorer->starts();
-			auto* starts = op.starts();
-			auto* indices = op.indices();
-			auto* values = op.values();
-			auto* bvalues = b.values();
-			auto* xvalues = x.values();
-
-			auto cstart = cstarts[color];
-			auto cend = cstarts[color+1];
-			auto count = cend - cstart;
-
-			auto k = [=, omega=omega] __device__ (int tid)
-			{
-				auto row = cstart + tid;
-				auto start = starts[row];
-				auto end = starts[row+1];
-				auto orig = bvalues[row];
-				auto value = orig;
-				for (auto i = start; i < end; ++i) {
-					auto col = indices[i];
-					auto val = values[i];
-					if (col == row) {
-						value /= (omega * val);
-						break;
-					}
-					value -= val * xvalues[col];
+			auto row = cstart + tid;
+			auto start = starts[row];
+			auto end = starts[row+1];
+			auto orig = bvalues[row];
+			auto value = orig;
+			for (auto i = start; i < end; ++i) {
+				auto col = indices[i];
+				auto val = values[i];
+				if (col == row) {
+					value /= (omega * val);
+					break;
 				}
-				//auto diag = omega * values[i];
-				//xvalues[row] = value / diag;
-				xvalues[row] = value;
-			};
-			util::transform<128, 7>(k, count);
-		}
-
-		vector
-		iterate(const vector& r) const
-		{
-			vector e{size(r)};
-			auto colors = colorer->colors();
-			for (int i = 0; i < colors; ++i)
-				iterate_block_row(i, r, e);
-			return e;
-		}
-	public:
-		virtual vector
-		operator()(vector b) const
-		{
-			auto r = colorer->permute(std::move(b));
-			auto x = iterate(std::move(r));
-			return colorer->unpermute(std::move(x));
-
-			// XXX maybe one too many vector allocations?
-			/*
-			vector x = 0 * b;
-			int iteration = 0;
-			while (iterations) {
-			for (int it = 0; it < iterations; ++it) {
-				if (it) gemv(-1.0, op, x, 1.0, r);
-				x += iterate(r);
+				value -= val * xvalues[col];
 			}
-			return colorer->unpermute(x);
-			*/
+			//auto diag = omega * values[i];
+			//xvalues[row] = value / diag;
+			xvalues[row] = value;
+		};
+		util::transform<128, 7>(k, count);
+	}
+
+	vector
+	iterate(const vector& r) const
+	{
+		vector e{size(r)};
+		auto colors = colorer->colors();
+		for (int i = 0; i < colors; ++i)
+			iterate_block_row(i, r, e);
+		return e;
+	}
+public:
+	virtual vector
+	operator()(vector b) const
+	{
+		auto r = colorer->permute(std::move(b));
+		auto x = iterate(std::move(r));
+		return colorer->unpermute(std::move(x));
+
+		// XXX maybe one too many vector allocations?
+		/*
+		vector x = 0 * b;
+		int iteration = 0;
+		while (iterations) {
+		for (int it = 0; it < iterations; ++it) {
+			if (it) gemv(-1.0, op, x, 1.0, r);
+			x += iterate(r);
 		}
+		return colorer->unpermute(x);
+		*/
+	}
 
-		gauss_seidel(const matrix& m, double omega, coloring_ptr co) :
-			colorer(std::move(co)), op(colorer->permute(m)), omega(omega) {}
+	gauss_seidel(const matrix& m, double omega, coloring_ptr co) :
+		colorer(std::move(co)), op(colorer->permute(m)), omega(omega) {}
 
-		gauss_seidel(const matrix& m, coloring_ptr co):
-			gauss_seidel(m, compute_omega(m), std::move(co)) {}
+	gauss_seidel(const matrix& m, coloring_ptr co):
+		gauss_seidel(m, compute_omega(m), std::move(co)) {}
 
-		gauss_seidel(const matrix& m, algo::coloring* colorer) :
-			gauss_seidel(m, coloring_ptr(colorer)) {}
+	gauss_seidel(const matrix& m, algo::coloring* colorer) :
+		gauss_seidel(m, coloring_ptr(colorer)) {}
 
-		gauss_seidel(const matrix& m, double omega, algo::coloring* colorer) :
-			gauss_seidel(m, omega, coloring_ptr(colorer)) {}
-	};
+	gauss_seidel(const matrix& m, double omega, algo::coloring* colorer) :
+		gauss_seidel(m, omega, coloring_ptr(colorer)) {}
+};
 }

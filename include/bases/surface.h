@@ -6,6 +6,7 @@
 
 namespace bases {
 
+// surface base class. Holds geometry data and operators.
 template <int dims>
 struct surface {
 public:

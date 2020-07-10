@@ -12,10 +12,35 @@
 #include "identity.h"
 #include "grid.h"
 #include "cell.h"
+#include "combine.h"
 
 namespace fd {
 namespace __1 {
 
+// 1D average
+//
+// There are four cases:
+//   * periodic: (points just shift around)
+//      x---x---x---x--- -> --x---x---x---x-
+//          [0.5 0.5 0.0 0.0]
+//      A = [0.0 0.5 0.5 0.0]
+//          [0.0 0.0 0.5 0.5]
+//          [0.5 0.0 0.0 0.5]
+//      --x---x---x---x- -> x---x---x---x---
+//          [0.5 0.0 0.0 0.5]
+//      A = [0.5 0.5 0.0 0.0]
+//          [0.0 0.5 0.5 0.0]
+//          [0.0 0.0 0.5 0.5]
+//   * non-periodic
+//      ---x---x---x--- -> -x---x---x---x- (number of points increases by 1)
+//          [0.5 0.0 0.0]
+//      A = [0.5 0.5 0.0]
+//          [0.0 0.5 0.5]
+//          [0.0 0.0 0.5]
+//      -x---x---x---x- -> ---x---x---x--- (number of points decreases by 1)
+//          [0.5 0.5 0.0 0.0]
+//      A = [0.0 0.5 0.5 0.0]
+//          [0.0 0.0 0.5 0.5]
 template <typename lower_type, typename upper_type>
 auto
 average(const discretization<fd::dimension<lower_type, upper_type>>& component)
@@ -62,18 +87,18 @@ template <typename grid_type, typename view_type,
 decltype(auto)
 average(const grid_type& grid, const view_type& view)
 {
-	using namespace util::functional;
-	using correction::zeroth_order;
+	//using namespace util::functional;
 	auto k = [&] (const auto& comp)
 	{
+		using correction::zeroth_order;
 		return comp == view ?
 			average(comp) :
 			identity(comp, zeroth_order);
 	};
-	auto op = [] (const matrix& l, const matrix& r) { return kron(l, r); };
-
-	const auto& components = grid.components();
-	return apply(partial(foldl, op), reverse(map(k, components)));
+	return combine(grid, k);
+	//auto op = [] (const matrix& l, const matrix& r) { return kron(l, r); };
+	//const auto& components = grid.components();
+	//return apply(partial(foldl, op), reverse(map(k, components)));
 }
 
 } // namespace fd

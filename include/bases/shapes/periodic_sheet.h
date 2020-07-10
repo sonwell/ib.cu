@@ -6,6 +6,8 @@
 namespace bases {
 namespace shapes {
 
+// The periodic sheet is like a torus, but it is unrolled flat, so uses up to
+// linear polynomials to compute its geometry.
 struct periodic_sheet : torus {
 private:
 	static constexpr bases::traits<periodic_sheet> traits;

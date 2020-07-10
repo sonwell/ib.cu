@@ -2,7 +2,6 @@
 #include <stdexcept>
 #include <utility>
 #include "util/math.h"
-#include "util/wrapper.h"
 #include "cell.h"
 #include "domain.h"
 #include "boundary.h"

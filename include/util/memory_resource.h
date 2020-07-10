@@ -5,6 +5,7 @@
 
 namespace util {
 
+// This is basically std::pmr::memory_resource
 struct memory_resource /* , std::pmr::memory_resource */ {
 private:
 	virtual void* do_allocate(std::size_t, std::size_t) = 0;
@@ -65,6 +66,7 @@ private:
 	do_deallocate(void* ptr, std::size_t bytes, std::size_t alignment)
 	{
 		auto align_val = static_cast<std::align_val_t>(alignment);
+		// clang: -fsized-deallocate
 		return ::operator delete(ptr, bytes, align_val);
 	}
 public:
@@ -78,6 +80,8 @@ new_delete_resource() noexcept
 	return &main_memory;
 }
 
+// Pre-allocates a huge block of memory to use, then doles it out in the chunks
+// of the requested size. Could be used to speed up CUDA memory allocations.
 class static_memory_resource : public memory_resource {
 private:
 	class node {

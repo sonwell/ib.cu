@@ -7,6 +7,7 @@
 
 namespace mg {
 
+// Chebyshev iteration as a MG smoother
 class chebyshev : public algo::chebyshev, public smoother {
 private:
 	template <typename grid_type>

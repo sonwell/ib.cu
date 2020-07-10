@@ -137,7 +137,8 @@ public:
 
 } // namespace detail
 
-
+// polynomials<d> accepts an array of n parameters and evaluates each of the
+// monomials x_1^a x_2^b ... with a + b + ... <= d.
 template <int degree>
 class polynomials : differentiable {
 private:
@@ -171,6 +172,11 @@ public:
 };
 
 template <int, typename> class polynomial_subset;
+
+
+// polynomial_subset<d, util::sequence<i, j, ...>> accepts an array of n
+// parameters, but uses them to evaluate just the monomials x_i^a x_j^b ...,
+// with a + b + ... <= d.
 template <int degree, int ... ns>
 class polynomial_subset<degree, util::sequence<int, ns...>> : public polynomials<degree> {
 private:

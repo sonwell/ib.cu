@@ -2,6 +2,18 @@
 #include "sequences.h"
 #include "container.h"
 
+// Computes all permutations of 0 ... n-1 at compile time.
+//
+//     using p = permutations<3>;
+//     // p = container<permutation< 1, 0, 1, 2>,
+//     //               permutation<-1, 0, 2, 1>,
+//     //               permutation< 1, 1, 2, 0>,
+//     //               permutation<-1, 1, 0, 2>,
+//     //               permutation< 1, 2, 0, 1>,
+//     //               permutation<-1, 2, 1, 0>>
+//     //                   sign ~~~~^  ^~~^~~^~~~~ permutation
+//
+
 namespace util {
 
 template <int sigma, int ... order>

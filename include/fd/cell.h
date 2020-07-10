@@ -16,6 +16,12 @@ struct alignment {
 		shift(util::math::modulo(shift, 1.0)) {}
 };
 
+// A cell is defined by is location in units of h relative to the origin. The
+// alignments (aka staggering) of a grid point (the lower corner of the cell) is
+// given by (x mod h) / h and is typically some combination of 0s and 0.5s. For
+// a solid boundary, the staggering away from the boundary is greater than 0,
+// but a staggering of 1 means that there is a "grid point" on the boundary, so
+// we will write 0, but in this case 0 and 1 mean the same thing, in some sense.
 template <typename ... alignment_types>
 struct cell {
 public:
@@ -33,16 +39,32 @@ public:
 
 namespace __1 {
 
+// Staggering is 0.5
 struct center {
 	static constexpr double shift = 0.5;
 	static constexpr bool on_boundary = false;
 };
 
+// Staggering is 0
 struct edge {
 	static constexpr double shift = 0.0;
 	static constexpr bool on_boundary = true;
 };
 
+// We can modify uniformly cell-centered or vertex-centered grids by shifting
+// according to some rules. Diagonally means the i-th grid is shifted by 0.5 in
+// the i-th dimension. The standard grid staggering is to diagonally shift
+// cell-centered grids:
+//
+//     (0.5, 0.5) -> (0, 0.5)  x grid
+//     (0.5, 0.5) -> (0.5, 0)  y grid
+//
+// Some operators act in a directional manner: averaging, and differentiation,
+// for example. Their effect is to approximate the desired quantity at a shifted
+// location. This is shifting directionally:
+//
+//     (0, 0.5) -x-shift-> (0.5, 0.5)  x grid
+//     (0.5, 0) -x-shift-> (0, 0)      y grid
 template <typename, std::size_t, typename> struct rule_evaluator;
 template <typename tag, std::size_t i, std::size_t ... n>
 struct rule_evaluator<tag, i, std::index_sequence<n...>> {

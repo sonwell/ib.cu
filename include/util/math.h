@@ -2,6 +2,11 @@
 #include <limits>
 #include <cmath>
 
+// Some constexpr math functions. Not all of the functions defined here should
+// be used (until C++20, maybe) since some ISAs have sqrt instructions and the
+// like, so the public API only exposes the "safe" ones: min, max, sign, floor,
+// modulo, abs, pow(a, int z)
+
 namespace util {
 namespace math {
 namespace impl {

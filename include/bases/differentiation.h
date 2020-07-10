@@ -6,6 +6,9 @@ namespace detail {
 
 template <typename, int ...> class counter;
 
+// For lists ns... and ms..., counts how many of each of ms... matches each of
+// ns... . Used to determine the order of partial differentiation w.r.t. a
+// specific parameter.
 template <int ... ns, int ... ms>
 class counter<util::sequence<int, ns...>, ms...> {
 private:
@@ -23,6 +26,7 @@ public:
 
 } // namespace detail
 
+// An object representing differentiation w.r.t. parameter(s) ns...
 template <int ... ns>
 struct partials {
 	template <int n> using counts =
@@ -40,7 +44,11 @@ operator*(partials<ns...> l, partials<ms...> r)
 	return partials{util::sort(util::sequence<int, ns..., ms...>())};
 }
 
-
+// Function-like objects that provide an
+//     operator()(args..., partials<n...>)
+// implement sizeof...(n)-th order differentiation w.r.t. the n... dimensions.
+// Used on RBF and polynomial types to construct discrete differentation
+// matrices.
 template <typename base, typename partials>
 struct derivative : base {
 	template <typename ... arg_types>

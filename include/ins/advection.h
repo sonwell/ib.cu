@@ -55,6 +55,16 @@ public:
 		averages(construct(tag, domain)) {}
 };
 
+// Define the central difference and average operators
+//
+//     Dⱼ g(x) = (g(x + heⱼ/2) - g(x - heⱼ/2)) / h,
+//     Aʲ g(x) = (g(x + heⱼ/2) + g(x - heⱼ/2)) / 2,
+//
+// respectively. Then, the advection term ∇·(u⃗⊗u⃗) is discretized as
+//
+//     Hⁱ(u⃗(x)) = Dⱼ[(Aⁱuʲ) (Auʲⁱ)](x),
+//
+// where i and j run from 1 to d.
 template <typename> class advection;
 
 template <typename ... dimension_types>

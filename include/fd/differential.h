@@ -12,10 +12,35 @@
 #include "identity.h"
 #include "grid.h"
 #include "cell.h"
+#include "combine.h"
 
 namespace fd {
 namespace __1 {
 
+// 1D differential
+//
+// There are four cases:
+//   * periodic: (points just shift around)
+//      x---x---x---x--- -> --x---x---x---x-
+//            [-1. 1.0 0.0 0.0]
+//      A = n [0.0 -1. 1.0 0.0]
+//            [0.0 0.0 -1. 1.0]
+//            [1.0 0.0 0.0 -1.]
+//      --x---x---x---x- -> x---x---x---x---
+//            [1.0 0.0 0.0 -1.]
+//      A = n [-1. 1.0 0.0 0.0]
+//            [0.0 -1. 1.0 0.0]
+//            [0.0 0.0 -1. 1.0]
+//   * non-periodic
+//      ---x---x---x--- -> -x---x---x---x- (number of points increases by 1)
+//            [1.0 0.0 0.0]
+//      A = n [-1. 1.0 0.0]
+//            [0.0 -1. 1.0]
+//            [0.0 0.0 -1.]
+//      -x---x---x---x- -> ---x---x---x--- (number of points decreases by 1)
+//            [-1. 1.0 0.0 0.0]
+//      A = n [0.0 -1. 1.0 0.0]
+//            [0.0 0.0 -1. 1.0]
 template <typename lower_type, typename upper_type>
 decltype(auto)
 differential(const discretization<fd::dimension<lower_type, upper_type>>& component)
@@ -63,18 +88,18 @@ template <typename grid_type, typename view_type,
 decltype(auto)
 differential(const grid_type& grid, const view_type& view)
 {
-	using namespace util::functional;
-	using correction::first_order;
+	//using namespace util::functional;
 	auto k = [&] (const auto& comp)
 	{
+		using correction::first_order;
 		return comp == view ?
 			differential(comp) :
 			identity(comp, first_order);
 	};
-	auto op = [] (const matrix& l, const matrix& r) { return kron(l, r); };
-
-	const auto& components = grid.components();
-	return apply(partial(foldl, op), reverse(map(k, components)));
+	return combine(grid, k);
+	//auto op = [] (const matrix& l, const matrix& r) { return kron(l, r); };
+	//const auto& components = grid.components();
+	//return apply(partial(foldl, op), reverse(map(k, components)));
 }
 
 } // namespace fd

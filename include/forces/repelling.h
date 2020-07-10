@@ -6,6 +6,7 @@
 
 namespace forces {
 
+// XXX this isn't very flexible
 struct repelling {
 	using energy_per_area = units::unit<0, 1, -2>;
 	energy_per_area modulus;
@@ -32,6 +33,9 @@ struct repelling {
 			auto& cx = curr.x;
 			auto r = abs(height - cx[1]) / h;
 
+			// repel from the top wall with a force of
+			//   fy(dy) = { -log(dy / 2) * exp(-4/(4-dy^2)), dy < 2h
+			//              0,                               otherwise
 			auto fy = r < 2 ?  -log(r / 2) * exp(-4/(4-r*r)) : 0.0;
 			double f[3] = {0.0, fy, 0.0};
 			for (int i = 0; i < 3; ++i)

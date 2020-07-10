@@ -15,6 +15,10 @@ protected:
 	static vector
 	scale(const matrix& x, vector v, weight w)
 	{
+		// Given integration weights `v` for a homogeneous surface with surface
+		// area 1, discretized in parameter space at points, `x`, compute the
+		// integration weights in parameter space. All of the relevant info is
+		// in the function `weight` and is specific to a particular surface.
 		auto n = x.rows();
 		auto* xdata = x.values();
 		auto* vdata = v.values();
@@ -34,6 +38,25 @@ protected:
 	static vector
 	weights(const matrix& x, metric distance, weight w)
 	{
+		// Compute surface integration weights.
+		// The surface must be "homogeneous", i.e., ∫ ɸ(x(θ)-x0) dθ over the
+		// surface must be independent of x0. Then, for p_0(x) = 1,
+		//
+		//     c^i ɸ(x_j-x_i) ≈ ∫ ɸ(x(θ)-x_i) dθ
+		//       c^i p_0(x_i) = σ,
+		//
+		// where σ is the surface area of the surface. Let d = -∫ ɸ(x(θ)-x0) dθ
+		// be unknown exactly (or at least, we don't need to know it). Then, we
+		// solve
+		//
+		//     [  Φ   1 ][c⃗] = [0⃗] = σ[0⃗]
+		//     [ 1^T  0 ][d]   [σ]    [1]
+		//
+		// The system is solved with a surface area of 1 and we scale the result
+		// to get correct results, if necessary.  To get dθ, divide c^i by the
+		// Jacobian |∂x_i/∂θ|. For any topologically equivalent surface,
+		// integration weights are found from dθ and the Jacobian of the new
+		// surface.
 		constexpr polyharmonic_spline<1> basic;
 		constexpr polynomials<0> p;
 		rbf phi{basic, distance};

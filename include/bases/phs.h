@@ -5,6 +5,11 @@
 
 namespace bases {
 
+// Polyharmonic spline RBF
+//
+//     ɸ(r) = r^n, n odd
+//     ɸ(r) = r^n log r, n even
+//
 template <unsigned int n>
 struct polyharmonic_spline : basic_function {
 private:

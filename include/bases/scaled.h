@@ -4,6 +4,7 @@
 
 namespace bases {
 
+// Scales a basic function
 template <typename base>
 struct scaled : base {
 private:

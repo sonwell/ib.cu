@@ -27,6 +27,7 @@ cross(util::container<permutations...>,
 
 }
 
+// Vector cross product
 template <typename ... vector_types>
 constexpr auto
 cross(const vector_types& ... vectors)

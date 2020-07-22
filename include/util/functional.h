@@ -17,7 +17,7 @@ namespace util {
 // partial(f, a, b, ...) -> [] (c ...) f(a, b, ..., c...)
 // foldl(f, a, b, ..., y, z) -> f(f(...(f(a, b), ...), y), z)
 // foldr(f, a, b, ..., y, z) -> f(a, f(b, f(..., f(y, z)) ...))
-// reverse({a1, a2, ..., an}) -> {an, an-1, ..., a2, a2}
+// reverse({a1, a2, ..., an}) -> {an, an-1, ..., a2, a1}
 // iterate<iterations, init, stride>(f) ->
 //         for (auto j = 0, i = init; j < iterations; ++j, i += stride)
 //             f(i); /* i is actually std::integral_constant<auto, i> */

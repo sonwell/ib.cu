@@ -46,8 +46,8 @@ protected:
 		auto* fdata = f.values();
 		auto k = [=] __device__ (int tid, auto w)
 		{
-			auto orig = original(tid);
-			auto curr = deformed(tid);
+			auto orig = original[tid];
+			auto curr = deformed[tid];
 			auto [oe, of, og, oeu, oev, ofu, ofv, ogu, ogv, oi, oiu, oiv] = helper{orig};
 			auto [ce, cf, cg, ceu, cev, cfu, cfv, cgu, cgv, ci, ciu, civ] = helper{curr};
 

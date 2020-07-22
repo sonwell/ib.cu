@@ -174,7 +174,7 @@ prod(sequence<int_type, ns...>,
 }
 
 template <std::size_t n, typename int_type, int_type ... ns>
-constexpr int_type&
+constexpr auto
 get(sequence<int_type, ns...>) {
 	constexpr int_type values[] = {ns...};
 	return values[n];

@@ -24,8 +24,11 @@ private:
 	static __host__ __device__ auto
 	associated(double t)
 	{
+		// Normalized associated Legendre function P_{lm}
 		if constexpr (l < m)
 			return 0.0;
+		// Recursive differentiated formula from Bosch, W. "On the Computation
+		// of Derivatives of Legendre Functions." (2000).
 		if constexpr (d != 0) {
 			if constexpr (m == 0)
 				return - sqrt(l * (l+1) / 2) * associated<l, 1, d-1>(t);
@@ -38,6 +41,8 @@ private:
 				return (sqrt((l+m)*(l-m+1)) * associated<l, m-1, d-1>(t) -
 				        sqrt((l+m+1)*(l-m)) * associated<l, m+1, d-1>(t)) / 2;
 		}
+		// Undifferentiated formula from Green, R. "Spherical Harmonic Lighting:
+		// The Gritty Details." (2003)
 		double pmm = sqrt(coefficient(l, m));
 		double ct = cos(t);
 		for (unsigned i = 0; i < m; ++i)

@@ -5,7 +5,8 @@ struct state {
 	bases::vector u[3];
 	bases::vector ub[3];
 	bases::vector p;
-	bases::matrix x;
+	bases::matrix r;
+	bases::matrix e;
 };
 
 std::istream&
@@ -15,7 +16,9 @@ operator>>(std::istream& in, state& st)
 	auto load = [&] (auto& v) { in >> linalg::io::binary >> v; };
 	map(load, st.u);
 	map(load, st.ub);
-	load(st.x);
+	load(st.p);
+	load(st.r);
+	load(st.e);
 	return in;
 }
 
@@ -37,7 +40,9 @@ operator<<(std::ostream& out, const state& st)
 	auto store = [&] (const auto& v) { out << linalg::io::binary << v; };
 	map(store, st.u);
 	map(store, st.ub);
-	store(st.x);
+	store(st.p);
+	store(st.r);
+	store(st.e);
 	return out;
 }
 

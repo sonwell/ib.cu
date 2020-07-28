@@ -125,7 +125,13 @@ increment(unary)
 	transform(&) \
 	transform(|) \
 	transform(>>) \
-	transform(<<)
+	transform(<<) \
+	transform(==) \
+	transform(!=) \
+	transform(>) \
+	transform(>=) \
+	transform(<) \
+	transform(<=)
 #define binary(op) \
 template <typename wrapped_type, typename arg_type, \
 	typename = decltype(std::declval<wrapped_type &>() op std::declval<arg_type>())> \
@@ -133,7 +139,7 @@ constexpr decltype(auto) \
 operator op(getset<wrapped_type>& gs, arg_type&& arg) \
 { \
 	wrapped_type wr = gs; \
-	auto&& r = wr op std::forward<arg_type>(arg); \
+	auto r = wr op std::forward<arg_type>(arg); \
 	gs = wr; \
 	return r; \
 } \
@@ -151,7 +157,7 @@ constexpr decltype(auto) \
 operator op(arg_type&& arg, getset<wrapped_type>& gs) \
 { \
 	wrapped_type wr = gs; \
-	auto&& r = std::forward<arg_type>(arg) op wr; \
+	auto r = std::forward<arg_type>(arg) op wr; \
 	gs = wr; \
 	return r; \
 } \

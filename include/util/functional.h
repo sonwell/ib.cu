@@ -28,6 +28,12 @@ namespace impl {
 template <typename tuple_type>
 using plain_tuple_t = std::remove_reference_t<std::remove_cv_t<tuple_type>>;
 
+template <typename> struct is_array : std::false_type {};
+template <typename type, std::size_t n>
+struct is_array<std::array<type, n>> : std::true_type {};
+template <typename type, std::size_t n>
+struct is_array<type[n]> : std::true_type {};
+
 template <std::size_t i, typename tuple_type>
 struct tuple_element : std::tuple_element<i, tuple_type> {};
 
@@ -151,44 +157,6 @@ internal_get(std::integer_sequence<int_type, n...>)
 	return std::integral_constant<int_type, values[i]>{};
 }
 
-template <typename first_type, typename second_type, std::size_t ... n, std::size_t ... m>
-constexpr decltype(auto)
-cat_pair(first_type&& first, second_type&& second, std::index_sequence<n...>, std::index_sequence<m...>)
-{
-	return std::tuple<decltype(internal_get<n>(std::forward<first_type>(first)))...,
-		   decltype(internal_get<m>(std::forward<second_type>(second)))...>{
-		internal_get<n>(std::forward<first_type>(first))...,
-		internal_get<m>(std::forward<second_type>(second))...};
-}
-
-template <typename tuple_type>
-constexpr decltype(auto)
-tuple_cat(tuple_type&& tuple)
-{
-	return tuple;
-}
-
-template <typename first_type, typename second_type>
-constexpr decltype(auto)
-tuple_cat(first_type&& first, second_type&& second)
-{
-	constexpr auto first_size = tuple_size_v<plain_tuple_t<first_type>>;
-	constexpr auto second_size = tuple_size_v<plain_tuple_t<second_type>>;
-	using first_sequence = std::make_index_sequence<first_size>;
-	using second_sequence = std::make_index_sequence<second_size>;
-	return cat_pair(std::forward<first_type>(first),
-			std::forward<second_type>(second),
-			first_sequence{}, second_sequence{});
-}
-
-template <typename first_type, typename second_type, typename ... rest_types>
-constexpr decltype(auto)
-tuple_cat(first_type&& first, second_type&& second, rest_types&& ... rest)
-{
-	return tuple_cat(tuple_cat(std::forward<first_type>(first), std::forward<second_type>(second)),
-			std::forward<rest_types>(rest)...);
-}
-
 template <bool ...>
 struct all : std::true_type {};
 
@@ -297,14 +265,21 @@ private:
 	using tuple_type = std::tuple<Args...>;
 	Fn fn;
 	tuple_type args;
+
+	template <std::size_t ... ns, typename ... Ts>
+	constexpr decltype(auto)
+	apply(std::index_sequence<ns...>, Ts&& ... ts) const
+	{
+		return fn(std::get<ns>(args)..., std::forward<Ts>(ts)...);
+	}
+
 public:
 	template <typename ... Ts>
 	constexpr decltype(auto)
 	operator()(Ts&& ... ts) const
 	{
-		auto new_args = tuple_cat(args, std::tuple<Ts&&...>(std::forward<Ts>(ts)...));
-		using sequence = std::make_index_sequence<sizeof...(Args) + sizeof...(Ts)>;
-		return apply(sequence{}, fn, std::move(new_args));
+		using sequence = std::make_index_sequence<sizeof...(Args)>;
+		return apply(sequence{}, std::forward<Ts>(ts)...);
 	}
 
 	constexpr partial(Fn&& fn, Args&& ... args) :
@@ -354,7 +329,7 @@ template <typename Fn, typename T0>
 constexpr decltype(auto)
 foldl(Fn&& fn, T0&& t0)
 {
-	return std::forward<T0>(t0);
+	return (T0) t0;
 }
 
 template <typename Fn, typename T0, typename T1>
@@ -385,7 +360,7 @@ template <typename Fn, typename T0>
 constexpr decltype(auto)
 foldr(Fn&& fn, T0&& t0)
 {
-	return std::forward<T0>(t0);
+	return (T0) t0;
 }
 
 template <typename Fn, typename T0, typename T1>

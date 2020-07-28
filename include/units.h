@@ -11,7 +11,7 @@ using tmpl_type = std::intmax_t;
 namespace detail {
 
 constexpr auto
-pow(double base, int exp)
+pow(double base, tmpl_type exp)
 {
 	if (exp == 0) return 1.0;
 	if (exp == 1) return base;

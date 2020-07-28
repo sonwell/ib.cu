@@ -91,7 +91,6 @@ private:
 		return apply(constructor, map(transmute, fd::components(domain)));
 	}
 
-
 	using intermediate_type = decltype(intermediate(std::declval<domain_type>()));
 	using divergence_type = divergence<domain_type>;
 	using gradient_type = gradient<intermediate_type>;

@@ -32,12 +32,18 @@ combine(const combine_by_sum& a, const combine_by_sum& b)
 
 // Combine matrices using either Kronecker sum or product to make
 // higher-dimensional operators.
-template <typename grid_type, typename k_type>
+template <typename grid_type, typename k_type,
+          typename = std::enable_if_t<is_grid_v<grid_type>>>
 constexpr decltype(auto)
 combine(const grid_type& grid, k_type&& k)
 {
 	using namespace util::functional;
-	auto op = [] (auto&& l, auto&& r) { return detail::combine(l, r); };
+	using detail::combine;
+	auto op = [] (auto l, auto r)
+	{
+		return combine(std::move(l),
+		               std::move(r));
+	};
 	const auto& components = grid.components();
 	return apply(partial(foldl, op), reverse(map(k, components)));
 }

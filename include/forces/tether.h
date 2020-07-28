@@ -29,8 +29,8 @@ struct tether {
 		auto* fdata = f.values();
 		auto k = [=, modulus=modulus] __device__ (int tid)
 		{
-			auto orig = original(tid);
-			auto curr = deformed(tid);
+			auto orig = original[tid];
+			auto curr = deformed[tid];
 			auto& ox = orig.x;
 			auto& cx = curr.x;
 

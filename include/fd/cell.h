@@ -193,6 +193,7 @@ alignment(const fd::alignment& alignment)
 
 using centered = __1::uniform<__1::center>;
 using mac = __1::shifted_tag<__1::diagonally, centered>;
+using staggered = mac;
 
 template <typename> struct is_uniform : std::false_type {};
 template <typename alignment_type> struct is_uniform<__1::uniform<alignment_type>> : std::true_type {};

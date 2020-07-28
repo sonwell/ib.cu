@@ -77,7 +77,7 @@ private:
 	{
 		using dimension_type = fd::dimension<lower_type, upper_type>;
 		if constexpr (dimension_type::solid_boundary)
-			return fd::dimension{dimension.length(), fd::boundary::neumann()};
+			return fd::dimension{dimension.length(), fd::boundary::neumann};
 		else
 			return dimension;
 	}
@@ -147,7 +147,7 @@ private:
 		auto axpy = [&] (const vector& f, vector h)
 		{
 			using linalg::axpy;
-			scal(-0.0, h);
+			scal(-1.0, h);
 			axpy(1 / (double) density, f, h);
 			return h;
 		};

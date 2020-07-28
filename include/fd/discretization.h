@@ -65,10 +65,9 @@ struct coefficients {
 	// coefficient due to symmetry.)
 	double laplacian;
 
-	template <typename boundary_type>
-	constexpr coefficients(const boundary_type& boundary, double h, double s) :
+	constexpr coefficients(const boundary::__1::boundary& boundary, double h, double s) :
 		coefficients(boundary.params(), h, 1 - util::math::modulo(1 - s, 1)) {}
-	constexpr coefficients(const boundary::periodic& boundary, double, double) :
+	constexpr coefficients(const decltype(boundary::periodic)& boundary, double, double) :
 		boundary(0), interior(0), laplacian(0) {}
 private:
 	constexpr coefficients(const params& p, double h, double s) :

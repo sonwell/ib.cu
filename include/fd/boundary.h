@@ -29,17 +29,17 @@ inline constexpr tag<false> upper;
 
 
 struct robin : __1::boundary {
-	static constexpr auto solid = true;
+	static constexpr bool solid = true;
 	constexpr robin(double a, double b) : boundary{{a, b}} {}
 };
 
-struct periodic : __1::boundary {
-	static constexpr auto solid = false;
+constexpr inline struct periodic : __1::boundary {
+	static constexpr bool solid = false;
 	constexpr periodic() : boundary{{0, 0}} {}
-};
+} periodic;
 
-struct dirichlet : robin { constexpr dirichlet() : robin(1, 0) {} };
-struct neumann : robin { constexpr neumann() : robin(0, 1) {} };
+constexpr inline struct dirichlet : robin { constexpr dirichlet() : robin(1, 0) {} } dirichlet;
+constexpr inline struct neumann : robin { constexpr neumann() : robin(0, 1) {} } neumann;
 
 } // namespace boundary
 

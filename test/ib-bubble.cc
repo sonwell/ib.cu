@@ -132,9 +132,9 @@ main(int argc, char** argv)
 	int iterations = (argc > 1) ? atoi(argv[1]) : 10;
 	util::set_default_resource(cuda::default_device().memory());
 
-	constexpr fd::dimension x{16_um, fd::boundary::periodic()};
-	constexpr fd::dimension y{16_um, fd::boundary::periodic()};
-	constexpr fd::dimension z{16_um, fd::boundary::periodic()};
+	constexpr fd::dimension x{16_um, fd::boundary::periodic};
+	constexpr fd::dimension y{16_um, fd::boundary::periodic};
+	constexpr fd::dimension z{16_um, fd::boundary::periodic};
 	constexpr fd::domain domain{x, y, z};
 	constexpr fd::mac mac{GRID_REFINEMENT};
 

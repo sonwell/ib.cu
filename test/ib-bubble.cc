@@ -170,10 +170,12 @@ main(int argc, char** argv)
 	auto [rows, cols] = linalg::size(cells.x);
 	auto n = rows * cols / domain.dimensions;
 	ins::solver step{mac, domain, params};
+	units::time t = 0;
 
 	binary_writer write;
-	auto f = [&] (const auto& v)
+	auto f = [&] (units::time t0, const auto& v)
 	{
+		auto k = t0 - t;
 		auto& x = cells.geometry(bases::current).data.position;
 		auto n = x.rows() * x.cols() / domain.dimensions;
 		auto w = interpolate(n, x, v);
@@ -188,9 +190,10 @@ main(int argc, char** argv)
 	};
 
 	for (int i = 0; i < iterations; ++i) {
-		util::logging::info("simulation time: ", i * params.timestep);
+		util::logging::info("simulation time: ", t);
 		try {
-			auto [un, pn] = step(std::move(u), ub, f);
+			auto [tn, un, pn] = step(t, std::move(u), ub, f);
+			t = tn;
 			u = std::move(un);
 			p = std::move(pn);
 		}
@@ -202,7 +205,9 @@ main(int argc, char** argv)
 		cells.x += std::move(v);
 		//write(u, ub, p, cells.x);
 	}
-	write(u, ub, p, cells.x);
+	//write(u, ub, p, cells.x);
+	util::logging::info("simulation time: ", t);
+
 
 	return 0;
 }

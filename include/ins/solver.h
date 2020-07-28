@@ -6,8 +6,10 @@
 #include "algo/chebyshev.h"
 #include "algo/preconditioner.h"
 #include "util/functional.h"
+#include "util/cyclic_buffer.h"
 #include "fd/domain.h"
 #include "fd/grid.h"
+#include "cublas/iamax.h"
 
 #include "units.h"
 
@@ -16,6 +18,7 @@
 #include "diffusion.h"
 #include "advection.h"
 #include "boundary.h"
+#include "tracker.h"
 #include "exceptions.h"
 
 
@@ -42,10 +45,9 @@ class solver<fd::domain<dimension_types...>> {
 private:
 	using domain_type = fd::domain<dimension_types...>;
 	static constexpr auto dimensions = domain_type::dimensions;
-	using stepper_type = diffusion<fd::grid<domain_type>>;
 
 	using advection_type = ins::advection<domain_type>;
-	using steppers_type = std::array<stepper_type, dimensions>;
+	using steppers_type = std::array<diffusion, dimensions>;
 	using vectors_type = std::array<vector, dimensions>;
 	using operators_type = std::array<matrix, dimensions>;
 
@@ -117,8 +119,7 @@ private:
 			diffusion stepper{grid, params};
 			auto op = ins::boundary(grid, comp);
 			vector v{fd::size(grid), linalg::zero};
-			return std::tuple<stepper_type, matrix, vector>{
-				std::move(stepper), std::move(op), std::move(v)};
+			return std::make_tuple(std::move(stepper), std::move(op), std::move(v));
 		};
 		auto v = [] (auto ... v) { return std::array{std::move(v)...}; };
 		const auto& components = fd::components(domain);
@@ -139,7 +140,7 @@ private:
 	{
 		using namespace util::functional;
 
-		auto step = [&] (const stepper_type& stepper, const vector& u,
+		auto step = [&] (const diffusion& stepper, const vector& u,
 				vector ub, vector f)
 		{
 			return stepper(frac, u, std::move(ub), std::move(f));
@@ -168,14 +169,33 @@ private:
 		auto p = beta * divw + alpha * kphi;
 		k_grad_phi = grad(kphi);
 		w = map(std::minus<void>{}, std::move(w), k_grad_phi);
-		return std::make_pair(std::move(w), divw);
+		return std::make_pair(std::move(w), std::move(p));
+	}
+
+	units::time
+	get_timestep()
+	{
+		return current_timestep;
+	}
+
+	void
+	set_timestep(units::time k)
+	{
+		if (k == current_timestep) return;
+
+		current_timestep = k;
+		for (auto& d: steppers)
+			d.timestep = k;
 	}
 
 	units::density density;
 	units::viscosity viscosity;
-	units::time timestep;
+	units::time current_timestep;
+	units::length spacestep;
 	units::time time_scale;
 	units::length length_scale;
+	tracker step_helper;
+	util::getset<units::time> timestep;
 	advection_type advect;
 	steppers_type steppers;
 	vectors_type k_grad_phi;
@@ -189,9 +209,13 @@ private:
 			const parameters& params, info_type info) :
 		density(params.density),
 		viscosity(params.viscosity),
-		timestep(params.timestep),
+		current_timestep(params.timestep),
+		spacestep(domain.unit() / tag.refinement()),
 		time_scale(params.time_scale),
 		length_scale(params.length_scale),
+		step_helper{params, spacestep, density},
+		timestep{[&] () { return get_timestep(); },
+		         [&] (units::time k) { set_timestep(k); }},
 		advect(tag, domain),
 		steppers(std::move(info.steppers)),
 		k_grad_phi(std::move(info.vectors)),
@@ -202,7 +226,7 @@ private:
 public:
 	template <typename u_type, typename ub_type, typename force_fn>
 	decltype(auto)
-	operator()(u_type&& u0, ub_type&& ub, const force_fn& forces)
+	operator()(units::time t, u_type&& u0, ub_type&& ub, const force_fn& forces)
 	{
 
 		using namespace util::functional;
@@ -211,18 +235,23 @@ public:
 			return partial(map, [=] (vector v) { return mu * std::move(v); });
 		};
 
+		// Search for a suitable timestep
+		auto [k, f] = step_helper(0.5, t, u0, forces);
+		timestep = k;
+		util::logging::info("timestep: ", k);
+
 		auto u_scale = length_scale / time_scale;
 		auto nondim = scalem(1.0 / u_scale);
 		auto redim = scalem(u_scale);
-		auto half = scalem(0.5);
 
-		auto g = nondim(forces(half(u0)));
+		auto g = nondim(std::move(f));
 		auto v0 = nondim(std::forward<u_type>(u0));
 		auto vb = nondim(std::forward<ub_type>(ub));
 		auto [v1, p1] = step(0.5, v0, vb, v0, g);
 		auto [v2, p2] = step(1.0, v0, vb, v1, g);
 		auto gp = grad(p2);
-		return std::make_pair(redim(std::move(v2)), (double) u_scale * std::move(p2));
+		return std::make_tuple(t + k, redim(std::move(v2)),
+				(double) u_scale * std::move(p2));
 	}
 
 	template <typename tag_type>

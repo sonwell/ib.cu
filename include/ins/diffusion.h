@@ -11,92 +11,78 @@
 #include "solvers.h"
 
 namespace ins {
-
 // Implicitly solve diffusion equation by writing discretization as
 //
-//     (I-½λΔₕ)δu = λΔₕu + kf.
+//     (I-½λΔₕ)δu = ɣλΔₕu + kIf.
 //
-template <typename grid_type>
 class diffusion {
 public:
 	using parameters = simulation;
-	static constexpr auto dimensions = grid_type::dimensions;
 private:
-	static constexpr auto op = [] (units::unit<2, 0, 0> l, const auto& g)
+	static double
+	lambda(units::time k, units::diffusivity d)
 	{
-		using fd::correction::second_order;
-		auto id = fd::identity(g, second_order);
-		auto lh = fd::laplacian(g);
-		axpy(-(double) l, lh, id);
-		return id;
-	};
-
-	static units::unit<2, 0, 0>
-	lambda(const parameters& p)
-	{
-		return p.timestep * p.coefficient / 2;
+		return k * d / 2;
 	}
 
 	struct chebyshev : solvers::chebpcg {
 		using solvers::chebpcg::operator();
 
-		chebyshev(const grid_type& grid, double tolerance, units::unit<2, 0, 0> l) :
-			chebpcg(tolerance, op(l, grid)) {}
-
-		chebyshev(const grid_type& grid, const parameters& p) :
-			chebyshev(grid, p.tolerance, lambda(p)) {}
+		chebyshev(matrix m, double tolerance) :
+			chebpcg(tolerance, std::move(m)) {}
 	};
 
-	struct multigrid : solvers::mgpcg {
-		static constexpr auto smoother = [] (const auto& g, const matrix& m)
-		{
-			return new mg::chebyshev(g, m);
-		};
+	void
+	set_timestep(const units::time& step)
+	{
+		if (step == current_timestep)
+			return;
+		auto l = lambda(step, coefficient);
+		helmholtz = {identity - l * laplacian, tolerance};
+		current_timestep = step;
+	}
 
-		using solvers::mgpcg::operator();
-
-		multigrid(const grid_type& grid, double tolerance, units::unit<2, 0, 0> l) :
-			mgpcg(grid, tolerance, [=] (auto&& g) { return op(l, g); }, smoother) {}
-
-		multigrid(const grid_type& grid, const parameters& p):
-			multigrid(grid, p.tolerance, lambda(p)) {}
-	};
-
-	units::time timestep;
+	units::time current_timestep;
 	units::diffusivity coefficient;
 	double tolerance;
 	matrix identity;
 	matrix laplacian;
 	chebyshev helmholtz;
 public:
+	util::getset<units::time> timestep;
+
 	vector
-	operator()(double frac, const vector& u, vector rhs, const vector& f) const
+	operator()(double gamma, const vector& u, vector rhs, const vector& f) const
 	{
+		// gamma: 0.5 => backward Euler
+		//        1.0 =? Crank-Nicolson
 		double mu = coefficient;
-		double k = frac * timestep;
+		double k = gamma * timestep;
 		gemv(1.0, laplacian, u, 1.0, rhs);
 		gemv(k, identity, f, k * mu, rhs);
-		util::logging::info("helmholtz solve ", abs(rhs) / frac);
+		util::logging::info("helmholtz solve ", abs(rhs) / gamma);
 		return solve(helmholtz, std::move(rhs)) + u;
 	}
 
+	template <typename grid_type>
 	diffusion(const grid_type& grid, const parameters& params) :
-		timestep(params.timestep),
+		current_timestep(params.timestep),
 		coefficient(params.coefficient),
+		tolerance(params.tolerance),
 		identity(fd::identity(grid, fd::correction::second_order)),
 		laplacian(fd::laplacian(grid)),
-		helmholtz(grid, params) {}
-
+		helmholtz(identity - lambda(params.timestep, params.coefficient) * laplacian, tolerance),
+		timestep([&] () -> decltype(auto) { return current_timestep; },
+		         [&] (const units::time& step) { set_timestep(step); }) {}
 	diffusion(diffusion&& other) :
-		timestep(other.timestep),
+		current_timestep(other.current_timestep),
 		coefficient(other.coefficient),
+		tolerance(other.tolerance),
 		identity(std::move(other.identity)),
 		laplacian(std::move(other.laplacian)),
-		helmholtz(std::move(other.helmholtz)) {}
+		helmholtz(std::move(other.helmholtz)),
+		timestep([&] () -> decltype(auto) { return current_timestep; },
+		         [&] (const units::time& step) { set_timestep(step); }) {}
 };
-
-template <typename grid_type>
-diffusion(const grid_type&, const simulation&)
-	-> diffusion<grid_type>;
 
 } // namespace ins

@@ -46,7 +46,7 @@ private:
 		constexpr detail::polynomial<0> p = {};
 		for (int i = 0; i < n+1; ++i) {
 			v[i] = 1.0;
-			rules[i] = rule{p, v};
+			rules[i] = rule{p, {v}};
 			v[i] = 0.0;
 		}
 		return rules;

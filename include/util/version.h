@@ -1,7 +1,7 @@
 #pragma once
 #include <ostream>
 
-namespace cuda {
+namespace util {
 
 struct version {
 	int major;

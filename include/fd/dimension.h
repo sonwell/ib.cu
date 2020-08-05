@@ -1,7 +1,7 @@
 #pragma once
 #include <cstddef>
 #include <stdexcept>
-#include "util/counter.h"
+#include "util/unique_id.h"
 #include "util/math.h"
 #include "units.h"
 #include "types.h"
@@ -11,14 +11,9 @@
 namespace fd {
 namespace __1 {
 
-// a bit of misdirection for the constexpr counter
-// see note in include/util/counter.h
-struct counter_base { static constexpr util::counter<unsigned> value; };
-template <unsigned> struct counter : counter_base { using counter_base::value; };
-
 class dimension {
 private:
-	unsigned _id;
+	util::unique_id_t _id;
 	units::length _length;
 public:
 	constexpr auto id() const { return _id; }
@@ -28,7 +23,7 @@ public:
 	constexpr bool operator!=(const dimension& other) const
 		{ return _id != other._id; }
 protected:
-	constexpr dimension(units::length size, unsigned id) :
+	constexpr dimension(units::length size, util::unique_id_t id) :
 		_id(id), _length(size)
 	{
 		if ((double) size < 0)
@@ -61,14 +56,14 @@ public:
 		return util::math::modulo(x, length());
 	}
 
-	template <unsigned n = 0, unsigned id = next(__1::counter<n>::value)>
+	template <unsigned n = 0, util::unique_id_t id = util::unique_id<n>()>
 	constexpr dimension(units::length size, const lower_boundary_type& lower,
 			const upper_boundary_type& upper) :
 		dimension(size, lower, upper, id) {}
 
 	template <unsigned n = 0,
 		typename = std::enable_if_t<single_boundary_enabled>,
-		unsigned id = next(__1::counter<n>::value)>
+		util::unique_id_t id = util::unique_id<n>()>
 	constexpr dimension(units::length size, const lower_boundary_type& lower) :
 		dimension(size, lower, lower, id) {}
 
@@ -88,7 +83,7 @@ private:
 	const upper_boundary_type _upper;
 
 	constexpr dimension(units::length size, const lower_boundary_type& lower,
-			const upper_boundary_type& upper, unsigned id) :
+			const upper_boundary_type& upper, util::unique_id_t id) :
 		__1::dimension(size, id), _lower(lower), _upper(upper) {}
 };
 

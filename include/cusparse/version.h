@@ -1,13 +1,13 @@
 #pragma once
 #include <cusparse.h>
-#include "cuda/version.h"
+#include "util/version.h"
 #include "cuda/types.h"
 #include "handle.h"
 #include "exceptions.h"
 
 namespace cusparse {
 
-inline cuda::version
+inline util::version
 get_version(handle& h)
 {
 	int v;
@@ -25,7 +25,7 @@ get_property(cuda::library_property prop)
 	return v;
 }
 
-static inline const cuda::version version {
+static inline const util::version version {
 	get_property(cuda::library_property::major),
 	get_property(cuda::library_property::minor),
 	get_property(cuda::library_property::patch)

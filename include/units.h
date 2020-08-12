@@ -41,7 +41,7 @@ private:
 	double value;
 public:
 	constexpr operator double() const { return value; }
-	constexpr unit(double v) : value(v) {}
+	constexpr unit(double v = 0.) : value(v) {}
 
 	constexpr unit& operator*=(double s) { value *= s; return *this; }
 	constexpr unit& operator*=(const unit<0, 0, 0>& u) { value *= u.value; return *this; }
@@ -175,6 +175,22 @@ operator/(unit<d, m, t> u, std::ratio<num, den> r)
 	u /= num;
 	return u;
 }
+
+template <tmpl_type num, tmpl_type den, tmpl_type d, tmpl_type m, tmpl_type t>
+constexpr auto
+operator+(unit<d, m, t> u)
+{
+	return u;
+}
+
+template <tmpl_type num, tmpl_type den, tmpl_type d, tmpl_type m, tmpl_type t>
+constexpr auto
+operator-(unit<d, m, t> u)
+{
+	u *= -1;
+	return u;
+}
+
 
 using scalar = unit<0, 0, 0>;
 using length = unit<1, 0, 0>;

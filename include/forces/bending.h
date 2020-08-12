@@ -137,7 +137,7 @@ struct bending {
 	decltype(auto)
 	operator()(const object_type& object) const
 	{
-		/* F_bend = -4(Δ(H-H₀) - (H-H₀)(H²-K))n̂ */
+		/* F_bend = -4κ(Δ(H-H₀) - 2(H-H₀)(H²-K))n̂ */
 
 		using bases::current;
 		using bases::reference;

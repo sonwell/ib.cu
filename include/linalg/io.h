@@ -66,21 +66,21 @@ struct reader {
 
 template <template <typename> typename> struct container_magic;
 template <> struct container_magic<linalg::vector> :
-	std::integral_constant<int, 0x65760000> {}; // ve
+	std::integral_constant<int, 0x65760000> {}; // ve (vector)
 template <> struct container_magic<linalg::matrix> :
-	std::integral_constant<int, 0x616d0000> {}; // ma
+	std::integral_constant<int, 0x616d0000> {}; // ma (matrix)
 
 template <template <typename> typename> struct layout_magic;
 template <> struct layout_magic<linalg::dense> :
-	std::integral_constant<int, 0x00006400> {};
+	std::integral_constant<int, 0x00006400> {}; // d (dense)
 template <> struct layout_magic<linalg::sparse> :
-	std::integral_constant<int, 0x00007300> {};
+	std::integral_constant<int, 0x00007300> {}; // s (sparse)
 
 template <typename> struct type_magic;
 template <> struct type_magic<float> :
-	std::integral_constant<int, 0x00000073> {};
+	std::integral_constant<int, 0x00000073> {}; // s (single precision)
 template <> struct type_magic<double> :
-	std::integral_constant<int, 0x00000064> {};
+	std::integral_constant<int, 0x00000064> {}; // d (double precision)
 
 template <typename> struct magic_number;
 template <template <typename> typename container,

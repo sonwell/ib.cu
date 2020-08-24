@@ -19,6 +19,7 @@
 #include "advection.h"
 #include "boundary.h"
 #include "tracker.h"
+#include "state.h"
 #include "exceptions.h"
 
 
@@ -45,6 +46,7 @@ class solver<fd::domain<dimension_types...>> {
 private:
 	using domain_type = fd::domain<dimension_types...>;
 	static constexpr auto dimensions = domain_type::dimensions;
+	using state = ins::state<dimensions>;
 
 	using advection_type = ins::advection<domain_type>;
 	using steppers_type = std::array<diffusion, dimensions>;
@@ -213,7 +215,7 @@ private:
 		spacestep(domain.unit() / tag.refinement()),
 		time_scale(params.time_scale),
 		length_scale(params.length_scale),
-		step_helper{params, spacestep, density},
+		step_helper{params, spacestep * density},
 		timestep{[&] () { return get_timestep(); },
 		         [&] (units::time k) { set_timestep(k); }},
 		advect(tag, domain),
@@ -224,17 +226,17 @@ private:
 		div(std::move(info.divergence)),
 		grad(std::move(info.gradient)) {}
 public:
-	template <typename u_type, typename ub_type, typename force_fn>
-	decltype(auto)
-	operator()(units::time t, u_type&& u0, ub_type&& ub, const force_fn& forces)
+	template <typename ub_type, typename force_fn>
+	state
+	operator()(state st, ub_type&& ub, const force_fn& forces)
 	{
-
 		using namespace util::functional;
 		static constexpr auto scalem = [] (double mu)
 		{
 			return partial(map, [=] (vector v) { return mu * std::move(v); });
 		};
 
+		auto&& [t, u0, p] = st;
 		// Search for a suitable timestep
 		auto [k, f] = step_helper(0.5, t, u0, forces);
 		timestep = k;
@@ -245,13 +247,12 @@ public:
 		auto redim = scalem(u_scale);
 
 		auto g = nondim(std::move(f));
-		auto v0 = nondim(std::forward<u_type>(u0));
+		auto v0 = nondim(st.u);
 		auto vb = nondim(std::forward<ub_type>(ub));
 		auto [v1, p1] = step(0.5, v0, vb, v0, g);
 		auto [v2, p2] = step(1.0, v0, vb, v1, g);
 		auto gp = grad(p2);
-		return std::make_tuple(t + k, redim(std::move(v2)),
-				(double) u_scale * std::move(p2));
+		return {t+k, std::move(v2), (double) u_scale * std::move(p2)};
 	}
 
 	template <typename tag_type>

@@ -632,7 +632,7 @@ write(std::ostream& out, const format_type& fmt, const object_type& v)
 
 template <typename format_type, typename object_type>
 decltype(auto)
-operator<<(writer<format_type> wr, object_type&& object)
+operator<<(writer<format_type> wr, const object_type& object)
 {
 	std::ostream& stream = wr.stream;
 	const auto& fmt = wr.format;
@@ -645,7 +645,7 @@ operator<<(writer<format_type> wr, object_type&& object)
 
 template <typename format_type, typename object_type>
 decltype(auto)
-operator>>(reader<format_type> rd, object_type&& object)
+operator>>(reader<format_type> rd, object_type& object)
 {
 	std::istream& stream = rd.stream;
 	const auto& fmt = rd.format;

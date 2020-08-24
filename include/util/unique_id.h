@@ -35,7 +35,7 @@ reader(int, flag<n>, unique_id_t s = r)
 	return s;
 }
 
-}
+} // namespace impl
 
 template <int n = 0,
           unique_id_t r = impl::reader(0, impl::flag<n>{})>
@@ -45,4 +45,4 @@ unique_id(unique_id_t s = r)
 	return s;
 }
 
-}
+} // namespace util

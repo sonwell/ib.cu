@@ -434,4 +434,10 @@ template <int iterations, int init=0, int stride=1>
 inline constexpr impl::iterate_functor<iterations, init, stride> iterate;
 
 } // namespace functional
+
+using functional::impl::tuple_element;
+using functional::impl::tuple_element_t;
+using functional::impl::tuple_size;
+using functional::impl::tuple_size_v;
+
 } // namespace util

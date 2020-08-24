@@ -12,12 +12,12 @@ namespace ins {
 
 struct tracker {
 private:
+	static constexpr auto emax = 4;
+	static constexpr auto capacity = 1 << emax;
 	units::time kmin;
-	units::time kmax;
 	units::time k;
-	units::length h;
-	units::density rho;
-	util::cyclic_buffer<int, 10> buffer;
+	double fscale;
+	util::cyclic_buffer<int, capacity> buffer;
 
 	double
 	amax(const vector& v) const
@@ -53,7 +53,7 @@ private:
 	int
 	current() const
 	{
-		int e = serialize(kmax);
+		int e = emax;
 		for (auto& c: buffer)
 			if (c < e) e = c;
 		return e;
@@ -64,12 +64,13 @@ private:
 	bound(const f_type& f)
 	{
 		constexpr auto eps = 1e-3;
-		constexpr auto scale = 1_s / (double) 4_s;
-		constexpr auto fscale = 1_kg / (1_m * 1_m * 1_s * 1_s);
+		constexpr auto safety = 1_s / (double) 4_s;
+		constexpr auto scale = 1_kg / (1_m * 1_m * 1_s * 1_s);
 
 		auto fmax = nrminf2(f);
-		auto kmax = scale * sqrt((double) (h * rho) / (fmax + eps));
-		std::cerr << "h = " << h << ", rho = " << rho << ", fmax = " << (fmax * fscale / (double) fscale) << " => kmax = " << kmax << '\n';
+		auto kmax = safety * sqrt(fscale / (fmax + eps));
+		util::logging::info("max ‖f‖ ≈ ", (fmax * scale / (double) fscale));
+		util::logging::info("Δt ≤ ", kmax);
 		return serialize(kmax);
 	}
 public:
@@ -94,10 +95,8 @@ public:
 		return std::pair{k, std::move(f)};
 	}
 
-	constexpr tracker(const simulation& params,
-			units::length h, units::density rho) :
-		kmin(params.timestep), kmax(8 * kmin), k(kmin),
-		h(h), rho(rho) {}
+	constexpr tracker(const simulation& params, double fscale) :
+		kmin(params.timestep), k(kmin), fscale(fscale) {}
 };
 
 }

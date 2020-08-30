@@ -1,12 +1,11 @@
 #pragma once
-
 #include "util/adaptor.h"
-#include "cuda/operation.h"
+#include "linalg/operation.h"
 #include "types.h"
 
 namespace cusparse {
 
-using cuda::operation;
+using linalg::operation;
 using operation_adaptor = util::adaptor<
 	util::enum_container<operation_t,
 			CUSPARSE_OPERATION_NON_TRANSPOSE,

@@ -1,6 +1,4 @@
 #pragma once
-#include "util/adaptor.h"
-#include "cuda/operation.h"
 #include "cublas/operation.h"
 
 namespace cusolver {

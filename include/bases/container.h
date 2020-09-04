@@ -92,59 +92,6 @@ struct arrayifier {
 	}
 };
 
-struct position {
-private:
-	util::getset<matrix&> x;
-	algo::qr_factorization qr;
-public:
-	template <typename get_type, typename set_type>
-	position(get_type get, set_type set, matrix m) :
-		x{get, set}, qr(algo::qr(std::move(m))) {}
-
-	position& operator=(const matrix& other) { x = other; return *this; }
-	position& operator=(matrix&& other) { x = std::move(other); return *this; }
-
-	position&
-	operator+=(const matrix& other)
-	{
-		x += solve(qr, other);
-		return *this;
-	}
-
-	position&
-	operator-=(const matrix& other)
-	{
-		x -= solve(qr, other);
-		return *this;
-	}
-
-	operator linalg::size() const { return linalg::size(x); }
-	operator matrix&() { return x; }
-	operator const matrix&() const { return x; }
-
-	friend matrix operator+(const position&, const matrix&);
-	friend matrix operator-(const position&, const matrix&);
-};
-
-inline matrix
-operator+(const position& p, const matrix& m)
-{
-	return p.x + solve(p.qr, m);
-}
-
-inline matrix
-operator-(const position& p, const matrix& m)
-{
-	return p.x + solve(p.qr, m);
-}
-
-template <typename fmt_type>
-linalg::io::formatting::writer<fmt_type>
-operator<<(linalg::io::formatting::writer<fmt_type> wr, const position& p)
-{
-	return wr << (matrix&) p;
-}
-
 } // namespace impl
 
 using impl::ref;
@@ -192,35 +139,34 @@ struct container : impl::base_container<reference_type> {
 private:
 	using base = impl::base_container<reference_type>;
 
-	matrix& get_x() { return base::data.position; }
+	matrix& get_x() { return base::sample.position; }
 
 	void
 	set_x(const matrix& x)
 	{
 		// Update geometric information when the positions are updated
+		auto y = solve(qr, x);
 		const auto& [data, sample] = base::operators();
-		base::data = {data, x};
-		base::sample = {sample, x};
+		base::data = {data, y};
+		base::sample = {sample, y};
 	}
 
+	algo::qr_factorization qr;
 public:
+	container(const reference_type& ref) :
+		container(ref, matrix{}) {}
+
 	template <typename ... shape_fns>
 	container(const reference_type& ref, shape_fns ... fns) :
 		container(ref, shape(ref, fns...)) {}
 
 	container(const reference_type& ref, const matrix& x) :
 		base{ref, x},
+		qr(algo::qr(ref.data_to_sample.evaluator)),
 		x{[&] () -> matrix& { return get_x(); },
-		  [&] (const matrix& x) { set_x(x); },
-		  ref.data_to_sample.evaluator} {}
+		  [&] (const matrix& x) { set_x(x); }} {}
 
-	container(const reference_type& ref) :
-		base{ref},
-		x{[&] () -> matrix& { return get_x(); },
-		  [&] (const matrix& x) { set_x(x); },
-		  ref.data_to_sample.evaluator} {}
-
-	impl::position x;
+	util::getset<matrix&> x;
 };
 
 } // namespace bases

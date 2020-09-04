@@ -49,10 +49,10 @@ struct binary_writer {
 	units::time interval = 0.1_ms;
 	std::ostream& output = std::cout;
 
-	template <std::size_t dimensions, std::size_t objects>
+	template <std::size_t dimensions, typename ... object_types>
 	void
 	operator()(const ins::state<dimensions>& state,
-			const matrix (&x)[objects], bool force = false)
+			bool force, const object_types& ... objects)
 	{
 		const auto& t = state.t;
 		if (force) time = t;
@@ -60,8 +60,7 @@ struct binary_writer {
 		time += interval;
 
 		output << linalg::io::binary << state;
-		for (const matrix& v : x)
-			output << linalg::io::binary << v;
+		((output << linalg::io::binary) << ... << (matrix&) objects.x);
 	}
 };
 
@@ -69,9 +68,9 @@ struct null_writer {
 	null_writer(units::time = 0, units::time = 0,
 			std::ostream& = std::cout) {}
 
-	template <std::size_t dimensions, std::size_t objects>
+	template <std::size_t dimensions, typename ... object_types>
 	void operator()(const ins::state<dimensions>&,
-			const matrix (&)[objects], bool = false) {}
+			bool force, const object_types& ...) {}
 };
 
 template <typename tag_type, typename domain_type>
@@ -245,12 +244,13 @@ main(int argc, char** argv)
 	auto move = [&, &st=st] (auto& cell)
 	{
 		auto [n, m] = linalg::size(cell.x);
-		auto v = interpolate(n * m / domain.dimensions, cell.x, st.u);
+		auto pts = n * m / domain.dimensions;
+		auto v = interpolate(pts, cell.x, st.u);
 		cell.x += (double) k * std::move(v);
 	};
 
 	int err = 0;
-	write(st, {rbcs.x, ecs.x});
+	write(st, false, rbcs, ecs);
 	while (t < tmax) {
 		util::logging::info("simulation time: ", t);
 		try {
@@ -263,10 +263,10 @@ main(int argc, char** argv)
 			break;
 		}
 		move(rbcs); move(ecs);
-		write(st, {rbcs.x, ecs.x});
+		write(st, false, rbcs, ecs);
 		t = st.t;
 	}
-	write(st, {rbcs.x, ecs.x}, true);
+	write(st, true, rbcs, ecs);
 
 	return err;
 }

@@ -12,13 +12,9 @@ namespace bases {
 // Each of the bracketed terms is generally "nice".
 //
 // This only implements up to second derivatives.
-template <typename basic_function, typename metric>
+template <meta::basic basic, meta::metric metric>
 struct rbf : differentiable {
-	static_assert(is_basic_function_v<basic_function>,
-			"basic functions should inherit from bases::basic_function");
-	static_assert(is_metric_v<metric>,
-			"metrics should inherit from bases::metric");
-	basic_function phi;
+	basic phi;
 	metric distance;
 
 	template <std::size_t n>
@@ -59,15 +55,17 @@ struct rbf : differentiable {
 		return eval(xs, xd, p);
 	}
 
-	constexpr rbf(basic_function phi, metric distance) :
+	constexpr rbf(basic phi, metric distance) :
 		phi(phi), distance(distance) {}
 };
 
 template <typename> struct is_rbf : std::false_type {};
-template <typename basic_function, typename metric>
-struct is_rbf<rbf<basic_function, metric>> : std::true_type {};
+template <meta::basic basic, meta::metric metric>
+struct is_rbf<rbf<basic, metric>> : std::true_type {};
 
 template <typename T>
 inline constexpr bool is_rbf_v = is_rbf<T>::value;
+
+namespace meta { template <typename T> concept rbf = is_rbf_v<T>; }
 
 } // namespace bases

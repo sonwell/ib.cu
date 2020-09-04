@@ -11,7 +11,7 @@ using operation_adaptor = util::adaptor<
 			CUSPARSE_OPERATION_NON_TRANSPOSE,
 			CUSPARSE_OPERATION_TRANSPOSE,
 			CUSPARSE_OPERATION_CONJUGATE_TRANSPOSE>,
-	util::enum_container<cuda::operation,
+	util::enum_container<operation,
 			operation::non_transpose,
 			operation::transpose,
 			operation::conjugate_transpose>>;

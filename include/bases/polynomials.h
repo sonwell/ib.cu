@@ -237,4 +237,10 @@ struct is_polynomial_basis<polynomial_subset<degree, util::sequence<int, ns...>>
 template <typename T>
 inline constexpr bool is_polynomial_basis_v = is_polynomial_basis<T>::value;
 
+namespace meta {
+
+template <typename T> concept polynomial = is_polynomial_basis_v<T>;
+
+}
+
 } // namespace bases

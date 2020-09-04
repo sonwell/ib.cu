@@ -12,10 +12,11 @@
 namespace bases {
 namespace shapes {
 
-template <std::size_t n>
+using namespace bases::meta;
+
 struct spherical_metric : bases::metric {
 private:
-	template <int ... cnts>
+	template <std::size_t n, int ... cnts>
 	constexpr double
 	eval(const double (&xs)[n], const double (&xd)[n],
 			util::sequence<int, cnts...>) const
@@ -39,7 +40,7 @@ private:
 		return t;
 	}
 public:
-	template <int ... ds>
+	template <std::size_t n, int ... ds>
 	constexpr double
 	operator()(const double (&xs)[n], const double (&xd)[n],
 			partials<ds...> p = partials<>()) const
@@ -58,7 +59,7 @@ private:
 	static constexpr bases::traits<sphere> traits;
 	using base = closed_surface<2>;
 public:
-	using metric = spherical_metric<2>;
+	using metric = spherical_metric;
 protected:
 	using base::shape;
 	using base::weights;
@@ -66,17 +67,13 @@ protected:
 	static constexpr auto pi = M_PI;
 	static constexpr metric d{};
 
-	template <typename traits_type, typename interp, typename eval, typename poly,
-			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
-			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>,
-			 typename = std::enable_if_t<bases::is_polynomial_basis_v<poly>>>
-	sphere(int nd, int ns, bases::traits<traits_type> tr, interp phi, eval psi, poly p) :
+	template <meta::traits traits, meta::basic interp,
+	          meta::basic eval, meta::polynomial poly>
+	sphere(int nd, int ns, traits tr, interp phi, eval psi, poly p) :
 		base(nd, ns, tr, phi, bases::scaled{psi, 1.0, phi(2) / psi(2)}, d, p) {}
 
-	template <typename traits_type, typename basic, typename poly,
-			 typename = std::enable_if_t<bases::is_basic_function_v<basic>>,
-			 typename = std::enable_if_t<bases::is_polynomial_basis_v<poly>>>
-	sphere(int nd, int ns, bases::traits<traits_type> tr, basic phi, poly p) :
+	template <meta::traits traits, meta::basic basic, meta::polynomial poly>
+	sphere(int nd, int ns, traits tr, basic phi, poly p) :
 		sphere(nd, ns, tr, phi, phi, p) {}
 public:
 	static matrix
@@ -123,14 +120,12 @@ public:
 		return base::weights(x, d, weight);
 	}
 
-	template <typename interp, typename eval, typename poly = polynomials<0>,
-	          typename = std::enable_if_t<bases::is_basic_function_v<interp> &&
-	                                      bases::is_basic_function_v<eval>   &&
-	                                      bases::is_polynomial_basis_v<poly>>>
+	template <meta::basic interp, meta::basic eval,
+	          meta::polynomial poly = polynomials<0>>
 	sphere(int nd, int ns, interp phi, eval psi, poly p = {}) :
 		sphere(nd, ns, traits, phi, psi, p) {}
 
-	template <typename basic, typename poly = polynomials<0>>
+	template <meta::basic basic, meta::polynomial poly = polynomials<0>>
 	sphere(int nd, int ns, basic phi, poly p = {}) :
 		sphere(nd, ns, phi, phi, p) {}
 };
@@ -140,7 +135,7 @@ private:
 	static constexpr bases::traits<circle> traits;
 	using base = closed_surface<1>;
 public:
-	using metric = spherical_metric<1>;
+	using metric = spherical_metric;
 protected:
 	using base::shape;
 	using base::weights;
@@ -148,15 +143,12 @@ protected:
 	static constexpr auto pi = M_PI;
 	static constexpr metric d{};
 
-	template <typename traits_type, typename interp, typename eval, typename poly,
-	          typename = std::enable_if_t<bases::is_basic_function_v<interp> &&
-	                                      bases::is_basic_function_v<eval>   &&
-	                                      bases::is_polynomial_basis_v<poly>>>
-	circle(int nd, int ns, bases::traits<traits_type> tr, interp phi, eval psi, poly p) :
+	template <meta::traits traits, meta::basic interp, meta::basic eval, meta::polynomial poly>
+	circle(int nd, int ns, traits tr, interp phi, eval psi, poly p) :
 		base(nd, ns, tr, phi, bases::scaled{psi, 1.0, phi(2) / psi(2)}, d, p) {}
 
-	template <typename traits_type, typename basic, typename poly>
-	circle(int nd, int ns, bases::traits<traits_type> tr, basic phi, poly p) :
+	template <meta::traits traits, meta::basic basic, meta::polynomial poly>
+	circle(int nd, int ns, traits tr, basic phi, poly p) :
 		circle(nd, ns, tr, phi, phi, p) {}
 public:
 	static matrix
@@ -195,14 +187,12 @@ public:
 		return base::weights(x, d, weight);
 	}
 
-	template <typename interp, typename eval, typename poly = polynomials<0>,
-	          typename = std::enable_if_t<bases::is_basic_function_v<interp> &&
-	                                      bases::is_basic_function_v<eval>   &&
-	                                      bases::is_polynomial_basis_v<poly>>>
+	template <meta::basic interp, meta::basic eval,
+	          meta::polynomial poly = polynomials<0>>
 	circle(int nd, int ns, interp phi, eval psi, poly p = {}) :
 		circle(nd, ns, traits, phi, psi, p) {}
 
-	template <typename basic, typename poly = polynomials<0>>
+	template <meta::basic basic, meta::polynomial poly = polynomials<0>>
 	circle(int nd, int ns, basic phi, poly p = {}) :
 		circle(nd, ns, phi, phi, p) {}
 };

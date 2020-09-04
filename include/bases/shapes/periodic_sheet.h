@@ -6,6 +6,8 @@
 namespace bases {
 namespace shapes {
 
+using namespace bases::meta;
+
 // The periodic sheet is like a torus, but it is unrolled flat, so uses up to
 // linear polynomials to compute its geometry.
 struct periodic_sheet : torus {
@@ -14,14 +16,11 @@ private:
 	static constexpr bases::polynomials<1> p;
 protected:
 	using torus::shape;
-	template <typename traits, typename interp, typename eval,
-			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
-			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>>
+	template <meta::traits traits, meta::basic interp, meta::basic eval>
 	periodic_sheet(int n, int m, traits tr, interp phi, eval psi) :
 		torus(n, m, tr, phi, psi, p) {}
 
-	template <typename traits, typename basic,
-			 typename = std::enable_if_t<bases::is_basic_function_v<basic>>>
+	template <meta::traits traits, meta::basic basic>
 	periodic_sheet(int n, int m, traits tr, basic phi) :
 		periodic_sheet(n, m, tr, phi, phi, p) {}
 public:
@@ -49,14 +48,11 @@ public:
 		return x;
 	}
 
-	template <typename interp, typename eval,
-			 typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
-			 typename = std::enable_if_t<bases::is_basic_function_v<eval>>>
+	template <meta::basic interp, meta::basic eval>
 	periodic_sheet(int n, int m, interp phi, eval psi) :
 		periodic_sheet(n, m, traits, phi, psi) {}
 
-	template <typename basic,
-			 typename = std::enable_if_t<bases::is_basic_function_v<basic>>>
+	template <meta::basic basic>
 	periodic_sheet(int n, int m, basic phi) :
 		periodic_sheet(n, m, traits, phi, phi) {}
 };

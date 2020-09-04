@@ -1,4 +1,5 @@
 #pragma once
+#include <type_traits>
 
 namespace bases {
 
@@ -29,5 +30,11 @@ struct traits {
 		return shape_type::weights(args...);
 	}
 };
+
+template <typename> struct is_traits : std::false_type {};
+template <typename T> struct is_traits<traits<T>> : std::true_type {};
+template <typename T> inline constexpr bool is_traits_v = is_traits<T>::value;
+
+namespace meta { template <typename T> concept traits = is_traits_v<T>; }
 
 }

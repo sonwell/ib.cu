@@ -14,9 +14,9 @@
 int
 main(void)
 {
-	constexpr fd::dimension x(100_mm, fd::boundary::periodic());
-	constexpr fd::dimension y(100_mm, fd::boundary::dirichlet());
-	constexpr fd::dimension z(100_mm, fd::boundary::periodic());
+	constexpr fd::dimension x(100_mm, fd::boundary::periodic);
+	constexpr fd::dimension y(100_mm, fd::boundary::dirichlet);
+	constexpr fd::dimension z(100_mm, fd::boundary::periodic);
 
 	constexpr fd::domain domain(fd::centered(8), x, y, z);
 

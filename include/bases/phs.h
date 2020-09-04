@@ -9,8 +9,8 @@ namespace bases {
 //
 //     ɸ(r) = r^n, n odd
 //     ɸ(r) = r^n log r, n even
-//
-template <unsigned int n>
+
+template <unsigned n>
 struct polyharmonic_spline : basic_function {
 private:
 	static constexpr
@@ -45,7 +45,7 @@ public:
 	}
 };
 
-template <unsigned int n>
+template <unsigned n>
 using phs = polyharmonic_spline<n>;
 
 } // namespace bases

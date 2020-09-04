@@ -228,31 +228,29 @@ private:
 public:
 	template <typename ub_type, typename force_fn>
 	state
-	operator()(state st, ub_type&& ub, const force_fn& forces)
+	operator()(state st, const ub_type& ub, const force_fn& forces)
 	{
 		using namespace util::functional;
 		static constexpr auto scalem = [] (double mu)
 		{
-			return partial(map, [=] (vector v) { return mu * std::move(v); });
+			return partial(map, [=] (const vector& v) { return mu * v; });
 		};
 
-		auto&& [t, u0, p] = st;
+		const auto& [t, u0, p] = st;
 		// Search for a suitable timestep
 		auto [k, f] = step_helper(0.5, t, u0, forces);
 		timestep = k;
-		util::logging::info("timestep: ", k);
 
-		auto u_scale = length_scale / time_scale;
+		double u_scale = length_scale / time_scale;
 		auto nondim = scalem(1.0 / u_scale);
 		auto redim = scalem(u_scale);
 
 		auto g = nondim(std::move(f));
-		auto v0 = nondim(st.u);
-		auto vb = nondim(std::forward<ub_type>(ub));
+		auto v0 = nondim(u0);
+		auto vb = nondim(ub);
 		auto [v1, p1] = step(0.5, v0, vb, v0, g);
 		auto [v2, p2] = step(1.0, v0, vb, v1, g);
-		auto gp = grad(p2);
-		return {t+k, std::move(v2), (double) u_scale * std::move(p2)};
+		return {t+k, redim(std::move(v2)), u_scale * std::move(p2)};
 	}
 
 	template <typename tag_type>

@@ -24,58 +24,43 @@ struct geometry {
 public:
 	static constexpr auto dimensions = dims;
 private:
+	using slice = impl::slice;
 	using operators_type = operators<dimensions>;
-
-	static matrix
-	multiply(cublas::handle& k, const matrix& op, const matrix& x)
-	{
-		static constexpr double alpha = 1.0;
-		static constexpr double beta = 0.0;
-		matrix r{op.cols(), x.cols()};
-		cublas::operation op_a = cublas::operation::transpose;
-		cublas::operation op_b = cublas::operation::non_transpose;
-		cublas::gemm(k, op_a, op_b, op.cols(), x.cols(), x.rows(),
-				&alpha, op.values(), op.rows(), x.values(), x.rows(),
-				&beta, r.values(), r.rows());
-		return r;
-	}
-
-	static matrix
-	compute_position(cublas::handle& k, const operators_type& ops, const matrix& x)
-	{
-		const matrix& op = ops.evaluator;
-		if (!op.rows() && !op.cols()) return x;
-		return multiply(k, op, x);
-	}
 
 	template <std::size_t n>
 	static decltype(auto)
-	compute_matrices(cublas::handle& k, const std::array<matrix, n>& operators, const matrix& x)
+	compute_matrices(const std::array<slice, n>& operators, const matrix& x)
 	{
 		using namespace util::functional;
-		auto c = [] (auto&& ... args) { return std::array{std::forward<decltype(args)>(args)...}; };
-		auto f = [&] (const matrix& m) { return multiply(k, m, x); };
+		auto c = [] (auto ... args) { return std::array{std::move(args)...}; };
+		auto f = [&] (const slice& m) { return m * x; };
 		return apply(c, map(f, operators));
 	}
 
-	static decltype(auto)
-	compute_tangents(cublas::handle& k, const operators_type& ops, const matrix& x)
+	static matrix
+	compute_position(const operators_type& ops, const matrix& x)
 	{
-		return compute_matrices(k, ops.first_derivatives, x);
+		const matrix& op = ops.evaluator;
+		if (!op.rows() && !op.cols()) return x;
+		return op * x;
 	}
 
 	static decltype(auto)
-	compute_second_derivatives(cublas::handle& k, const operators_type& ops, const matrix& x)
+	compute_tangents(const operators_type& ops, const matrix& x)
 	{
-		return compute_matrices(k, ops.second_derivatives, x);
+		return compute_matrices(ops.first_derivatives, x);
+	}
+
+	static decltype(auto)
+	compute_second_derivatives(const operators_type& ops, const matrix& x)
+	{
+		return compute_matrices(ops.second_derivatives, x);
 	}
 
 	using tangents_type = decltype(compute_tangents(
-				std::declval<cublas::handle&>(),
 				std::declval<operators_type>(),
 				std::declval<matrix>()));
 	using seconds_type = decltype(compute_second_derivatives(
-				std::declval<cublas::handle&>(),
 				std::declval<operators_type>(),
 				std::declval<matrix>()));
 	typedef struct {
@@ -90,11 +75,10 @@ private:
 	compute(const operators_type& ops, const matrix& x)
 	{
 		using namespace util::functional;
-		cublas::handle hdl;
 		auto& w = ops.weights;
-		auto y = compute_position(hdl, ops, x);
-		auto tangents = compute_tangents(hdl, ops, x);
-		auto seconds = compute_second_derivatives(hdl, ops, x);
+		auto y = compute_position(ops, x);
+		auto tangents = compute_tangents(ops, x);
+		auto seconds = compute_second_derivatives(ops, x);
 
 		auto ns = y.rows();
 		auto nc = x.cols() / (dimensions + 1);

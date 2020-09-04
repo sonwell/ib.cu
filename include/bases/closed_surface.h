@@ -3,6 +3,7 @@
 #include "polynomials.h"
 #include "phs.h"
 #include "surface.h"
+#include "traits.h"
 
 namespace bases {
 
@@ -33,8 +34,7 @@ protected:
 		return v;
 	}
 
-	template <typename metric, typename weight,
-	          typename = std::enable_if_t<is_metric_v<metric>>>
+	template <meta::metric metric, typename weight>
 	static vector
 	weights(const matrix& x, metric distance, weight w)
 	{
@@ -66,16 +66,14 @@ protected:
 		return scale(x, solve(lu, vector{n+1, linalg::fill(f)}), w);
 	}
 
-	template <typename traits_type, typename interp, typename eval, typename metric, typename poly,
-	          typename = std::enable_if_t<is_basic_function_v<interp> &&
-	                                      is_basic_function_v<eval>   &&
-	                                      is_metric_v<metric>         &&
-	                                      is_polynomial_basis_v<poly>>>
-	closed_surface(int nd, int ns, traits<traits_type> tr, interp phi, eval psi, metric d, poly p) :
+	template <meta::traits traits, meta::basic interp, meta::basic eval,
+	          meta::metric metric, meta::polynomial poly>
+	closed_surface(int nd, int ns, traits tr, interp phi, eval psi, metric d, poly p) :
 		surface<dims>(nd, ns, tr, phi, psi, d, p) {}
 
-	template <typename traits_type, typename basic, typename metric, typename poly>
-	closed_surface(int nd, int ns, traits<traits_type> tr, basic phi, metric d, poly p) :
+	template <meta::traits traits, meta::basic basic, meta::metric metric,
+	          meta::polynomial poly>
+	closed_surface(int nd, int ns, traits tr, basic phi, metric d, poly p) :
 		closed_surface(nd, ns, tr, phi, phi, d, p) {}
 };
 

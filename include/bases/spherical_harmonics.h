@@ -8,7 +8,7 @@
 namespace bases {
 
 template <unsigned degree>
-class spherical_harmonics {
+class spherical_harmonics : differentiable {
 	static constexpr auto np = (degree+1) * (degree+1);
 private:
 	static constexpr auto

@@ -12,8 +12,8 @@ struct surface {
 public:
 	static constexpr auto dimensions = dims;
 private:
-	using operators_type = operators<dimensions>;
-	using geometry_type = geometry<dimensions>;
+	using operators = bases::operators<dimensions>;
+	using geometry = bases::geometry<dimensions>;
 
 	typedef struct {
 		matrix sites;
@@ -49,7 +49,7 @@ private:
 		};
 	}
 
-	template <typename interp, typename eval, typename poly>
+	template <meta::rbf interp, meta::rbf eval, meta::polynomial poly>
 	surface(int nd, int ns, info info, interp phi, eval psi, poly p) :
 		num_data_sites(nd), num_sample_sites(ns),
 		data_to_data(info.data.sites, info.data.sites,
@@ -59,8 +59,9 @@ private:
 		data_geometry(data_to_data, info.positions),
 		sample_geometry(data_to_sample, info.positions) {}
 
-	template <typename traits_type, typename interp, typename eval, typename poly>
-	surface(int nd, int ns, traits<traits_type> tr, interp phi, eval psi, poly p) :
+	template <meta::traits traits, meta::rbf interp, meta::rbf eval,
+	          meta::polynomial poly>
+	surface(int nd, int ns, traits tr, interp phi, eval psi, poly p) :
 		surface(nd, ns, get_info(nd, ns, tr), phi, psi, p) {}
 protected:
 	template <typename f_type>
@@ -87,21 +88,25 @@ protected:
 public:
 	int num_data_sites;
 	int num_sample_sites;
-	operators_type data_to_data;
-	operators_type data_to_sample;
-	geometry_type data_geometry;
-	geometry_type sample_geometry;
+	operators data_to_data;
+	operators data_to_sample;
+	geometry data_geometry;
+	geometry sample_geometry;
 
-	template <typename traits_type, typename interp, typename eval, typename metric, typename poly>
-	surface(int nd, int ns, traits<traits_type> tr, interp phi, eval psi, metric d, poly p) :
+	template <meta::traits traits, meta::basic interp, meta::basic eval,
+	          meta::metric metric, meta::polynomial poly>
+	surface(int nd, int ns, traits tr, interp phi, eval psi, metric d, poly p) :
 		surface(nd, ns, tr, rbf{phi, d}, rbf{psi, d}, p) {}
 
-	template <typename traits_type, typename basic, typename metric, typename poly,
-	          typename = std::enable_if_t<is_basic_function_v<basic> &&
-	                                      is_metric_v<metric> &&
-	                                      is_polynomial_basis_v<poly>>>
-	surface(int nd, int ns, traits<traits_type> tr, basic phi, metric d, poly p) :
+	template <meta::traits traits, meta::basic basic, meta::metric metric,
+	          meta::polynomial poly>
+	surface(int nd, int ns, traits tr, basic phi, metric d, poly p) :
 		surface(nd, ns, tr, phi, phi, d, p) {}
 };
+
+template <typename T> struct is_shape : std::is_base_of<surface<T::dimensions>, T> {};
+template <typename T> inline constexpr auto is_shape_v = is_shape<T>::value;
+
+namespace meta { template <typename T> concept shape = is_shape_v<T>; }
 
 }

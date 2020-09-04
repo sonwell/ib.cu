@@ -57,20 +57,6 @@ struct bending {
 	units::energy modulus;
 	bool preferred;
 
-	decltype(auto)
-	multiply(cublas::handle& k, const matrix& op, const matrix& x) const
-	{
-		static constexpr double alpha = 1.0;
-		static constexpr double beta = 0.0;
-		matrix r{op.cols(), x.cols()};
-		cublas::operation op_a = cublas::operation::transpose;
-		cublas::operation op_b = cublas::operation::non_transpose;
-		cublas::gemm(k, op_a, op_b, op.cols(), x.cols(), x.rows(),
-				&alpha, op.values(), op.rows(), x.values(), x.rows(),
-				&beta, r.values(), r.rows());
-		return r;
-	}
-
 	template <typename object_type>
 	decltype(auto)
 	laplacian_mean_curvature(cublas::handle& handle,
@@ -107,8 +93,8 @@ struct bending {
 		};
 		util::transform(h, n * m);
 
-		auto hu = multiply(handle, d2d.first_derivatives[0], lh);
-		auto hv = multiply(handle, d2d.first_derivatives[1], lh);
+		auto hu = d2d.first_derivatives[0] * lh;
+		auto hv = d2d.first_derivatives[1] * lh;
 
 		auto* udata = hu.values();
 		auto* vdata = hv.values();
@@ -129,8 +115,8 @@ struct bending {
 		};
 		util::transform(k, n * m);
 
-		return multiply(handle, d2s.first_derivatives[0], hu)
-		   + multiply(handle, d2s.first_derivatives[1], hv);
+		return d2s.first_derivatives[0] * hu
+		     + d2s.first_derivatives[1] * hv;
 	}
 
 	template <typename object_type>

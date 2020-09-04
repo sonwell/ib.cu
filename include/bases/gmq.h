@@ -1,6 +1,7 @@
 #pragma once
 #include <cmath>
 #include <array>
+#include "util/math.h"
 #include "differentiation.h"
 
 namespace bases {

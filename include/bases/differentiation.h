@@ -104,4 +104,12 @@ diff(base m, partials<ds...> p)
 	return derivative{m, p};
 }
 
+namespace meta {
+
+template <typename T> concept differentiable = is_differentiable_v<T>;
+template <typename T> concept metric = is_metric_v<T>;
+template <typename T> concept basic = is_basic_function_v<T>;
+
+}
+
 } // namespace bases

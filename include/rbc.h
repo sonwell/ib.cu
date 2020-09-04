@@ -5,7 +5,7 @@
 #include "bases/types.h"
 #include "bases/shapes/sphere.h"
 #include "bases/traits.h"
-#include "bases/polynomials.h"
+#include "bases/spherical_harmonics.h"
 #include "units.h"
 
 struct rbc : bases::shapes::sphere {
@@ -14,7 +14,7 @@ private:
 	using vector = bases::vector;
 	using base = bases::shapes::sphere;
 	static constexpr bases::traits<rbc> traits;
-	static constexpr bases::polynomials<0> p;
+	static constexpr bases::spherical_harmonics<5> p;
 public:
 	static matrix
 	shape(const matrix& params)

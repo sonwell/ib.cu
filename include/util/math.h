@@ -175,8 +175,8 @@ pow(double b, value_type e)
 {
 	using limits = std::numeric_limits<value_type>;
 	constexpr auto digits = limits::digits;
-	constexpr auto mask0 = (1ull << (digits-1));
-	constexpr auto mask = mask0 + (mask0 - 1);
+	constexpr auto mask0 = (value_type(1) << (digits-1));
+	constexpr auto mask = mask0 + (mask0 - 1); // (2 * mask0 - 1) would overflow
 	double v = 1.0;
 	for (int i = impl::msb(e & mask); i >= 0; --i) {
 		v *= v;

@@ -280,7 +280,7 @@ operator<<(std::ostream& out, const device& d)
 		out << "  total global memory: " << (global_memory/1000000.) << "MB" << std::endl;
 	else if (global_memory > (1<<10))
 		out << "  total global memory: " << (global_memory/1000.) << "KB" << std::endl;
-	else 
+	else
 		out << "  total global memory: " << global_memory << "B" << std::endl;
 	out << "  total constant memory: " << d.total_constant_memory << std::endl;
 	out << "  global memory bus width: " << d.global_memory_bus_width << " bits" << std::endl;

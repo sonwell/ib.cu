@@ -192,7 +192,7 @@ private:
 	}
 
 	typedef struct {
-		slice restrictor;
+		slice evaluator;
 		fdtype first;
 		sdtype second;
 	} ops_type;
@@ -230,7 +230,6 @@ public:
 	int data_sites;
 	int sample_sites;
 	slice evaluator;
-	slice restrictor;
 	fdtype first_derivatives;
 	sdtype second_derivatives;
 	vector weights;

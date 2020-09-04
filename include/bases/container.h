@@ -5,6 +5,7 @@
 #include "bases/operators.h"
 #include "bases/geometry.h"
 #include "bases/transforms.h"
+#include "algo/qr.h"
 
 namespace bases {
 namespace impl {
@@ -91,6 +92,57 @@ struct arrayifier {
 	}
 };
 
+struct position {
+private:
+	util::getset<matrix&> x;
+	algo::qr_factorization qr;
+public:
+	template <typename get_type, typename set_type>
+	position(get_type get, set_type set, matrix m) :
+		x{get, set}, qr(algo::qr(std::move(m))) {}
+
+	position& operator=(const matrix& other) { x = other; return *this; }
+	position& operator=(matrix&& other) { x = std::move(other); return *this; }
+
+	position&
+	operator+=(const matrix& other)
+	{
+		x += solve(qr, other);
+		return *this;
+	}
+
+	position&
+	operator-=(const matrix& other)
+	{
+		x -= solve(qr, other);
+		return *this;
+	}
+
+	position&
+	operator*=(double a)
+	{
+		x *= a;
+		return *this;
+	}
+
+	position&
+	operator/=(double a)
+	{
+		x /= a;
+		return *this;
+	}
+
+	operator matrix&() { return x; }
+	operator const matrix&() const { return x; }
+};
+
+template <typename fmt_type>
+linalg::io::formatting::writer<fmt_type>
+operator<<(linalg::io::formatting::writer<fmt_type> wr, const position& p)
+{
+	return wr << (matrix&) p;
+}
+
 } // namespace impl
 
 using impl::ref;
@@ -157,14 +209,16 @@ public:
 	container(const reference_type& ref, const matrix& x) :
 		base{ref, x},
 		x{[&] () -> matrix& { return get_x(); },
-		  [&] (const matrix& x) { set_x(x); }} {}
+		  [&] (const matrix& x) { set_x(x); },
+		  ref.data_to_sample.evaluator} {}
 
 	container(const reference_type& ref) :
 		base{ref},
 		x{[&] () -> matrix& { return get_x(); },
-		  [&] (const matrix& x) { set_x(x); }} {}
+		  [&] (const matrix& x) { set_x(x); },
+		  ref.data_to_sample.evaluator} {}
 
-	util::getset<matrix&> x;
+	impl::position x;
 };
 
 } // namespace bases

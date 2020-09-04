@@ -27,7 +27,7 @@ private:
 	coefficients(int r)
 	{
 		int m = n;
-		std::array<int, 2> v = {(n+1)%2, n%2};
+		std::array<int, 2> v = {(n+1)&1, n&1};
 		for (int i = r; i > 0; --i, m-=2)
 			v = {m * v[0], m * v[1] + v[0]};
 		return v;

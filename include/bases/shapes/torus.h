@@ -66,7 +66,7 @@ protected:
 	torus(int nd, int ns, traits tr, interp phi, eval psi, poly p) :
 		closed_surface(nd, ns, tr, phi, bases::scaled{psi, 1.0, phi(2) / psi(2)}, d, p) {}
 
-	template <meta::traits, meta::basic basic, meta::polynomial poly>
+	template <meta::traits traits, meta::basic basic, meta::polynomial poly>
 	torus(int nd, int ns, traits tr, basic phi, poly p) :
 		torus(nd, ns, tr, phi, phi, p) {}
 public:

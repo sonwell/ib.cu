@@ -203,20 +203,10 @@ private:
 			interp phi, eval psi, poly p)
 	{
 		ops_type ops;
-		{
-			auto lu = algo::lu(fill<dimensions>(xd, phi, p));
-			ops.evaluator = compute_evaluator(xd, xs, phi, p, lu);
-			ops.first = compute_first_derivatives(xd, xs, phi, p, lu, seq);
-			ops.second = compute_second_derivatives(xd, xs, phi, p, lu, seq);
-		}
-
-		if (&xs == &xd)
-			ops.restrictor = ops.evaluator;
-		else {
-			auto lu = algo::lu(fill<dimensions>(xs, phi, p));
-			ops.restrictor = compute_evaluator(xs, xd, phi, p, lu);
-		}
-
+		auto lu = algo::lu(fill<dimensions>(xd, phi, p));
+		ops.evaluator = compute_evaluator(xd, xs, phi, p, lu);
+		ops.first = compute_first_derivatives(xd, xs, phi, p, lu, seq);
+		ops.second = compute_second_derivatives(xd, xs, phi, p, lu, seq);
 		return ops;
 	}
 

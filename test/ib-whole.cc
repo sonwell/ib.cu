@@ -201,7 +201,7 @@ main(int argc, char** argv)
 	constexpr ib::novel::interpolate interpolate{mac, domain, phi};
 
 	constexpr bases::polyharmonic_spline<7> sharp;
-	rbc rbc{8832, 15000, sharp};
+	rbc rbc{1200, 15000, sharp};
 	endothelium endothelium{4096, 16000, sharp};
 
 	auto [st, ub, rx, ex] = initialize(mac, domain, shear_rate,
@@ -217,18 +217,13 @@ main(int argc, char** argv)
 	auto forces_of = [&] (const auto& cell, const auto& forces,
 			const units::time k, const auto& u)
 	{
-		using bases::current;
-		auto& x = cell.geometry(current).data.position;
-		auto [n, m] = linalg::size(x);
-		auto w = interpolate(n * m / domain.dimensions, x, u);
-		auto z = (double) k * std::move(w) + x;
-
 		const auto& ref = bases::ref(cell);
-		bases::container tmp{ref, std::move(z)};
-		auto f = forces(cell);
-		auto& y = tmp.geometry(current).sample.position;
-		auto [r, s] = linalg::size(y);
-		return spread(r * s / domain.dimensions, y, f);
+		auto [n, m] = linalg::size(cell.x);
+		auto pts = n * m / domain.dimensions;
+		auto w = interpolate(pts, cell.x, u);
+		auto y = cell.x + (double) k * std::move(w);
+		bases::container tmp{ref, std::move(y)};
+		return spread(pts, tmp.x, forces(tmp));
 	};
 
 	auto forces = [&, &st=st] (units::time tn, const auto& v)

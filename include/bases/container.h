@@ -118,23 +118,25 @@ public:
 		return *this;
 	}
 
-	position&
-	operator*=(double a)
-	{
-		x *= a;
-		return *this;
-	}
-
-	position&
-	operator/=(double a)
-	{
-		x /= a;
-		return *this;
-	}
-
+	operator linalg::size() const { return linalg::size(x); }
 	operator matrix&() { return x; }
 	operator const matrix&() const { return x; }
+
+	friend matrix operator+(const position&, const matrix&);
+	friend matrix operator-(const position&, const matrix&);
 };
+
+inline matrix
+operator+(const position& p, const matrix& m)
+{
+	return p.x + solve(p.qr, m);
+}
+
+inline matrix
+operator-(const position& p, const matrix& m)
+{
+	return p.x + solve(p.qr, m);
+}
 
 template <typename fmt_type>
 linalg::io::formatting::writer<fmt_type>

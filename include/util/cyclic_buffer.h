@@ -30,8 +30,8 @@ public:
 		it_type& operator*() const { return buffer[index % capacity]; };
 		iterator& operator++() { inc(); return *this; };
 		iterator operator++(int) { iterator cpy = *this; inc(); return cpy; }
-		bool operator==(const iterator& o) { return buffer + index == o.buffer + o.index; }
-		bool operator!=(const iterator& o) { return !operator==(o); }
+		bool operator==(const iterator& o) const { return buffer + index == o.buffer + o.index; }
+		bool operator!=(const iterator& o) const { return !operator==(o); }
 
 		iterator(std::size_t index, it_type* buffer) :
 			index(index), buffer(buffer) {}

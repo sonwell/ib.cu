@@ -213,16 +213,23 @@ main(int argc, char** argv)
 	binary_writer write;
 	units::time t = 0, tmax = 100_ms, k = kmin;
 
+	auto pts = [&] (const matrix& x)
+	{
+		using domain_type = decltype(domain);
+		constexpr auto dimensions = domain_type::dimensions;
+		auto [r, c] = linalg::size(x);
+		return r * c / dimensions;
+	};
+
 	auto forces_of = [&] (const auto& cell, const auto& forces,
 			const units::time k, const auto& u)
 	{
 		const auto& ref = bases::ref(cell);
-		auto [n, m] = linalg::size(cell.x);
-		auto pts = n * m / domain.dimensions;
-		auto w = interpolate(pts, cell.x, u);
+		auto w = interpolate(pts(cell.x), cell.x, u);
 		auto y = cell.x + (double) k * std::move(w);
 		bases::container tmp{ref, std::move(y)};
-		return spread(pts, tmp.x, forces(tmp));
+		const auto& z = tmp.geometry(bases::current).sample.position;
+		return spread(pts(z), z, forces(tmp));
 	};
 
 	auto forces = [&, &st=st] (units::time tn, const auto& v)
@@ -243,9 +250,7 @@ main(int argc, char** argv)
 
 	auto move = [&, &st=st] (auto& cell)
 	{
-		auto [n, m] = linalg::size(cell.x);
-		auto pts = n * m / domain.dimensions;
-		auto v = interpolate(pts, cell.x, st.u);
+		auto v = interpolate(pts(cell.x), cell.x, st.u);
 		cell.x += (double) k * std::move(v);
 	};
 

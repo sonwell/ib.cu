@@ -25,6 +25,9 @@ struct qr_factorization {
 inline qr_factorization
 qr(dense_matrix m)
 {
+	if (!m.rows())
+		return {std::move(m), nullptr, nullptr};
+
 	int buffer_size;
 	cusolver::dense::handle h;
 	cuda::stream stream;

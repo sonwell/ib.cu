@@ -139,19 +139,16 @@ struct container : impl::base_container<reference_type> {
 private:
 	using base = impl::base_container<reference_type>;
 
-	matrix& get_x() { return base::sample.position; }
+	matrix& get_x() { return base::data.position; }
 
 	void
 	set_x(const matrix& x)
 	{
 		// Update geometric information when the positions are updated
-		auto y = solve(qr, x);
 		const auto& [data, sample] = base::operators();
-		base::data = {data, y};
-		base::sample = {sample, y};
+		base::data = {data, x};
+		base::sample = {sample, x};
 	}
-
-	algo::qr_factorization qr;
 public:
 	container(const reference_type& ref) :
 		container(ref, matrix{}) {}
@@ -162,7 +159,6 @@ public:
 
 	container(const reference_type& ref, const matrix& x) :
 		base{ref, x},
-		qr(algo::qr(ref.data_to_sample.evaluator)),
 		x{[&] () -> matrix& { return get_x(); },
 		  [&] (const matrix& x) { set_x(x); }} {}
 

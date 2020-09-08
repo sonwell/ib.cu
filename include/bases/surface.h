@@ -26,27 +26,23 @@ private:
 		matrix positions;
 	} info;
 
-	template <typename traits_type>
+	template <meta::traits traits>
 	static partial_info
-	do_sample(int n, traits<traits_type>)
+	do_sample(int n, traits)
 	{
-		auto sites = traits<traits_type>::sample(n);
-		auto weights = traits<traits_type>::weights(sites);
+		auto sites = traits::sample(n);
+		auto weights = traits::weights(sites);
 		return {std::move(sites), std::move(weights)};
 	}
 
-	template <typename traits_type>
+	template <meta::traits traits>
 	static info
-	get_info(int nd, int ns, traits<traits_type> tr)
+	get_info(int nd, int ns, traits tr)
 	{
 		auto data = do_sample(nd, tr);
 		auto sample = nd == ns ?  data : do_sample(ns, tr);
-		auto x = traits<traits_type>::shape(data.sites);
-		return {
-			std::move(data),
-			std::move(sample),
-			std::move(x),
-		};
+		auto x = traits::shape(data.sites);
+		return {std::move(data), std::move(sample), std::move(x)};
 	}
 
 	template <meta::rbf interp, meta::rbf eval, meta::polynomial poly>

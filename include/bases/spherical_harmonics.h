@@ -31,12 +31,9 @@ private:
 		// of Derivatives of Legendre Functions." (2000).
 		if constexpr (d != 0) {
 			if constexpr (m == 0)
-				return - sqrt(l * (l+1) / 2) * associated<l, 1, d-1>(t);
-			else if constexpr (m == l) {
-				if constexpr (m == 1)
-					return associated<1, 0, d-1>(t);
-				return sqrt(l / 2) * associated<l, l-1, d-1>(t);
-			}
+				return -sqrt(l * (l+1) / 2) * associated<l, 1, d-1>(t);
+			else if constexpr (m == l)
+				return sqrt((l + (m == 1)) / 2) * associated<l, l-1, d-1>(t);
 			else
 				return (sqrt((l+m)*(l-m+1)) * associated<l, m-1, d-1>(t) -
 				        sqrt((l+m+1)*(l-m)) * associated<l, m+1, d-1>(t)) / 2;
@@ -44,22 +41,19 @@ private:
 		// Undifferentiated formula from Green, R. "Spherical Harmonic Lighting:
 		// The Gritty Details." (2003)
 		double pmm = sqrt(coefficient(l, m));
-		double ct = cos(t);
+		double ct = -cos(t);
 		for (unsigned i = 0; i < m; ++i)
 			pmm *= ct * (2*(m-i)-1);
 		if constexpr (l == m)
 			return pmm;
 		double st = sin(t);
-		double pm1m = (2*m+1) * st * pmm;
-		if constexpr (l == m+1)
-			return pm1m;
-		double pm2m;
+		double pm1m = (2*m+1) * st * pmm, pm2m;
 		for (int i = m+1; i < l; ++i) {
 			pm2m = ((2*i+1)*st*pm1m-(i+m)*pmm)/(i-m+1);
 			pmm = pm1m;
 			pm1m = pm2m;
 		}
-		return pm2m;
+		return pm1m;
 	}
 
 	template <unsigned l, int m, int ... ds>
@@ -73,15 +67,16 @@ private:
 		constexpr unsigned n = m < 0 ? -m : m;
 		constexpr auto d0 = util::get<0>(counts);
 		constexpr auto d1 = util::get<1>(counts);
-		double w = associated<l, n, d0>(p);
-		double v = pow((double) n, d1) * w / (4 * pi);
+		constexpr int sign = 1 - 2 * (m & 1);
+		double w = associated<l, n, d1>(p);
+		double c = pow((double) n, d0) / (4 * pi);
+		for (int i = -n+1; i < n+1; ++i)
+			c /= (l + i);
+		double v = sign * sqrt((1 + (n != 0)) * c) * w;
 		double ct = cos(n * t);
 		double st = sin(n * t);
 		double cyc[] = {st, ct, -st, -ct};
-		if constexpr (m < 0)
-			return v * cyc[(0 + d1)%4];
-		else
-			return v * cyc[(1 + d1)%4];
+		return v * cyc[(1 - (m < 0) + d0) % 4];
 	}
 
 	template <unsigned l, int ... ds>

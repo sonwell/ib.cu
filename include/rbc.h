@@ -65,14 +65,11 @@ public:
 		return m;
 	}
 
-	template <typename interp, typename eval,
-	          typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
-	          typename = std::enable_if_t<bases::is_basic_function_v<eval>>>
+	template <bases::meta::basic interp, bases::meta::basic eval>
 	rbc(int nd, int ns, interp phi, eval psi) :
 		bases::shapes::sphere(nd, ns, traits, phi, psi, p) {}
 
-	template <typename basic,
-	          typename = std::enable_if_t<bases::is_basic_function_v<basic>>>
+	template <bases::meta::basic basic>
 	rbc(int nd, int ns, basic phi) :
 		rbc(nd, ns, phi, phi) {}
 };

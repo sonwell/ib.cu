@@ -228,11 +228,10 @@ main(int argc, char** argv)
 		auto w = interpolate(pts(cell.x), cell.x, u);
 		auto y = cell.x + (double) k * std::move(w);
 		bases::container tmp{ref, std::move(y)};
-		const auto& z = tmp.geometry(bases::current).sample.position;
-		return spread(pts(z), z, forces(tmp));
+		return spread(pts(tmp.x), tmp.x, forces(tmp));
 	};
 
-	auto forces = [&, &st=st] (units::time tn, const auto& v)
+	auto forces = [&] (units::time tn, const auto& v)
 	{
 		using namespace util::functional;
 		units::time dt = tn - t;

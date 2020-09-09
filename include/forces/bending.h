@@ -66,7 +66,7 @@ struct bending {
 		using sff = second_fundamental_form;
 		using bases::current;
 		using bases::reference;
-		auto [d2d, d2s] = object.operators();
+		auto&& [d2d, d2s] = object.operators();
 		auto& curr = object.geometry(current).data;
 		auto& orig = object.geometry(reference).data;
 

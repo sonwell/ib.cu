@@ -50,7 +50,7 @@ private:
 		num_data_sites(nd), num_sample_sites(ns),
 		data_to_data(info.data.sites, info.data.sites,
 				std::move(info.data.weights), phi, phi, p),
-		data_to_sample(info.data.sites, nd == ns ? info.data.sites : info.sample.sites,
+		data_to_sample(info.data.sites, info.sample.sites,
 				std::move(info.sample.weights), phi, psi, p),
 		data_geometry(data_to_data, info.positions),
 		sample_geometry(data_to_sample, info.positions) {}

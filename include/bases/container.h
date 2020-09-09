@@ -5,97 +5,8 @@
 #include "bases/operators.h"
 #include "bases/geometry.h"
 #include "bases/transforms.h"
-#include "algo/qr.h"
 
 namespace bases {
-namespace impl {
-
-template <typename type>
-struct pair {
-	type data;
-	type sample;
-};
-
-template <typename reference_type>
-struct base_container {
-private:
-	using operator_type = decltype(reference_type::data_to_data);
-	using geometry_type = decltype(reference_type::data_geometry);
-	using operator_pair_type = pair<const operator_type&>;
-	using geometry_pair_type = pair<const geometry_type&>;
-	using reference_tag = decltype(bases::reference);
-	using current_tag = decltype(bases::current);
-public:
-	decltype(auto)
-	operators() const
-	{
-		using pair = operator_pair_type;
-		return pair {ref.data_to_data, ref.data_to_sample};
-	}
-
-	decltype(auto)
-	points() const
-	{
-		auto&& [data, sample] = operators();
-		return pair<int>{data.points, sample.points};
-	}
-
-	decltype(auto)
-	geometry(const reference_tag&) const
-	{
-		using pair = geometry_pair_type;
-		return pair{ref.data_geometry, ref.sample_geometry};
-	}
-
-	decltype(auto)
-	geometry(const current_tag&) const
-	{
-		using pair = geometry_pair_type;
-		return pair{data, sample};
-	}
-
-	base_container(const reference_type& ref) : ref{ref} {}
-	base_container(const reference_type& ref, const matrix& x) :
-		data{ref.data_to_data, x},
-		sample{ref.data_to_sample, x},
-		ref{ref} {}
-protected:
-	geometry_type data;
-	geometry_type sample;
-	const reference_type& ref;
-
-	template <typename T> friend const T& ref(const base_container<T>&);
-};
-
-template <typename reference_type>
-inline const reference_type&
-ref(const base_container<reference_type>& container)
-{
-	return container.ref;
-}
-
-struct arrayifier {
-	template <typename tuple_type>
-	constexpr decltype(auto)
-	operator()(const tuple_type& x) const
-	{
-		using namespace util::functional;
-		constexpr auto n = std::tuple_size_v<tuple_type>;
-		constexpr auto ct = [] (auto t0, auto ... args) ->
-			std::common_type_t<decltype(t0), decltype(args)...> { return t0; };
-		using array_type = std::conditional_t<(n > 0), decltype(apply(ct, x)), char>;
-		constexpr auto op = [] (auto&& ... args) constexpr
-		{
-			return std::array<array_type, n>{args...};
-		};
-		return apply(op, x);
-	}
-};
-
-} // namespace impl
-
-using impl::ref;
-
 
 template <typename reference_type, typename ... shape_fns>
 matrix
@@ -107,16 +18,32 @@ shape(const reference_type& ref, shape_fns ... fs)
 	using namespace util::functional;
 	static constexpr int n = sizeof...(fs);
 	static constexpr auto dims = reference_type::dimensions+1;
+
+	static constexpr auto arrayifier = [] __host__ __device__ (auto tuple)
+	{
+		using tuple_type = decltype(tuple);
+		constexpr auto n = std::tuple_size_v<tuple_type>;
+		constexpr auto common = [] (auto t0, auto ... args) ->
+			std::common_type_t<decltype(t0), decltype(args)...> { return t0; };
+		using value_type = std::conditional_t<(n == 0), char,
+			  decltype(apply(common, tuple))>;
+		constexpr auto op = [] (auto ... args) constexpr
+		{
+			return std::array<value_type, n>{std::move(args)...};
+		};
+		return apply(op, std::move(tuple));
+	};
+
 	using seq = std::make_integer_sequence<int, n>;
-	auto m = ref.num_data_sites;
-	const auto& y = ref.data_geometry.position;
+	auto m = ref.num_sample_sites;
+	const auto& y = ref.sample_geometry.position;
 	matrix x{m, n * dims};
 
 	auto* ydata = y.values();
 	auto* xdata = x.values();
 	auto k = [=] __device__ (int tid)
 	{
-		constexpr composition array{impl::arrayifier{}};
+		constexpr composition array{arrayifier};
 		std::array<double, dims> x;
 		for (int i = 0; i < dims; ++i)
 			x[i] = ydata[m * i + tid];
@@ -132,37 +59,124 @@ shape(const reference_type& ref, shape_fns ... fs)
 	return x;
 }
 
+namespace impl {
+
+template <typename type>
+struct pair {
+	type data, sample;
+};
+
+
+/*template <std::size_t n, typename type,
+          typename = std::enable_if_t<(n < 2)>>
+constexpr const type&
+get(const pair<type>& p)
+{
+	if constexpr (n == 0)
+		return p.data;
+	else
+		return p.sample;
+}
+
+template <std::size_t n, typename type,
+          typename = std::enable_if_t<(n < 2)>>
+constexpr type&
+get(pair<type>& p)
+{
+	if constexpr (n == 0)
+		return p.data;
+	else
+		return p.sample;
+}*/
+
+} // namespace impl
+
 // container holds geometric information for multiple copies of the reference
 // object, possibly each in different configurations.
 template <typename reference_type>
-struct container : impl::base_container<reference_type> {
+struct container {
 private:
-	using base = impl::base_container<reference_type>;
+	using reference_tag = decltype(reference);
+	using current_tag = decltype(current);
+	using operator_type = decltype(reference_type::data_to_data);
+	using geometry_type = decltype(reference_type::data_geometry);
 
-	matrix& get_x() { return base::data.position; }
+	static matrix
+	restriction(const reference_type& ref, matrix x)
+	{
+		const auto& ops = ref.data_to_sample;
+		return solve(ops.restrictor, std::move(x));
+	}
+
+	matrix& get_x() { return sample.position; }
 
 	void
 	set_x(const matrix& x)
 	{
 		// Update geometric information when the positions are updated
-		const auto& [data, sample] = base::operators();
-		base::data = {data, x};
-		base::sample = {sample, x};
+		auto y = restriction(ref, x);
+		data = {ref.data_to_data, y};
+		sample = {ref.data_to_sample, y};
+	}
+
+	impl::pair<geometry_type&>
+	geometry(const current_tag&)
+	{
+		return {data, sample};
 	}
 public:
-	container(const reference_type& ref) :
-		container(ref, matrix{}) {}
+	impl::pair<const operator_type&>
+	operators() const
+	{
+		return {ref.data_to_data, ref.data_to_sample};
+	}
+
+	impl::pair<int>
+	points() const
+	{
+		auto&& [data, sample] = operators();
+		return {data.points, sample.points};
+	}
+
+	impl::pair<const geometry_type&>
+	geometry(const reference_tag&) const
+	{
+		return {ref.data_geometry, ref.sample_geometry};
+	}
+
+	impl::pair<const geometry_type&>
+	geometry(const current_tag&) const
+	{
+		return {data, sample};
+	}
+
+	container(const reference_type& ref) : ref{ref} {}
 
 	template <typename ... shape_fns>
 	container(const reference_type& ref, shape_fns ... fns) :
-		container(ref, shape(ref, fns...)) {}
+		container{ref, shape(ref, fns...)} {}
 
 	container(const reference_type& ref, const matrix& x) :
-		base{ref, x},
-		x{[&] () -> matrix& { return get_x(); },
-		  [&] (const matrix& x) { set_x(x); }} {}
+		ref{ref} { set_x(x); }
 
-	util::getset<matrix&> x;
+protected:
+	const reference_type& ref;
+	geometry_type data;
+	geometry_type sample;
+public:
+	util::getset<matrix&> x = {
+		[&] () -> matrix& { return get_x(); },
+		[&] (const matrix&) { set_x(x); }
+	};
+
+template <typename T> friend const T& ref(const container<T>&);
 };
+
+template <typename reference_type>
+inline const reference_type&
+ref(const container<reference_type>& container)
+{
+	return container.ref;
+}
 
 } // namespace bases

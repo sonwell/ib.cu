@@ -5,6 +5,7 @@
 #include "util/functional.h"
 #include "util/debug.h"
 #include "algo/lu.h"
+#include "algo/qr.h"
 #include "types.h"
 #include "differentiation.h"
 #include "fill.h"
@@ -213,6 +214,7 @@ private:
 	operators(int nd, int ns, ops_type ops, vector weights) :
 		data_sites(nd), sample_sites(ns),
 		evaluator(std::move(ops.evaluator)),
+		restrictor(algo::qr(evaluator)),
 		first_derivatives(std::move(ops.first)),
 		second_derivatives(std::move(ops.second)),
 		weights(std::move(weights)) {}
@@ -220,6 +222,7 @@ public:
 	int data_sites;
 	int sample_sites;
 	slice evaluator;
+	algo::qr_factorization restrictor;
 	fdtype first_derivatives;
 	sdtype second_derivatives;
 	vector weights;

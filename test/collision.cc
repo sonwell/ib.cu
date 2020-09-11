@@ -24,6 +24,7 @@
 
 #include "ib/novel.h"
 #include "ib/bspline.h"
+#include "ib/cosine.h"
 
 #include "forces/skalak.h"
 #include "forces/bending.h"
@@ -37,72 +38,24 @@
 using bases::matrix;
 using bases::vector;
 
-struct state {
-	units::time t;
-	vector u, v, w;
-	vector p;
-	matrix r1, r2;
-};
-
-template <typename op_type>
-inline void
-io(op_type op)
-{
-	using namespace util::functional;
-	std::tuple fns{
-		[] (auto&& st) -> decltype(auto) { return st.t; },
-		[] (auto&& st) -> decltype(auto) { return st.u; },
-		[] (auto&& st) -> decltype(auto) { return st.v; },
-		[] (auto&& st) -> decltype(auto) { return st.w; },
-		[] (auto&& st) -> decltype(auto) { return st.p; },
-		[] (auto&& st) -> decltype(auto) { return st.r1; },
-		[] (auto&& st) -> decltype(auto) { return st.r2; }
-	};
-	map([&] (auto f) { op(f); }, fns);
-}
-
-
-std::ostream&
-operator<<(std::ostream& out, const state& st)
-{
-	io([&] (auto f) { out << linalg::io::binary << f(st); });
-	return out;
-}
-
-std::istream&
-operator>>(std::istream& in, state& st)
-{
-	io([&] (auto f) { in >> linalg::io::binary >> f(st); });
-	return in;
-}
-
 struct binary_writer {
-	static constexpr int steps_per_print = 1000;
+	units::time time = 0_s;
+	units::time interval = 0.1_ms;
 	std::ostream& output = std::cout;
-	int count = 0;
 
-	template <typename u_type>
+	template <std::size_t dimensions, typename ... object_types>
 	void
-	operator()(units::time t, const u_type& vel, const vector& p,
-			const matrix& x, const matrix& y, bool force = false)
+	operator()(const ins::state<dimensions>& state,
+			bool force, const object_types& ... objects)
 	{
-		if ((count++) % steps_per_print && !force) return;
-		auto&& [u, v, w] = vel;
-		state st{t, u, v, w, p, x};
-		operator()(st);
+		const auto& t = state.t;
+		if (force) time = t;
+		if (t < time) return;
+		time += interval;
+
+		output << linalg::io::binary << state;
+		((output << linalg::io::binary) << ... << (matrix&) objects.x);
 	}
-
-	void operator()(const state& st) { output << st; }
-
-	binary_writer(std::ostream& output = std::cout) :
-		output(output) {}
-};
-
-struct null_writer {
-	null_writer(std::ostream& = std::cout) {}
-
-	template <typename u_type>
-	void operator()(const u_type&, const vector&, const matrix&, bool = false) {}
 };
 
 template <typename tag_type, typename domain_type>
@@ -121,19 +74,21 @@ template <typename grid_type, typename domain_type, typename ref_type>
 decltype(auto)
 initialize(const grid_type& grid, const domain_type& domain, const ref_type& ref)
 {
-	state st;
+	using state = ins::state<domain_type::dimensions>;
 	auto r = grid.refinement();
+	auto h = domain.unit() / r;
+	auto u = zeros(grid, domain);
 	auto ub = zeros(grid, domain);
-	auto rot = bases::rotate(1, {1, 0, 0});
-	bases::container rbc1{ref, rot | bases::translate({8_um, 8_um, 6_um})};
-	bases::container rbc2{ref, rot | bases::translate({8_um, 8_um, 10_um})};
+	auto rot = bases::rotate(M_PI_2, {1, 0, 0});
+	auto dx = 3.91_um * sqrt((55743711 + 7501748 * sqrt(974)) / 35) / 8750;
+	auto dy = 3.91_um;
 
-	st.t = 0;
-	std::tie(st.u, st.v, st.w) = zeros(grid, domain);
-	st.p = vector{r * r * r, linalg::zero};
-	st.r1 = (matrix) rbc1.x;
-	st.r2 = (matrix) rbc2.x;
-	return std::make_pair(std::move(st), std::move(ub));
+	state st = {0_s, zeros(grid, domain), vector{r*r*r, linalg::zero}};
+	bases::container rbc1{ref, rot | bases::translate({8_um, 8_um, 8_um - dx - 1.5 * h})};
+	bases::container rbc2{ref, rot | bases::translate({8_um, 8_um, 8_um + dx + 1.5 * h})};
+
+	return std::make_tuple(std::move(st), std::move(ub),
+			(matrix) rbc1.x, (matrix) rbc2.x);
 }
 
 struct constant {
@@ -203,79 +158,75 @@ main(int argc, char** argv)
 	constexpr ib::novel::interpolate interpolate{mac, domain, phi};
 
 	constexpr bases::polyharmonic_spline<7> sharp;
-	rbc rbc{1200, 7500, sharp};
+	rbc rbc{1600, 15000, sharp};
 
-	auto [st, ub] = initialize(mac, domain, rbc);
-	units::time t = st.t;
-	std::tuple u = {std::move(st.u), std::move(st.v), std::move(st.w)};
-	vector p = std::move(st.p);
-	bases::container rbc1{rbc, std::move(st.r1)};
-	bases::container rbc2{rbc, std::move(st.r2)};
+	auto [st, ub, r1, r2] = initialize(mac, domain, rbc);
+	bases::container rbc1{rbc, std::move(r1)};
+	bases::container rbc2{rbc, std::move(r2)};
 
 	ins::solver step{mac, domain, params};
 
 	binary_writer write;
-	units::time tmax = 1_ms, k = kmin;
+	units::time t = st.t, tmax=10_ms, k = kmin;
+
+	auto pts = [&] (const matrix& x)
+	{
+		using domain_type = decltype(domain);
+		constexpr auto dimensions = domain_type::dimensions;
+		auto [r, c] = linalg::size(x);
+		return r * c / dimensions;
+	};
 
 	auto forces_of = [&] (const auto& cell, const auto& forces,
 			const units::time k, const auto& u)
 	{
-		using bases::current;
-		auto& x = cell.geometry(current).data.position;
-		auto [n, m] = linalg::size(x);
-		auto w = interpolate(n * m / domain.dimensions, x, u);
-		auto z = (double) k * std::move(w) + x;
-
 		const auto& ref = bases::ref(cell);
-		bases::container tmp{ref, std::move(z)};
-		auto f = forces(cell);
-		auto& y = tmp.geometry(current).sample.position;
-		auto [r, s] = linalg::size(y);
-		return spread(r * s / domain.dimensions, y, f);
+		auto w = interpolate(pts(cell.x), cell.x, u);
+		auto y = cell.x + (double) k * std::move(w);
+		bases::container tmp{ref, std::move(y)};
+		return spread(pts(tmp.x), tmp.x, forces(tmp));
 	};
 
-	auto f = [&] (units::time tn, const auto& v)
+	auto forces = [&] (units::time tn, const auto& v)
 	{
 		using namespace util::functional;
-		units::time dt = tn - t;
-		auto add = partial(map, std::plus<vector>{});
-		auto k = [&] (const auto& pair)
+		static constexpr std::plus<vector> plus;
+		units::time k = tn - t;
+		auto f = [&] (const auto& pair)
 		{
 			auto& [obj, fn] = pair;
-			return forces_of(obj, fn, dt, v);
+			return forces_of(obj, fn, k, v);
 		};
-		auto op = [&] (const auto& l, const auto& r) { return add(l, k(r)); };
-		auto m = [&] (const auto& f, const auto& ... r) { return foldl(op, k(f), r...); };
+		auto op = [&] (auto l, auto r)
+			{ return map(plus, std::move(l), f(r)); };
+		auto m = [&] (const auto& head, const auto& ... tail)
+			{ return foldl(op, f(head), tail...); };
 		return apply(m, zip(std::forward_as_tuple(rbc1, rbc2),
 		                    std::forward_as_tuple(rbc_f1, rbc_f2)));
 	};
 
-	int err = 0;
-	write(t, u, p, rbc1.x, rbc2.x);
+	auto move = [&, &st=st] (auto& cell)
+	{
+		auto v = interpolate(pts(cell.x), cell.x, st.u);
+		cell.x += (double) k * std::move(v);
+	};
+
+	write(st, false, rbc1, rbc2);
 	while (t < tmax) {
 		util::logging::info("simulation time: ", t);
 		try {
-			auto [tn, un, pn] = step(t, std::move(u), ub, f);
-			k = tn - t;
-			t = tn;
-			u = std::move(un);
-			p = std::move(pn);
+			st = step(std::move(st), ub, forces);
+			k = st.t - t;
+			t = st.t;
 		}
 		catch (std::runtime_error& e) {
 			util::logging::error(e.what());
-			err = 255;
-			break;
+			write(st, true, rbc1, rbc2);
+			return 255;
 		}
-		auto m = [&, &u=u] (auto& cell)
-		{
-			auto [n, m] = linalg::size(cell.x);
-			auto v = interpolate(n * m / domain.dimensions, cell.x, u);
-			cell.x += (double) k * std::move(v);
-		};
-		m(rbc1); m(rbc2);
-		write(t, u, p, rbc1.x, rbc2.x);
+		move(rbc1); move(rbc2);
+		write(st, false, rbc1, rbc2);
 	}
-	write(t, u, p, rbc1.x, rbc2.x, true);
 
-	return err;
+	return 0;
 }

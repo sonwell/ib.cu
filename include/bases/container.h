@@ -66,29 +66,6 @@ struct pair {
 	type data, sample;
 };
 
-
-/*template <std::size_t n, typename type,
-          typename = std::enable_if_t<(n < 2)>>
-constexpr const type&
-get(const pair<type>& p)
-{
-	if constexpr (n == 0)
-		return p.data;
-	else
-		return p.sample;
-}
-
-template <std::size_t n, typename type,
-          typename = std::enable_if_t<(n < 2)>>
-constexpr type&
-get(pair<type>& p)
-{
-	if constexpr (n == 0)
-		return p.data;
-	else
-		return p.sample;
-}*/
-
 } // namespace impl
 
 // container holds geometric information for multiple copies of the reference
@@ -117,12 +94,6 @@ private:
 		auto y = restriction(ref, x);
 		data = {ref.data_to_data, y};
 		sample = {ref.data_to_sample, y};
-	}
-
-	impl::pair<geometry_type&>
-	geometry(const current_tag&)
-	{
-		return {data, sample};
 	}
 public:
 	impl::pair<const operator_type&>
@@ -166,7 +137,7 @@ protected:
 public:
 	util::getset<matrix&> x = {
 		[&] () -> matrix& { return get_x(); },
-		[&] (const matrix&) { set_x(x); }
+		[&] (const matrix& x) { set_x(x); }
 	};
 
 template <typename T> friend const T& ref(const container<T>&);

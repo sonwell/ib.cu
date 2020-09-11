@@ -46,10 +46,9 @@ struct binary_writer {
 	template <std::size_t dimensions, typename ... object_types>
 	void
 	operator()(const ins::state<dimensions>& state,
-			bool force, const object_types& ... objects)
+			const object_types& ... objects)
 	{
 		const auto& t = state.t;
-		if (force) time = t;
 		if (t < time) return;
 		time += interval;
 
@@ -211,21 +210,18 @@ main(int argc, char** argv)
 		cell.x += (double) k * std::move(v);
 	};
 
-	write(st, false, rbc1, rbc2);
+	write(st, rbc1, rbc2);
 	while (t < tmax) {
 		util::logging::info("simulation time: ", t);
-		try {
-			st = step(std::move(st), ub, forces);
-			k = st.t - t;
-			t = st.t;
-		}
+		try { st = step(std::move(st), ub, forces); }
 		catch (std::runtime_error& e) {
 			util::logging::error(e.what());
-			write(st, true, rbc1, rbc2);
 			return 255;
 		}
+		k = st.t - t;
+		t = st.t;
 		move(rbc1); move(rbc2);
-		write(st, false, rbc1, rbc2);
+		write(st, rbc1, rbc2);
 	}
 
 	return 0;

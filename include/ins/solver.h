@@ -138,7 +138,7 @@ private:
 
 	template <typename u0_type, typename ub_type, typename u1_type, typename f_type>
 	decltype(auto)
-	step(double frac, u0_type&& u0, ub_type&& ub, const u1_type& u1, const f_type& f)
+	step(double frac, u0_type&& u0, ub_type&& ub, const u1_type& u1, const vector& q, const f_type& f)
 	{
 		using namespace util::functional;
 
@@ -147,12 +147,9 @@ private:
 		{
 			return stepper(frac, u, std::move(ub), std::move(f));
 		};
-		auto axpy = [&] (const vector& f, vector h)
+		auto axpy = [&] (const vector& f, vector dq, vector h)
 		{
-			using linalg::axpy;
-			scal(-1.0, h);
-			axpy(1 / (double) density, f, h);
-			return h;
+			return (f - std::move(dq)) / (double) density - std::move(h);
 		};
 		auto spmv = [&] (vector b, const matrix& op, const vector& dp)
 		{
@@ -160,15 +157,17 @@ private:
 			return b;
 		};
 
-		double alpha = density / (frac * timestep);
-		double beta = -0.5 / (frac * viscosity);
+		double k = frac * timestep;
+		double alpha = density / k;
+		double beta = -0.5 * viscosity / frac;
+		auto dq = grad(q);
 		auto h = apply(advect, u1);
-		auto g = map(axpy, f, std::move(h));
+		auto g = map(axpy, f, std::move(dq), std::move(h));
 		auto vb = map(spmv, ub, operators, k_grad_phi);
 		auto w = map(step, steppers, u0, std::move(vb), std::move(g));
 		auto divw = apply(div, w);
 		auto kphi = solve(poisson, divw);
-		auto p = beta * divw + alpha * kphi;
+		auto p = q + beta * divw + alpha * kphi;
 		k_grad_phi = grad(kphi);
 		w = map(std::minus<void>{}, std::move(w), k_grad_phi);
 		return std::make_pair(std::move(w), std::move(p));
@@ -248,9 +247,10 @@ public:
 		auto g = nondim(std::move(f));
 		auto v0 = nondim(u0);
 		auto vb = nondim(ub);
-		auto [v1, p1] = step(0.5, v0, vb, v0, g);
-		auto [v2, p2] = step(1.0, v0, vb, v1, g);
-		return {t+k, redim(std::move(v2)), u_scale * std::move(p2)};
+		auto q0 = p / u_scale;
+		auto [v1, q1] = step(0.5, v0, vb, v0, q0, g);
+		auto [v2, q2] = step(1.0, v0, vb, v1, q1, g);
+		return {t+k, redim(std::move(v2)), u_scale * std::move(q2)};
 	}
 
 	template <typename tag_type>

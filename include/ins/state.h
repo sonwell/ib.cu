@@ -50,7 +50,7 @@ decltype(auto)
 operator<<(writer<format_type> writer, const ins::state<dimensions>& state)
 {
 	writer << state.t;
-	for (const ib::vector& u: state.u)
+	for (const auto& u: state.u)
 		writer << u;
 	writer << state.p;
 	return writer;
@@ -61,7 +61,7 @@ decltype(auto)
 operator>>(reader<format_type> reader, ins::state<dimensions>& state)
 {
 	reader >> state.t;
-	for (ib::vector& u: state.u)
+	for (auto& u: state.u)
 		reader >> u;
 	reader >> state.p;
 	return reader;

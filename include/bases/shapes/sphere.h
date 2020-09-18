@@ -1,5 +1,7 @@
 #pragma once
 #include <cmath>
+#include <fstream>
+#include <filesystem>
 #include "util/sequences.h"
 #include "algo/lu.h"
 #include "bases/traits.h"
@@ -115,6 +117,15 @@ public:
 	static vector
 	weights(const matrix& x)
 	{
+		static std::filesystem::path root = "data";
+		std::stringstream ss; ss << "sphere.w." << x.rows() << ".bin";
+		if (std::filesystem::exists(root / ss.str())) {
+			vector w;
+			std::fstream f(root / ss.str(), std::ios::in | std::ios::binary);
+			f >> linalg::io::binary >> w;
+			return w;
+		}
+
 		static constexpr auto weight =
 			[] __device__ (const params& x) { return cos(x[1]) / (4 * pi); };
 		return base::weights(x, d, weight);

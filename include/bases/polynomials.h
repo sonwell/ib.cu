@@ -226,10 +226,22 @@ public:
 	}
 };
 
+struct no_polynomials : differentiable {
+	template <int n, int ... ds>
+	constexpr auto
+	operator()(const double (&)[n], partials<ds...> p = partials<>{}) const
+	{
+		return std::array<double, 0>{};
+	}
+};
+
 template <typename> struct is_polynomial_basis : std::false_type {};
 
 template <int degree>
 struct is_polynomial_basis<polynomials<degree>> : std::true_type {};
+
+template <>
+struct is_polynomial_basis<no_polynomials> : std::true_type {};
 
 template <int degree, int ... ns>
 struct is_polynomial_basis<polynomial_subset<degree, util::sequence<int, ns...>>> : std::true_type {};

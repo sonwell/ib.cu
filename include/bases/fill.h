@@ -104,13 +104,15 @@ fill(const matrix& x, rbf phi, poly p)
 			rdata[(nd + i) * rows + tid] = values[i];
 			rdata[tid * rows + nd + i] = values[i];
 		}
-		for (int i = tid; i < np * np; i += nd) {
-			auto row = i % np;
-			auto col = i / np;
-			rdata[(nd + col) * rows + nd + row] = 0;
-		}
+		if constexpr (np)
+			for (int i = tid; i < np * np; i += nd) {
+				auto row = i % np;
+				auto col = i / np;
+				rdata[(nd + col) * rows + nd + row] = 0;
+			}
 	};
-	util::transform<128, 8>(k, nd);
+	if constexpr (np)
+		util::transform<128, 8>(k, nd);
 	return r;
 }
 

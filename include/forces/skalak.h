@@ -36,4 +36,29 @@ struct skalak : tension {
 		shear(shear), bulk(bulk) {}
 };
 
+struct skalak1d : tension1d {
+	using energy_per_area = units::unit<0, 1, -2>;
+	energy_per_area shear;
+	energy_per_area bulk;
+
+	template <typename object_type>
+	decltype(auto)
+	operator()(const object_type& object) const
+	{
+		using container = std::array<double, 2>;
+		double e = shear;
+		double kappa = bulk;
+		auto w = [=] __device__ (double l2) -> container
+		{
+			auto w1 = e * (l2 - 1) - kappa * l2 * (l2 * l2 - 1);
+			auto w11 = e - kappa * (3 * l2 * l2 - 1);
+			return {w1, w11};
+		};
+		return tension1d::operator()(object, w);
+	}
+
+	constexpr skalak1d(energy_per_area shear, energy_per_area bulk) :
+		shear(shear), bulk(bulk) {}
+};
+
 } // namespace forces

@@ -141,7 +141,7 @@ protected:
 
 			for (int j = 0; j < 2; ++j)
 				fdata[n * j + tid] = orig.s / oi * (
-						+ (phi / i) * uu[j]
+						+ phi * uu[j]
 						- 0.5 * iu / i * phi * u[j]
 						+ phiu * u[j]
 				);

@@ -276,24 +276,24 @@ gemm(scalar<vtype> alpha, const matrix<sparse<vtype>>& a, const matrix<sparse<vt
 	axpy(alpha, tmp, c);
 }
 
-template <typename vtype>
+template <template <typename> class container, typename vtype>
 void
-hadamard(const vector<dense<vtype>>& x, vector<dense<vtype>>& y)
+hadamard(const container<dense<vtype>>& x, container<dense<vtype>>& y)
 {
 	(void) (size(x) + size(y));
 
-	auto n = x.rows();
+	auto n = x.rows() * x.cols();
 	auto* xdata = x.values();
 	auto* ydata = y.values();
 	auto k = [=] __device__ (int tid) { ydata[tid] *= xdata[tid]; };
 	util::transform<128, 8>(k, n);
 }
 
-template <typename vtype>
+template <template <typename> class container, typename vtype>
 void
-hadamard(const vector<sparse<vtype>>& x, vector<sparse<vtype>>& y)
+hadamard(const container<sparse<vtype>>& x, container<sparse<vtype>>& y)
 {
-	throw not_implemented("hadamard product is not defined for sparse vectors");
+	throw not_implemented("hadamard product is not defined for sparse containers");
 }
 
 }

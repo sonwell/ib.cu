@@ -63,12 +63,12 @@ protected:
 
 	template <meta::traits traits, meta::basic interp, meta::basic eval,
 	          meta::polynomial poly>
-	torus(int nd, int ns, traits tr, interp phi, eval psi, poly p) :
-		closed_surface(nd, ns, tr, phi, bases::scaled{psi, 1.0, phi(2) / psi(2)}, d, p) {}
+	torus(int n, traits tr, interp phi, eval psi, poly p) :
+		closed_surface(n, tr, phi, bases::scaled{psi, 1.0, phi(2) / psi(2)}, d, p) {}
 
 	template <meta::traits traits, meta::basic basic, meta::polynomial poly>
-	torus(int nd, int ns, traits tr, basic phi, poly p) :
-		torus(nd, ns, tr, phi, phi, p) {}
+	torus(int n, traits tr, basic phi, poly p) :
+		torus(n, tr, phi, phi, p) {}
 public:
 	static matrix
 	sample(int n)
@@ -122,12 +122,12 @@ public:
 
 	template <meta::basic interp, meta::basic eval,
 	          meta::polynomial poly = polynomials<0>>
-	torus(int nd, int ns, interp phi, eval psi, poly p = {}) :
-		torus(nd, ns, traits, phi, psi, p) {}
+	torus(int n, interp phi, eval psi, poly p = {}) :
+		torus(n, traits, phi, psi, p) {}
 
 	template <meta::basic basic, meta::polynomial poly = polynomials<0>>
-	torus(int nd, int ns, basic phi, poly p = {}) :
-		torus(nd, ns, traits, phi, p) {}
+	torus(int n, basic phi, poly p = {}) :
+		torus(n, traits, phi, p) {}
 };
 
 } // namespace shapes

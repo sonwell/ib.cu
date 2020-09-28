@@ -7,6 +7,7 @@
 #include "bases/traits.h"
 #include "bases/fill.h"
 #include "bases/polynomials.h"
+#include "bases/spherical_harmonics.h"
 #include "bases/differentiation.h"
 #include "bases/closed_surface.h"
 #include "bases/scaled.h"
@@ -71,12 +72,12 @@ protected:
 
 	template <meta::traits traits, meta::basic interp,
 	          meta::basic eval, meta::polynomial poly>
-	sphere(int nd, int ns, traits tr, interp phi, eval psi, poly p) :
-		base(nd, ns, tr, phi, bases::scaled{psi, 1.0, phi(2) / psi(2)}, d, p) {}
+	sphere(int n, traits tr, interp phi, eval psi, poly p) :
+		base(n, tr, phi, bases::scaled{psi, 1.0, phi(2) / psi(2)}, d, p) {}
 
 	template <meta::traits traits, meta::basic basic, meta::polynomial poly>
-	sphere(int nd, int ns, traits tr, basic phi, poly p) :
-		sphere(nd, ns, tr, phi, phi, p) {}
+	sphere(int n, traits tr, basic phi, poly p) :
+		sphere(n, tr, phi, phi, p) {}
 public:
 	static matrix
 	sample(int n)
@@ -132,13 +133,13 @@ public:
 	}
 
 	template <meta::basic interp, meta::basic eval,
-	          meta::polynomial poly = polynomials<0>>
-	sphere(int nd, int ns, interp phi, eval psi, poly p = {}) :
-		sphere(nd, ns, traits, phi, psi, p) {}
+	          meta::polynomial poly = spherical_harmonics<1>>
+	sphere(int n, interp phi, eval psi, poly p = {}) :
+		sphere(n, traits, phi, psi, p) {}
 
-	template <meta::basic basic, meta::polynomial poly = polynomials<0>>
-	sphere(int nd, int ns, basic phi, poly p = {}) :
-		sphere(nd, ns, phi, phi, p) {}
+	template <meta::basic basic, meta::polynomial poly = spherical_harmonics<1>>
+	sphere(int n, basic phi, poly p = {}) :
+		sphere(n, phi, phi, p) {}
 };
 
 struct circle : public closed_surface<1> {
@@ -155,12 +156,12 @@ protected:
 	static constexpr metric d{};
 
 	template <meta::traits traits, meta::basic interp, meta::basic eval, meta::polynomial poly>
-	circle(int nd, int ns, traits tr, interp phi, eval psi, poly p) :
-		base(nd, ns, tr, phi, bases::scaled{psi, 1.0, phi(2) / psi(2)}, d, p) {}
+	circle(int n, traits tr, interp phi, eval psi, poly p) :
+		base(n, tr, phi, bases::scaled{psi, 1.0, phi(2) / psi(2)}, d, p) {}
 
 	template <meta::traits traits, meta::basic basic, meta::polynomial poly>
-	circle(int nd, int ns, traits tr, basic phi, poly p) :
-		circle(nd, ns, tr, phi, phi, p) {}
+	circle(int n, traits tr, basic phi, poly p) :
+		circle(n, tr, phi, phi, p) {}
 public:
 	static matrix
 	sample(int n)
@@ -200,12 +201,12 @@ public:
 
 	template <meta::basic interp, meta::basic eval,
 	          meta::polynomial poly = polynomials<0>>
-	circle(int nd, int ns, interp phi, eval psi, poly p = {}) :
-		circle(nd, ns, traits, phi, psi, p) {}
+	circle(int n, interp phi, eval psi, poly p = {}) :
+		circle(n, traits, phi, psi, p) {}
 
 	template <meta::basic basic, meta::polynomial poly = polynomials<0>>
-	circle(int nd, int ns, basic phi, poly p = {}) :
-		circle(nd, ns, phi, phi, p) {}
+	circle(int n, basic phi, poly p = {}) :
+		circle(n, phi, phi, p) {}
 };
 
 } // namespace shapes

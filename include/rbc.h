@@ -66,10 +66,10 @@ public:
 	}
 
 	template <bases::meta::basic interp, bases::meta::basic eval>
-	rbc(int nd, int ns, interp phi, eval psi) :
-		bases::shapes::sphere(nd, ns, traits, phi, psi, p) {}
+	rbc(int n, interp phi, eval psi) :
+		bases::shapes::sphere(n, traits, phi, psi, p) {}
 
 	template <bases::meta::basic basic>
-	rbc(int nd, int ns, basic phi) :
-		rbc(nd, ns, phi, phi) {}
+	rbc(int n, basic phi) :
+		rbc(n, phi, phi) {}
 };

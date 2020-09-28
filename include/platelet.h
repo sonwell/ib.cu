@@ -65,12 +65,12 @@ public:
 	}
 
 	template <bases::meta::basic interp, bases::meta::basic eval>
-	platelet(int nd, int ns, interp phi, eval psi) :
-		bases::shapes::sphere(nd, ns, traits, phi, psi, p) {}
+	platelet(int n, interp phi, eval psi) :
+		base(n, traits, phi, psi, p) {}
 
 	template <bases::meta::basic basic>
-	platelet(int nd, int ns, basic phi) :
-		platelet(nd, ns, phi, phi) {}
+	platelet(int n, basic phi) :
+		platelet(n, phi, phi) {}
 };
 
 struct platelet1d : bases::shapes::circle {
@@ -98,10 +98,10 @@ public:
 	}
 
 	template <bases::meta::basic interp, bases::meta::basic eval>
-	platelet1d(int nd, int ns, interp phi, eval psi) :
-		bases::shapes::circle(nd, ns, traits, phi, psi, p) {}
+	platelet1d(int n, interp phi, eval psi) :
+		base(n, traits, phi, psi, p) {}
 
 	template <bases::meta::basic basic>
-	platelet1d(int nd, int ns, basic phi) :
-		platelet1d(nd, ns, phi, phi) {}
+	platelet1d(int n, basic phi) :
+		platelet1d(n, phi, phi) {}
 };

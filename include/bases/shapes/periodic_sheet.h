@@ -17,12 +17,12 @@ private:
 protected:
 	using torus::shape;
 	template <meta::traits traits, meta::basic interp, meta::basic eval>
-	periodic_sheet(int n, int m, traits tr, interp phi, eval psi) :
-		torus(n, m, tr, phi, psi, p) {}
+	periodic_sheet(int n, traits tr, interp phi, eval psi) :
+		torus(n, tr, phi, psi, p) {}
 
 	template <meta::traits traits, meta::basic basic>
-	periodic_sheet(int n, int m, traits tr, basic phi) :
-		periodic_sheet(n, m, tr, phi, phi, p) {}
+	periodic_sheet(int n, traits tr, basic phi) :
+		periodic_sheet(n, tr, phi, phi) {}
 public:
 	static matrix
 	shape(const matrix& params)
@@ -49,12 +49,12 @@ public:
 	}
 
 	template <meta::basic interp, meta::basic eval>
-	periodic_sheet(int n, int m, interp phi, eval psi) :
-		periodic_sheet(n, m, traits, phi, psi) {}
+	periodic_sheet(int n, interp phi, eval psi) :
+		periodic_sheet(n, traits, phi, psi) {}
 
 	template <meta::basic basic>
-	periodic_sheet(int n, int m, basic phi) :
-		periodic_sheet(n, m, traits, phi, phi) {}
+	periodic_sheet(int n, basic phi) :
+		periodic_sheet(n, traits, phi, phi) {}
 };
 
 } // namespace shapes

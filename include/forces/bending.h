@@ -1,168 +1,170 @@
 #pragma once
-#include "cublas/handle.h"
 #include "bases/geometry.h"
+#include "bases/operators.h"
 #include "units.h"
 #include "types.h"
 #include "load.h"
 
 namespace forces {
-
-// ds^2 = e da^1 + 2f da db + g db^2
-// Tells us stuff about lengths / areas
-struct first_fundamental_form {
-	double e, f, g, i;
-
-	constexpr first_fundamental_form(const info<2>& load) :
-		e(algo::dot(load.t[0], load.t[0])),
-		f(algo::dot(load.t[0], load.t[1])),
-		g(algo::dot(load.t[1], load.t[1])),
-		i(e * g - f * f) {}
-};
-
-// l da^2 + 2 m da db + n db^2
-// Tells us stuff about curvature
-struct second_fundamental_form {
-	double l, m, n, ii;
-
-	constexpr second_fundamental_form(const info<2>& load) :
-		l(algo::dot(load.tt[0], load.n)),
-		m(algo::dot(load.tt[1], load.n)),
-		n(algo::dot(load.tt[2], load.n)),
-		ii(l * n - m * m) {}
-};
-
-// Shape function:
-//     [ l m ] /[ e f ]
-//     [ m n ]/ [ f g ]
-
-constexpr double
-mean_curvature(const first_fundamental_form& fff,
-		const second_fundamental_form& sff)
-{
-	auto [e, f, g, i] = fff;
-	auto [l, m, n, ii] = sff;
-	return (l * g + n * e - 2 * m * f) / (2 * i);
-}
-
-constexpr double
-gaussian_curvature(const first_fundamental_form& fff,
-		const second_fundamental_form& sff)
-{
-	auto [e, f, g, i] = fff;
-	auto [l, m, n, ii] = sff;
-	return ii / i;
-}
-
 struct bending {
 	units::energy modulus;
 	bool preferred;
 
-	template <typename object_type>
-	decltype(auto)
-	laplacian_mean_curvature(cublas::handle& handle,
-			const object_type& object) const
+	// ds^2 = e da^1 + 2f da db + g db^2
+	// Tells us stuff about lengths / areas
+	struct first {
+		double e, f, g, i;
+
+		constexpr first(const info<2>& load) :
+			e(algo::dot(load.t[0], load.t[0])),
+			f(algo::dot(load.t[0], load.t[1])),
+			g(algo::dot(load.t[1], load.t[1])),
+			i(e * g - f * f) {}
+	};
+
+	// l da^2 + 2 m da db + n db^2
+	// Tells us stuff about curvature
+	struct second {
+		double l, m, n, ii;
+
+		constexpr second(const info<2>& load) :
+			l(algo::dot(load.tt[0], load.n)),
+			m(algo::dot(load.tt[1], load.n)),
+			n(algo::dot(load.tt[2], load.n)),
+			ii(l * n - m * m) {}
+	};
+
+	struct helper {
+		double e, f, g;
+		double eu, ev, fu, fv, gu, gv;
+		double i, iu, iv;
+
+		constexpr helper(const info<2>& load) :
+			e(algo::dot(load.t[0], load.t[0])),
+			f(algo::dot(load.t[0], load.t[1])),
+			g(algo::dot(load.t[1], load.t[1])),
+			eu(2 * algo::dot(load.t[0], load.tt[0])),
+			ev(2 * algo::dot(load.t[0], load.tt[1])),
+			fu(algo::dot(load.t[0], load.tt[1]) + algo::dot(load.tt[0], load.t[1])),
+			fv(algo::dot(load.t[0], load.tt[2]) + algo::dot(load.tt[1], load.t[1])),
+			gu(2 * algo::dot(load.t[1], load.tt[1])),
+			gv(2 * algo::dot(load.t[1], load.tt[2])),
+			i(e * g - f * f),
+			iu(eu * g + e * gu - 2 * f * fu),
+			iv(ev * g + e * gv - 2 * f * fv) {}
+	};
+
+	static decltype(auto)
+	mean(const loader<2>& load)
 	{
-		using fff = first_fundamental_form;
-		using sff = second_fundamental_form;
-		using bases::current;
-		using bases::reference;
-		auto&& [d2d, d2s] = object.operators();
-		auto& curr = object.geometry(current).data;
-		auto& orig = object.geometry(reference).data;
-
-		loader loadc{curr};
-		loader loado{orig};
-
-		auto [n, m] = loadc.size();
-		matrix lh{n, m};
-		auto* hdata = lh.values();
-
-		auto h = [=, p=preferred] __device__ (int tid)
-		{
-			auto curr = loadc[tid];
-			auto cfff = fff{curr};
-			auto csff = sff{curr};
-			auto dh = mean_curvature(cfff, csff);
-			if (p) {
-				auto orig = loado[tid];
-				auto offf = fff{orig};
-				auto osff = sff{orig};
-				dh -= mean_curvature(offf, osff);
-			}
-			hdata[tid] = dh;
-		};
-		util::transform(h, n * m);
-
-		auto hu = d2d.first_derivatives[0] * lh;
-		auto hv = d2d.first_derivatives[1] * lh;
-
-		auto* udata = hu.values();
-		auto* vdata = hv.values();
-
+		auto [n, m] = load.size();
+		matrix h{n, m};
+		auto* hdata = h.values();
 		auto k = [=] __device__ (int tid)
 		{
-			auto curr = loadc[tid];
-			auto [e, f, g, i] = first_fundamental_form{curr};
-			auto detf = sqrt(i);
-			auto u = udata[tid];
-			auto v = vdata[tid];
+			auto info = load[tid];
+			auto [e, f, g, i] = first{info};
+			auto [l, m, n, ii] = second{info};
+			hdata[tid] = (l * g - 2 * m * f + n * e) / (2 * i);
+		};
+		util::transform<128, 3>(k, n*m);
+		return h;
+	}
 
-			auto a = (+g * u - f * v) / detf;
-			auto b = (-f * u + e * v) / detf;
+	static decltype(auto)
+	gaussian(const loader<2>& load)
+	{
+		auto [n, m] = load.size();
+		matrix h{n, m};
+		auto* hdata = h.values();
+		auto k = [=] __device__ (int tid)
+		{
+			auto info = load[tid];
+			auto [e, f, g, i] = first{info};
+			auto [l, m, n, ii] = second{info};
+			hdata[tid] = ii / i;
+		};
+		util::transform<128, 3>(k, n*m);
+		return h;
+	}
 
-			udata[tid] = a;
-			vdata[tid] = b;
+	decltype(auto)
+	laplacian(matrix h, const loader<2>& load,
+	          const bases::operators<2>& ops) const
+	{
+		auto c = solve(ops.restrictor, h);
+		auto [n, m] = linalg::size(h);
+		auto* hdata = h.values();
+
+		std::array dh = {ops.first_derivatives[0] * c,
+		                 ops.first_derivatives[1] * c};
+		std::array d2h = {ops.second_derivatives[0] * c,
+		                  ops.second_derivatives[1] * c,
+		                  ops.second_derivatives[2] * c};
+		auto* hu = dh[0].values();
+		auto* hv = dh[1].values();
+		auto* huu = d2h[0].values();
+		auto* huv = d2h[1].values();
+		auto* hvv = d2h[2].values();
+		auto k = [=] __device__ (int tid)
+		{
+			auto info = load[tid];
+			auto [e, f, g, eu, ev, fu, fv, gu, gv, i, iu, iv] = helper{info};
+			auto lh = (g * huu[tid] - 2 * f * huv[tid] + e * hvv[tid] +
+			           gu * hu[tid] - fu * hv[tid] - fv * hu[tid] + ev * hv[tid] +
+			           iu * (g * hu[tid] - f * hv[tid]) +
+			           iv * (e * hv[tid] - f * hu[tid])) / i;
+			hdata[tid] = lh;
 		};
 		util::transform(k, n * m);
-
-		return d2s.first_derivatives[0] * hu
-		     + d2s.first_derivatives[1] * hv;
+		return h;
 	}
 
 	template <typename object_type>
 	decltype(auto)
 	operator()(const object_type& object) const
 	{
-		/* F_bend = -4κ(Δ(H-H₀) - 2(H-H₀)(H²-K))n̂ */
+		/* F_bend = -4κ(Δ(H-H₀) + 2(H-H₀)(H²-K))n̂ */
+		loader curr{object.geometry(bases::current)};
+		loader orig{object.geometry(bases::reference)};
 
-		using bases::current;
-		using bases::reference;
-
-		cublas::handle handle;
-		auto& curr = object.geometry(current).sample;
-		auto& orig = object.geometry(reference).sample;
-		loader loadc{curr};
-		loader loado{orig};
-
-		auto [n, m] = loadc.size();
-		matrix lh = laplacian_mean_curvature(handle, object);
-		matrix f{linalg::size(curr.position)};
-		auto* ldata = lh.values();
-		auto* fdata = f.values();
-
-		auto l = [=, ns=n*m, modulus=modulus, p=preferred] __device__ (int tid)
+		auto [n, m] = curr.size();
+		matrix h{n, m};
+		matrix r{n, m};
+		auto* hdata = h.values();
+		auto* rdata = r.values();
+		auto k = [=, p=preferred] __device__ (int tid)
 		{
-			auto curr = loadc[tid];
-			auto cfff = first_fundamental_form{curr};
-			auto csff = second_fundamental_form{curr};
-			auto h = mean_curvature(cfff, csff);
-			auto k = gaussian_curvature(cfff, csff);
-
-			auto detf = sqrt(cfff.i);
-			auto lh = ldata[tid];
-			auto dh = h;
+			auto info = curr[tid];
+			auto [e, f, g, i] = first{info};
+			auto [l, m, n, ii] = second{info};
+			auto h = (l * g - 2 * m * f + n * e) / (2 * i);
+			auto k = ii / i;
+			auto r = 2 * (h * h - k);
 			if (p) {
-				auto orig = loado[tid];
-				auto offf = first_fundamental_form{orig};
-				auto osff = second_fundamental_form{orig};
-				dh -= mean_curvature(offf, osff);
+				auto info = orig[tid];
+				auto [e, f, g, i] = first{info};
+				auto [l, m, n, ii] = second{info};
+				h -= (l * g - 2 * m * f + n * e) / (2 * i);
 			}
-
-			auto mag = -4 * curr.s * modulus * (lh / detf + 2 * dh * (h * h - k));
-			for (int i = 0; i < 3; ++i)
-				fdata[ns * i + tid] = mag * curr.n[i];
+			hdata[tid] = h;
+			rdata[tid] = h * r;
 		};
-		util::transform(l, n * m);
+		util::transform<128, 7>(k, n * m);
+		auto dh = laplacian(std::move(h), curr, object.operators());
+
+		matrix f{n, 3 * m};
+		auto* fdata = f.values();
+		auto* dhdata = dh.values();
+		auto l = [=, n=n, m=m, k=modulus] __device__ (int tid)
+		{
+			auto info = curr[tid];
+			auto r = rdata[tid] + dhdata[tid];
+			auto mag = -4 * (double) k * info.s * r;
+			for (int i = 0; i < 3; ++i)
+				fdata[n * m * i + tid] = mag * info.n[i];
+		};
+		util::transform<128, 7>(l, n * m);
 		return f;
 	}
 

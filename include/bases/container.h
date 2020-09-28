@@ -75,50 +75,47 @@ struct container {
 private:
 	using reference_tag = decltype(reference);
 	using current_tag = decltype(current);
-	using operator_type = decltype(reference_type::data_to_data);
-	using geometry_type = decltype(reference_type::data_geometry);
+	using operator_type = decltype(reference_type::operators);
+	using geometry_type = decltype(reference_type::geometry);
 
 	static matrix
 	restriction(const reference_type& ref, matrix x)
 	{
-		const auto& ops = ref.data_to_sample;
+		const auto& ops = ref.operators;
 		return solve(ops.restrictor, std::move(x));
 	}
 
-	matrix& get_x() { return sample.position; }
+	matrix& get_x() { return cur.position; }
 
 	void
 	set_x(const matrix& x)
 	{
 		// Update geometric information when the positions are updated
-		auto y = restriction(ref, x);
-		data = {ref.data_to_data, y};
-		sample = {ref.data_to_sample, y};
+		cur = {ref.operators, x};
 	}
 public:
-	impl::pair<const operator_type&>
+	const operator_type&
 	operators() const
 	{
-		return {ref.data_to_data, ref.data_to_sample};
+		return ref.operators;
 	}
 
-	impl::pair<int>
+	int
 	points() const
 	{
-		auto&& [data, sample] = operators();
-		return {data.points, sample.points};
+		return ref.operators.points;
 	}
 
-	impl::pair<const geometry_type&>
+	const geometry_type&
 	geometry(const reference_tag&) const
 	{
-		return {ref.data_geometry, ref.sample_geometry};
+		return ref.geometry;
 	}
 
-	impl::pair<const geometry_type&>
+	const geometry_type&
 	geometry(const current_tag&) const
 	{
-		return {data, sample};
+		return cur;
 	}
 
 	container(const reference_type& ref) : ref{ref} {}
@@ -132,8 +129,7 @@ public:
 
 protected:
 	const reference_type& ref;
-	geometry_type data;
-	geometry_type sample;
+	geometry_type cur;
 public:
 	util::getset<matrix&> x = {
 		[&] () -> matrix& { return get_x(); },

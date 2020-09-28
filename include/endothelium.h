@@ -29,14 +29,11 @@ public:
 		return base::shape(params, k);
 	}
 
-	template <typename interp, typename eval,
-	          typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
-	          typename = std::enable_if_t<bases::is_basic_function_v<eval>>>
-	endothelium(int nd, int ns, interp phi, eval psi) :
-		bases::shapes::periodic_sheet(nd, ns, traits, phi, psi) {}
+	template <bases::meta::basic interp, bases::meta::basic eval>
+	endothelium(int n, interp phi, eval psi) :
+		bases::shapes::periodic_sheet(n, traits, phi, psi) {}
 
-	template <typename basic,
-	          typename = std::enable_if_t<bases::is_basic_function_v<basic>>>
-	endothelium(int nd, int ns, basic phi) :
-		endothelium(nd, ns, phi, phi) {}
+	template <bases::meta::basic basic>
+	endothelium(int n, basic phi) :
+		endothelium(n, phi, phi) {}
 };

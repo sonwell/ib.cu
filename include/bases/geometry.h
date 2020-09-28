@@ -24,25 +24,22 @@ struct geometry {
 public:
 	static constexpr auto dimensions = dims;
 private:
-	using slice = impl::slice;
 	using operators_type = operators<dimensions>;
 
 	template <std::size_t n>
 	static decltype(auto)
-	compute_matrices(const std::array<slice, n>& operators, const matrix& x)
+	compute_matrices(const std::array<matrix, n>& operators, const matrix& x)
 	{
 		using namespace util::functional;
 		auto c = [] (auto ... args) { return std::array{std::move(args)...}; };
-		auto f = [&] (const slice& m) { return m * x; };
+		auto f = [&] (const matrix& m) { return m * x; };
 		return apply(c, map(f, operators));
 	}
 
 	static matrix
 	compute_position(const operators_type& ops, const matrix& x)
 	{
-		const matrix& op = ops.evaluator;
-		if (!op.rows() && !op.cols()) return x;
-		return op * x;
+		return ops.evaluator * x;
 	}
 
 	static decltype(auto)
@@ -76,15 +73,15 @@ private:
 	{
 		using namespace util::functional;
 		auto& w = ops.weights;
-		auto y = compute_position(ops, x);
-		auto tangents = compute_tangents(ops, x);
-		auto seconds = compute_second_derivatives(ops, x);
+		auto c = solve(ops.restrictor, x);
+		auto tangents = compute_tangents(ops, c);
+		auto seconds = compute_second_derivatives(ops, c);
 
-		auto ns = y.rows();
+		auto ns = x.rows();
 		auto nc = x.cols() / (dimensions + 1);
 		auto count = ns * nc;
 		matrix sigma{ns, nc};
-		matrix n{linalg::size(y)};
+		matrix n{linalg::size(x)};
 
 		auto* wdata = w.values();
 		auto tdata = map([] (const matrix& m) { return m.values(); }, tangents);
@@ -118,7 +115,7 @@ private:
 		};
 		util::transform(f, count);
 
-		return {std::move(y), std::move(tangents), std::move(n),
+		return {x, std::move(tangents), std::move(n),
 			std::move(seconds), std::move(sigma)};
 	}
 

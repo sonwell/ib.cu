@@ -68,13 +68,13 @@ protected:
 
 	template <meta::traits traits, meta::basic interp, meta::basic eval,
 	          meta::metric metric, meta::polynomial poly>
-	closed_surface(int nd, int ns, traits tr, interp phi, eval psi, metric d, poly p) :
-		surface<dims>(nd, ns, tr, phi, psi, d, p) {}
+	closed_surface(int n, traits tr, interp phi, eval psi, metric d, poly p) :
+		surface<dims>(n, tr, phi, psi, d, p) {}
 
 	template <meta::traits traits, meta::basic basic, meta::metric metric,
 	          meta::polynomial poly>
-	closed_surface(int nd, int ns, traits tr, basic phi, metric d, poly p) :
-		closed_surface(nd, ns, tr, phi, phi, d, p) {}
+	closed_surface(int n, traits tr, basic phi, metric d, poly p) :
+		closed_surface(n, tr, phi, phi, d, p) {}
 };
 
 }

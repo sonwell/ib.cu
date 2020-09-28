@@ -70,7 +70,7 @@ fill(const matrix& xs, const matrix& xd, rbf phi, matrix& r)
 
 		auto value = f(sample, data);
 		if (row < ns && col < nd)
-			rdata[col + row * rows] = value;
+			rdata[row + col * rows] = value;
 	};
 	util::launch<nt, vt>(k, num_ctas, phi);
 }
@@ -129,8 +129,8 @@ fill(const matrix& xs, const matrix& xd, rbf phi, poly p)
 	static constexpr int np = std::tuple_size_v<poly_array>;
 	auto ns = xs.rows();
 	auto nd = xd.rows();
-	auto rows = nd + np;
-	auto cols = ns;
+	auto rows = ns;
+	auto cols = nd + np;
 	matrix r{rows, cols};
 	fill<dimensions>(xs, xd, phi, r);
 
@@ -143,7 +143,7 @@ fill(const matrix& xs, const matrix& xd, rbf phi, poly p)
 			sample[i] = sdata[i * ns + tid];
 		auto values = p(sample);
 		for (int i = 0; i < np; ++i)
-			rdata[tid * rows + nd + i] = values[i];
+			rdata[(nd + i) * rows + tid] = values[i];
 	};
 	util::transform<128, 1>(k, ns);
 	return r;

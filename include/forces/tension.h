@@ -34,8 +34,8 @@ protected:
 	{
 		using bases::reference;
 		using bases::current;
-		const auto& orig = object.geometry(reference).sample;
-		const auto& curr = object.geometry(current).sample;
+		const auto& orig = object.geometry(reference);
+		const auto& curr = object.geometry(current);
 		loader original{orig};
 		loader deformed{curr};
 
@@ -109,8 +109,8 @@ protected:
 	{
 		using bases::reference;
 		using bases::current;
-		const auto& orig = object.geometry(reference).sample;
-		const auto& curr = object.geometry(current).sample;
+		const auto& orig = object.geometry(reference);
+		const auto& curr = object.geometry(current);
 		loader original{orig};
 		loader deformed{curr};
 
@@ -121,8 +121,8 @@ protected:
 		auto* fdata = f.values();
 		auto k = [=] __device__ (int tid, auto w)
 		{
-			auto orig = original(tid);
-			auto curr = deformed(tid);
+			auto orig = original[tid];
+			auto curr = deformed[tid];
 			auto [oi, odi] = helper{orig};
 			auto [ci, cdi] = helper{curr};
 

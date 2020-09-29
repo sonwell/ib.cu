@@ -10,9 +10,6 @@
 
 namespace bases {
 
-inline constexpr struct {} reference; // tag for getting reference geometry data
-inline constexpr struct {} current;   // tag for getting current geometry data
-
 // Container for geometric data:
 //   * positions
 //   * tangents
@@ -28,30 +25,23 @@ private:
 
 	template <std::size_t n>
 	static decltype(auto)
-	compute_matrices(const std::array<matrix, n>& operators, const matrix& x)
+	multiply(const std::array<matrix, n>& operators, const matrix& x)
 	{
 		using namespace util::functional;
-		auto c = [] (auto ... args) { return std::array{std::move(args)...}; };
-		auto f = [&] (const matrix& m) { return m * x; };
-		return apply(c, map(f, operators));
-	}
-
-	static matrix
-	compute_position(const operators_type& ops, const matrix& x)
-	{
-		return ops.evaluator * x;
+		auto k = [&] (const auto& ... m) { return std::array{m * x ...}; };
+		return apply(k, operators);
 	}
 
 	static decltype(auto)
 	compute_tangents(const operators_type& ops, const matrix& x)
 	{
-		return compute_matrices(ops.first_derivatives, x);
+		return multiply(ops.first_derivatives, x);
 	}
 
 	static decltype(auto)
 	compute_second_derivatives(const operators_type& ops, const matrix& x)
 	{
-		return compute_matrices(ops.second_derivatives, x);
+		return multiply(ops.second_derivatives, x);
 	}
 
 	using tangents_type = decltype(compute_tangents(
@@ -94,18 +84,14 @@ private:
 			using tangent_type = std::array<double, dimensions+1>;
 			std::array<tangent_type, dimensions> t;
 
-			auto k = [&] (int i, tangent_type& t, const double* data)
+			auto k = [&] (tangent_type& t, const double* data)
 			{
-				t[i] = data[count * i + tid];
+				for (int i = 0; i < dimensions+1; ++i)
+					t[i] = data[count * i + tid];
 			};
+			map(k, t, tdata);
 
-			for (int i = 0; i < dimensions+1; ++i)
-				map(partial(k, i), t, tdata);
-
-			auto cross = [] (auto&& ... args)
-			{
-				return algo::cross(std::forward<decltype(args)>(args)...);
-			};
+			auto cross = [] (const auto& ... args) { return algo::cross(args...); };
 			auto n = apply(cross, t);
 			auto detf = sqrt(algo::dot(n, n));
 

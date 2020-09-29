@@ -8,6 +8,9 @@
 
 namespace bases {
 
+inline constexpr struct {} reference; // tag for getting reference geometry data
+inline constexpr struct {} current;   // tag for getting current geometry data
+
 template <typename reference_type, typename ... shape_fns>
 matrix
 shape(const reference_type& ref, shape_fns ... fs)

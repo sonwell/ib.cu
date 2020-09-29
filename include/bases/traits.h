@@ -9,6 +9,12 @@ template <typename shape_type>
 struct traits {
 	static constexpr auto dimensions = shape_type::dimensions;
 
+	static constexpr auto
+	reduce(int n)
+	{
+		return shape_type::reduce(n);
+	}
+
 	template <typename ... arg_types>
 	static constexpr auto
 	sample(const arg_types& ... args)

@@ -6,6 +6,8 @@
 #include "bases/shapes/sphere.h"
 #include "bases/traits.h"
 #include "bases/polynomials.h"
+#include "bases/spherical_harmonics.h"
+#include "bases/sinusoids.h"
 #include "units.h"
 
 struct platelet : bases::shapes::sphere {
@@ -14,7 +16,7 @@ private:
 	using vector = bases::vector;
 	using base = bases::shapes::sphere;
 	static constexpr bases::traits<platelet> traits;
-	static constexpr bases::polynomials<0> p;
+	static constexpr bases::spherical_harmonics<1> p;
 	static constexpr double major = 1.82_um;
 	static constexpr double minor = 0.46_um;
 public:
@@ -79,7 +81,7 @@ private:
 	using vector = bases::vector;
 	using base = bases::shapes::circle;
 	static constexpr bases::traits<platelet1d> traits;
-	static constexpr bases::polynomials<0> p;
+	static constexpr bases::sinusoids<1> p;
 	static constexpr double major = 1.82_um;
 	static constexpr double minor = 0.46_um;
 protected:

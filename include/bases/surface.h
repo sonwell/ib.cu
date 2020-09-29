@@ -21,11 +21,9 @@ private:
 		vector weights;
 		matrix positions;
 
-		static int reduction(int n) { return n < 103 ? n : 10 * sqrt(n); }
-
 		template <meta::traits traits>
 		sample(int n, traits) :
-			reduced(traits::sample(reduction(n))),
+			reduced(traits::sample(traits::reduce(n))),
 			sites(traits::sample(n)),
 			weights(traits::weights(sites)),
 			positions(traits::shape(sites)) {}
@@ -33,6 +31,7 @@ private:
 
 	template <meta::rbf interp, meta::rbf eval, meta::polynomial poly>
 	surface(sample sample, interp phi, eval psi, poly p) :
+		samples(sample.sites.rows()),
 		operators(sample.reduced, sample.sites,
 				std::move(sample.weights), phi, phi, p),
 		geometry(operators, sample.positions) {}
@@ -64,6 +63,7 @@ protected:
 		return x;
 	}
 public:
+	int samples;
 	operators_type operators;
 	geometry_type geometry;
 

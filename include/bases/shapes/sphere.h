@@ -79,6 +79,8 @@ protected:
 	sphere(int n, traits tr, basic phi, poly p) :
 		sphere(n, tr, phi, phi, p) {}
 public:
+	static constexpr int reduce(int n) { return n / 10; }
+
 	static matrix
 	sample(int n)
 	{
@@ -163,6 +165,8 @@ protected:
 	circle(int n, traits tr, basic phi, poly p) :
 		circle(n, tr, phi, phi, p) {}
 public:
+	static constexpr int reduce(int n) { return n / 2; }
+
 	static matrix
 	sample(int n)
 	{

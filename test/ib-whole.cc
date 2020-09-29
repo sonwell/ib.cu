@@ -199,8 +199,8 @@ main(int argc, char** argv)
 	constexpr ib::novel::interpolate interpolate{mac, domain, phi};
 
 	constexpr bases::polyharmonic_spline<7> sharp;
-	rbc rbc{1200, 15000, sharp};
-	endothelium endothelium{4096, 16000, sharp};
+	rbc rbc{15000, sharp};
+	endothelium endothelium{16000, sharp};
 
 	auto [st, ub, rx, ex] = initialize(mac, domain, shear_rate,
 			rbc, endothelium, argc > 1 ? argv[1] : nullptr);

@@ -17,8 +17,8 @@ struct tether {
 		using bases::reference;
 		using bases::current;
 
-		const auto& orig = object.geometry(reference).sample;
-		const auto& curr = object.geometry(current).sample;
+		const auto& orig = object.geometry(reference);
+		const auto& curr = object.geometry(current);
 		loader original{orig};
 		loader deformed{curr};
 

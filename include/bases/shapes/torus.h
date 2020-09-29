@@ -70,6 +70,8 @@ protected:
 	torus(int n, traits tr, basic phi, poly p) :
 		torus(n, tr, phi, phi, p) {}
 public:
+	static constexpr int reduce(int n) { return 3 * n / 10; }
+
 	static matrix
 	sample(int n)
 	{

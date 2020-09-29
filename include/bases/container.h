@@ -35,8 +35,8 @@ shape(const reference_type& ref, shape_fns ... fs)
 	};
 
 	using seq = std::make_integer_sequence<int, n>;
-	auto m = ref.num_sample_sites;
-	const auto& y = ref.sample_geometry.position;
+	auto m = ref.samples;
+	const auto& y = ref.geometry.position;
 	matrix x{m, n * dims};
 
 	auto* ydata = y.values();
@@ -58,15 +58,6 @@ shape(const reference_type& ref, shape_fns ... fs)
 	util::transform<128, 3>(k, n ? m : 0);
 	return x;
 }
-
-namespace impl {
-
-template <typename type>
-struct pair {
-	type data, sample;
-};
-
-} // namespace impl
 
 // container holds geometric information for multiple copies of the reference
 // object, possibly each in different configurations.

@@ -72,13 +72,6 @@ private:
 	using operator_type = decltype(reference_type::operators);
 	using geometry_type = decltype(reference_type::geometry);
 
-	static matrix
-	restriction(const reference_type& ref, matrix x)
-	{
-		const auto& ops = ref.operators;
-		return solve(ops.restrictor, std::move(x));
-	}
-
 	matrix& get_x() { return cur.position; }
 
 	void

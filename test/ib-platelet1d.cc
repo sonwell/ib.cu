@@ -31,7 +31,7 @@ using bases::vector;
 
 struct binary_writer {
 	units::time time = 0_s;
-	units::time interval = 0.01_ms;
+	units::time interval = 0.1_ms;
 	std::ostream& output = std::cout;
 
 	template <std::size_t dimensions, typename ... object_types>
@@ -66,7 +66,7 @@ initialize(const grid_type& grid, const domain_type& domain,
 			const reference_type& ref, units::unit<0, 0, -1> shear_rate)
 {
 	constexpr auto dimensions = domain_type::dimensions;
-	auto translate = bases::shear({{2.0, 0.0}, {0.0, 0.5}}) | bases::translate({8_um, 8_um});
+	auto translate = bases::shear({{1.1, 0.0}, {0.0, 1.0/1.1}}) | bases::translate({8_um, 8_um});
 	using fd::correction::second_order;
 	using state = ins::state<dimensions>;
 

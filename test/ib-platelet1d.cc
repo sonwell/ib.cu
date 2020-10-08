@@ -31,7 +31,7 @@ using bases::vector;
 
 struct binary_writer {
 	units::time time = 0_s;
-	units::time interval = 0.1_ms;
+	units::time interval = 0.01_ms;
 	std::ostream& output = std::cout;
 
 	template <std::size_t dimensions, typename ... object_types>
@@ -110,7 +110,8 @@ main(int argc, char** argv)
 	constexpr ib::novel::spread spread{mac, domain, phi};
 	constexpr ib::novel::interpolate interpolate{mac, domain, phi};
 
-	platelet1d plt{200};
+	constexpr bases::polyharmonic_spline<7> sharp;
+	platelet1d plt{200, sharp};
 
 	auto [st, ub, px] = initialize(mac, domain, plt, shear_rate);
 	bases::container plts{plt, std::move(px)};

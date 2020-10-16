@@ -4,23 +4,17 @@
 namespace algo {
 namespace impl {
 
-constexpr void
-swap(double& a, double& b)
-{
-	double c = a;
-	a = b;
-	b = c;
-}
-
-constexpr double
-gcd(double a, double b)
+template <typename T>
+requires std::is_floating_point_v<T>
+constexpr T
+gcd(T a, T b)
 {
 	// Euclid's GCD algorithm modified for floating point values
-	using limits = std::numeric_limits<double>;
+	using limits = std::numeric_limits<T>;
 	constexpr auto eps = limits::epsilon();
 
 	while (util::math::abs(b) > eps) {
-		if (a < b) impl::swap(a, b);
+		if (a < b) std::swap(a, b);
 		auto c = a - util::math::floor(a / b) * b;
 		a = b; b = c;
 	}
@@ -29,12 +23,24 @@ gcd(double a, double b)
 
 } // namespace impl
 
-constexpr double
-gcd(double a, double b)
+template <typename T>
+requires std::is_floating_point_v<T>
+constexpr T
+gcd(T a, T b)
 {
-	// std::swap not constexpr until C++20
-	if (a < b) impl::swap(a, b);
+	if (a < b) std::swap(a, b);
 	return impl::gcd(1.0, b / a) * a;
+}
+
+template <typename T>
+requires std::is_integral_v<T>
+constexpr T
+gcd(T a, T b)
+{
+	if (a == 0) return b;
+	if (a == 1) return 1;
+	if (a > b) std::swap(a, b);
+	return gcd(b % a, a);
 }
 
 } // namespace algo

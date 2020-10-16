@@ -5,10 +5,9 @@
 namespace bases {
 
 // Scales a basic function
-template <typename base>
+template <meta::basic base>
 struct scaled : base {
 private:
-	static_assert(is_basic_function_v<base>);
 	double rscale;
 	double yscale;
 public:
@@ -28,7 +27,7 @@ public:
 		base(phi), rscale(rscale * phi.rscale), yscale(yscale * phi.rscale) {}
 };
 
-template <typename base>
+template <meta::basic base>
 scaled(const scaled<base>&, double, double=1.0) -> scaled<base>;
 
 }

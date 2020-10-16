@@ -116,7 +116,7 @@ private:
 		return composition{
 			[=] (auto&& x) constexpr
 			{
-				auto d = dot(axis, x);
+				auto d = dot(axis, x) / l;
 				auto w = cross(axis, x);
 				auto f = [&] (double u, double v, double w)
 				{

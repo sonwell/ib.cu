@@ -121,8 +121,8 @@ protected:
 		auto* fdata = f.values();
 		auto k = [=] __device__ (int tid, auto w)
 		{
-			auto orig = original(tid);
-			auto curr = deformed(tid);
+			auto orig = original[tid];
+			auto curr = deformed[tid];
 			auto [oi, odi] = helper{orig};
 			auto [ci, cdi] = helper{curr};
 
@@ -137,7 +137,6 @@ protected:
 
 			auto& [u] = curr.t;
 			auto& [uu] = curr.tt;
-			auto& nrml = curr.n;
 
 			for (int j = 0; j < 2; ++j)
 				fdata[n * j + tid] = orig.s / oi * (

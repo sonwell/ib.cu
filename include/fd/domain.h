@@ -18,6 +18,8 @@ class domain {
 public:
 	static constexpr auto dimensions = sizeof...(dimension_types);
 	using container_type = std::tuple<dimension_types...>;
+private:
+	static constexpr auto gcd = [] (double a, double b) { return algo::gcd(a, b); };
 protected:
 	units::length _base_unit; // GCD of lengths of each dimension
 	container_type _components;
@@ -26,7 +28,7 @@ public:
 	constexpr const auto& components() const { return _components; }
 
 	constexpr domain(const dimension_types& ... dimensions) :
-		_base_unit(util::functional::foldl(algo::gcd, dimensions.length()...)),
+		_base_unit(util::functional::foldl(gcd, dimensions.length()...)),
 		_components{dimensions...} {}
 };
 

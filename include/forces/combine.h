@@ -14,7 +14,7 @@ struct combine {
 
 	template <typename object_type>
 	decltype(auto)
-	operator()(const object_type& obj) const
+	operator()(const object_type& obj, const matrix& u) const
 	{
 		constexpr auto nfuncs = sizeof...(force_types);
 		if constexpr (!nfuncs) {
@@ -24,9 +24,8 @@ struct combine {
 		}
 		else {
 			using namespace util::functional;
-			auto k = [&] (matrix l, auto& r) { return std::move(l) + r(obj); };
-			auto m = [&] (auto& f, auto& ... r) { return foldl(k, f(obj), r...); };
-			return apply(m, forces);
+			auto op = [&] (auto& f, auto& ... r) { return (f(obj, u) + ... + r(obj, u)); };
+			return apply(op, forces);
 		}
 	}
 

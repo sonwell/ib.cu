@@ -29,6 +29,7 @@
 #include "forces/skalak.h"
 #include "forces/neohookean.h"
 #include "forces/bending.h"
+#include "forces/dissipation.h"
 #include "forces/tether.h"
 #include "forces/repelling.h"
 #include "forces/combine.h"
@@ -178,12 +179,13 @@ main(int argc, char** argv)
 	constexpr auto time_scale = 1 / shear_rate;
 	constexpr auto length_scale = domain.unit();
 	constexpr auto h = domain.unit() / mac.refinement();
-	constexpr auto kmin = 0.0000010_s * (h / 1_um) * (h / 1_um);
+	constexpr auto kmin = 20_ns;
 	constexpr ins::parameters params {kmin, time_scale, length_scale, 1_g / 1_mL, 1_cP, 1e-11};
 
 	constexpr forces::skalak rbc_tension{2.5e-3_dyn/1_cm, 2.5e-1_dyn/1_cm};
 	constexpr forces::bending rbc_bending{2e-12_erg};
-	constexpr forces::combine rbc_forces{rbc_tension, rbc_bending};
+	constexpr forces::dissipation rbc_dissip{1e-7_dyn*1_s/1_cm};
+	constexpr forces::combine rbc_forces{rbc_tension, rbc_bending, rbc_dissip};
 
 	constexpr forces::tether ec_tether{2.45e-4_dyn/1_cm};
 	constexpr forces::combine ec_forces{ec_tether};
@@ -216,7 +218,7 @@ main(int argc, char** argv)
 	{
 		using domain_type = decltype(domain);
 		constexpr auto dimensions = domain_type::dimensions;
-		auto [r, c] = linalg::size(x);
+			auto [r, c] = linalg::size(x);
 		return r * c / dimensions;
 	};
 
@@ -225,9 +227,10 @@ main(int argc, char** argv)
 	{
 		const auto& ref = bases::ref(cell);
 		auto w = interpolate(pts(cell.x), cell.x, u);
-		auto y = cell.x + (double) k * std::move(w);
+		auto y = cell.x + (double) k * w;
 		bases::container tmp{ref, std::move(y)};
-		return spread(pts(tmp.x), tmp.x, forces(tmp));
+		auto& z = tmp.geometry(bases::current).sample.position;
+		return spread(pts(z), z, forces(tmp, w));
 	};
 
 	auto forces = [&] (units::time tn, const auto& v)

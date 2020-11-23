@@ -15,7 +15,7 @@ struct skalak : tension {
 
 	template <typename object_type>
 	decltype(auto)
-	operator()(const object_type& object) const
+	operator()(const object_type& object, const matrix&) const
 	{
 		using container = std::array<double, 5>;
 		double e = shear;
@@ -43,7 +43,7 @@ struct skalak1d : tension1d {
 
 	template <typename object_type>
 	decltype(auto)
-	operator()(const object_type& object) const
+	operator()(const object_type& object, const matrix&) const
 	{
 		using container = std::array<double, 2>;
 		double e = shear;

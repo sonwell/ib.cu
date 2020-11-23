@@ -252,6 +252,7 @@ constexpr auto operator ""_mL  (lf  v) { return v * mL; }
 constexpr auto operator ""_g   (lf  v) { return v * g; }
 constexpr auto operator ""_ms  (lf  v) { return v * (milli * s); }
 constexpr auto operator ""_us  (lf  v) { return v * (micro * s); }
+constexpr auto operator ""_ns  (lf  v) { return v * (nano * s); }
 constexpr auto operator ""_dyn (lf  v) { return v * 1e-5 * N; }
 constexpr auto operator ""_P   (lf  v) { return v * P; }
 constexpr auto operator ""_cP  (lf  v) { return v * (centi * P); }
@@ -265,6 +266,7 @@ constexpr auto operator ""_N   (ull v) { return v * N; }
 constexpr auto operator ""_cm  (ull v) { return v * (centi * m); }
 constexpr auto operator ""_mm  (ull v) { return v * (milli * m); }
 constexpr auto operator ""_um  (ull v) { return v * (micro * m); }
+constexpr auto operator ""_nm  (ull v) { return v * (nano * m); }
 constexpr auto operator ""_L   (ull v) { return v * L; }
 constexpr auto operator ""_mL  (ull v) { return v * (milli * L); }
 constexpr auto operator ""_g   (ull v) { return v * g; }

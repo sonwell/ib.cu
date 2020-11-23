@@ -184,7 +184,7 @@ public:
 
 	template <typename object_type>
 	decltype(auto)
-	operator()(const object_type& object) const
+	operator()(const object_type& object, const matrix&) const
 	{
 		/* F_bend = -4κ(Δ(H-H₀) + 2(H-H₀)(H²-K + HH₀))n̂ */
 

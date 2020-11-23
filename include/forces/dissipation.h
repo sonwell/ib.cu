@@ -261,7 +261,7 @@ public:
 			auto fd = c0 * u + c1 * v + pif[0] * uu + 2 * pif[1] * uv + pif[2] * vv;
 
 			for (int j = 0; j < 3; ++j)
-				fdata[n * j + tid] = /*curr.s */ kappa / i * fd[j];
+				fdata[n * j + tid] = curr.s * kappa / i * fd[j];
 		};
 		util::transform(k, n);
 		return f;

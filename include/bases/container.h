@@ -35,8 +35,8 @@ shape(const reference_type& ref, shape_fns ... fs)
 	};
 
 	using seq = std::make_integer_sequence<int, n>;
-	auto m = ref.num_sample_sites;
-	const auto& y = ref.sample_geometry.position;
+	auto m = ref.num_data_sites;
+	const auto& y = ref.data_geometry.position;
 	matrix x{m, n * dims};
 
 	auto* ydata = y.values();
@@ -78,22 +78,14 @@ private:
 	using operator_type = decltype(reference_type::data_to_data);
 	using geometry_type = decltype(reference_type::data_geometry);
 
-	static matrix
-	restriction(const reference_type& ref, matrix x)
-	{
-		const auto& ops = ref.data_to_sample;
-		return solve(ops.restrictor, std::move(x));
-	}
-
-	matrix& get_x() { return sample.position; }
+	matrix& get_x() { return data.position; }
 
 	void
 	set_x(const matrix& x)
 	{
 		// Update geometric information when the positions are updated
-		auto y = restriction(ref, x);
-		data = {ref.data_to_data, y};
-		sample = {ref.data_to_sample, y};
+		data = {ref.data_to_data, x};
+		sample = {ref.data_to_sample, x};
 	}
 public:
 	impl::pair<const operator_type&>

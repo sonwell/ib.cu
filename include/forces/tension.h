@@ -8,24 +8,48 @@ namespace forces {
 
 struct tension {
 private:
+	using tangents = tangents<2>;
+	using seconds = seconds<2>;
+	using metric = metric<2>;
+	using christoffel = christoffel<2>;
+
+	struct load : loader<tangents>, loader<seconds>, loader<measure> {
+		struct payload : tangents, seconds, measure {
+			using tangents::t;
+			using seconds::tt;
+			using measure::s;
+		};
+
+		constexpr payload
+		operator[](int i) const
+		{
+			return {{loader<tangents>::operator[](i)},
+			        {loader<seconds>::operator[](i)},
+			        {loader<measure>::operator[](i)}};
+		}
+
+		load(const bases::geometry<2>& g) :
+			loader<tangents>(g),
+			loader<seconds>(g),
+			loader<measure>(g) {}
+	};
+
 	struct helper {
 		double e, f, g;
-		double eu, ev, fu, fv, gu, gv;
+		double eu, fu, gu, ev, fv, gv;
 		double i, iu, iv;
 
-		constexpr helper(const info<2>& load) :
-			e(algo::dot(load.t[0], load.t[0])),
-			f(algo::dot(load.t[0], load.t[1])),
-			g(algo::dot(load.t[1], load.t[1])),
-			eu(2 * algo::dot(load.t[0], load.tt[0])),
-			ev(2 * algo::dot(load.t[0], load.tt[1])),
-			fu(algo::dot(load.t[0], load.tt[1]) + algo::dot(load.tt[0], load.t[1])),
-			fv(algo::dot(load.t[0], load.tt[2]) + algo::dot(load.tt[1], load.t[1])),
-			gu(2 * algo::dot(load.t[1], load.tt[1])),
-			gv(2 * algo::dot(load.t[1], load.tt[2])),
+		constexpr helper(const metric& m, const christoffel& c) :
+			e(m[0][0]),         f(m[0][1]),                  g(m[1][1]),
+			// g_{ij,k} = Γ_{ik,j} + Γ{kj,i}, Γ_{ij,k} = Γ_{ji,k}
+			eu(2 * c[0][0][0]), fu(c[0][0][1] + c[0][1][0]), gu(2 * c[1][0][1]),
+			ev(2 * c[0][1][0]), fv(c[0][1][1] + c[1][1][0]), gv(2 * c[1][1][1]),
 			i(e * g - f * f),
 			iu(eu * g + e * gu - 2 * f * fu),
 			iv(ev * g + e * gv - 2 * f * fv) {}
+
+		constexpr helper(const load::payload& pt) :
+			helper((const metric&) pt, (const christoffel&) pt) {}
 	};
 protected:
 	template <typename object_type, typename constitutive_law_type>
@@ -36,8 +60,8 @@ protected:
 		using bases::current;
 		const auto& orig = object.geometry(reference).sample;
 		const auto& curr = object.geometry(current).sample;
-		loader original{orig};
-		loader deformed{curr};
+		load original{orig};
+		load deformed{curr};
 
 		auto size = linalg::size(curr.position);
 		auto n = size.rows * size.cols / 3;
@@ -48,8 +72,8 @@ protected:
 		{
 			auto orig = original[tid];
 			auto curr = deformed[tid];
-			auto [oe, of, og, oeu, oev, ofu, ofv, ogu, ogv, oi, oiu, oiv] = helper{orig};
-			auto [ce, cf, cg, ceu, cev, cfu, cfv, cgu, cgv, ci, ciu, civ] = helper{curr};
+			auto [oe, of, og, oeu, ofu, ogu, oev, ofv, ogv, oi, oiu, oiv] = helper{orig};
+			auto [ce, cf, cg, ceu, cfu, cgu, cev, cfv, cgv, ci, ciu, civ] = helper{curr};
 
 			// invariants
 			auto i1 = (ce * og + oe * cg - 2 * of * cf) / oi;
@@ -95,12 +119,40 @@ protected:
 
 struct tension1d {
 private:
-	struct helper {
-		double i, di;
+	using tangents = tangents<1>;
+	using seconds = seconds<1>;
+	using metric = metric<1>;
+	using christoffel = christoffel<1>;
 
-		constexpr helper(const info<1>& load) :
-			i(algo::dot(load.t[0], load.t[0])),
-			di(2 * algo::dot(load.t[0], load.tt[0])) {}
+	struct load : loader<tangents>, loader<seconds>, loader<measure> {
+		struct payload : tangents, seconds, measure {
+			using tangents::t;
+			using seconds::tt;
+			using measure::s;
+		};
+
+		constexpr payload
+		operator[](int i) const
+		{
+			return {{loader<tangents>::operator[](i)},
+			        {loader<seconds>::operator[](i)},
+			        {loader<measure>::operator[](i)}};
+		}
+
+		load(const bases::geometry<1>& g) :
+			loader<tangents>(g),
+			loader<seconds>(g),
+			loader<measure>(g) {}
+	};
+
+	struct helper {
+		double i, iu;
+
+		constexpr helper(const metric& m, const christoffel& c) :
+			i(m[0][0]), iu(2 * c[0][0][0]) {}
+
+		constexpr helper(const load::payload& pt) :
+			helper(tangents{pt}, seconds{pt}) {}
 	};
 protected:
 	template <typename object_type, typename constitutive_law_type>

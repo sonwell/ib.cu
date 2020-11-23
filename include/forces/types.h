@@ -4,6 +4,5 @@
 namespace forces {
 
 using bases::matrix;
-using bases::vector;
 
 };

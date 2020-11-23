@@ -10,16 +10,6 @@ template <int ... ns>
 using keep = decltype(util::unique(util::sort(
 				util::sequence<int, ns...>())));
 
-constexpr inline int
-nchoosek(int n, int k)
-{
-	if (k < 0) return 0;
-	int v = 1;
-	for (int i = 1; i <= k; ++i)
-		v = (v * (n - k + i)) / i;
-	return v;
-}
-
 template <int d, int m>
 constexpr inline auto
 subone(util::sequence<int> seq)
@@ -70,6 +60,7 @@ coefficient(util::sequence<int, ns...>, partials<ds...>)
 constexpr inline auto
 multiindex(int row, int col, int dims)
 {
+	using namespace util::math;
 	if (dims == 0) return 0;
 	auto n = dims - 1;
 	for (int i = 0;; ++i) {
@@ -85,7 +76,8 @@ multiindex(int row, int col, int dims)
 template <int degree, int dims>
 class info {
 	template <typename ...> struct container {};
-	using row_seq = util::make_sequence<int, nchoosek(degree+dims, degree)>;
+	static constexpr auto n = util::math::nchoosek(degree+dims, degree);
+	using row_seq = util::make_sequence<int, n>;
 	using col_seq = util::make_sequence<int, dims>;
 
 	template <int row, int ... cols>

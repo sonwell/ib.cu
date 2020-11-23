@@ -186,5 +186,15 @@ pow(double b, value_type e)
 	return e < 0 ? 1.0 / v : v;
 }
 
+constexpr int
+nchoosek(int n, int k)
+{
+	if (k < 0) return 0;
+	int v = 1;
+	for (int i = 1; i <= k; ++i)
+		v = (v * (n - k + i)) / i;
+	return v;
+}
+
 } // namespace math
 } // namespace util

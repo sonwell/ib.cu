@@ -6,7 +6,7 @@
 #include "algo/lu.h"
 #include "bases/traits.h"
 #include "bases/fill.h"
-#include "bases/polynomials.h"
+#include "bases/spherical_harmonics.h"
 #include "bases/differentiation.h"
 #include "bases/closed_surface.h"
 #include "bases/scaled.h"
@@ -132,11 +132,11 @@ public:
 	}
 
 	template <meta::basic interp, meta::basic eval,
-	          meta::polynomial poly = polynomials<0>>
+	          meta::polynomial poly = spherical_harmonics<1>>
 	sphere(int nd, int ns, interp phi, eval psi, poly p = {}) :
 		sphere(nd, ns, traits, phi, psi, p) {}
 
-	template <meta::basic basic, meta::polynomial poly = polynomials<0>>
+	template <meta::basic basic, meta::polynomial poly = spherical_harmonics<1>>
 	sphere(int nd, int ns, basic phi, poly p = {}) :
 		sphere(nd, ns, phi, phi, p) {}
 };

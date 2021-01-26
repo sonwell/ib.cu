@@ -151,8 +151,9 @@ initialize(const grid_type& grid, const domain_type& domain,
 			bases::rotate(5.915284085003262, {0.8577444450409515, -0.10649820699097605, 0.4265386595355442}) | bases::translate({3.9603486846147624_um, 12.680732811531806_um, 12.240818745581036_um}),
 			bases::rotate(5.872101056788503, {0.9257797018884111, 0.19176928816818867, 0.11104080010931071}) | bases::translate({11.866323151661556_um, 12.605616419550312_um, 16.071587706914382_um})
 		);
+		fd::grid g2{fd::shift::diagonally(grid), domain};
 		endothelium = bases::shape(endo, bases::translate({0, 0, 0}));
-		st = {0_s, zeros(grid, domain), {r * r * r, linalg::zero}};
+		st = {0_s, zeros(grid, domain), {fd::size(g2), linalg::zero}};
 		st.u[2] = fill_flow(g, [=] __device__ (auto x) { return twv * x[1] / ymax; });
 		return std::make_tuple(std::move(st), std::move(ub), std::move(rbcs), std::move(endothelium));
 	}
@@ -201,7 +202,7 @@ main(int argc, char** argv)
 	constexpr ib::novel::interpolate interpolate{mac, domain, phi};
 
 	constexpr bases::polyharmonic_spline<7> sharp;
-	rbc rbc{1200, 15000, sharp};
+	rbc rbc{1600, 15000, sharp};
 	endothelium endothelium{4096, 16000, sharp};
 
 	auto [st, ub, rx, ex] = initialize(mac, domain, shear_rate,

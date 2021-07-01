@@ -28,9 +28,11 @@
 
 #include "forces/skalak.h"
 #include "forces/bending.h"
+#include "forces/dissipation.h"
 #include "forces/combine.h"
 
 #include "ins/solver.h"
+#include "ins/state.h"
 
 #include "units.h"
 #include "rbc.h"
@@ -40,20 +42,21 @@ using bases::vector;
 
 struct binary_writer {
 	units::time time = 0_s;
-	units::time interval = 0.1_ms;
+	units::time interval = 0.01_ms;
 	std::ostream& output = std::cout;
 
-	template <std::size_t dimensions, typename ... object_types>
+	template <std::size_t dimensions>
 	void
 	operator()(const ins::state<dimensions>& state,
-			const object_types& ... objects)
+			const matrix& x, const matrix& f)
 	{
 		const auto& t = state.t;
 		if (t < time) return;
 		time += interval;
 
-		output << linalg::io::binary << state;
-		((output << linalg::io::binary) << ... << (matrix&) objects.x);
+		output << linalg::io::binary << state.t;
+		output << linalg::io::binary << x;
+		output << linalg::io::binary << f;
 	}
 };
 
@@ -75,19 +78,17 @@ initialize(const grid_type& grid, const domain_type& domain, const ref_type& ref
 {
 	using state = ins::state<domain_type::dimensions>;
 	auto r = grid.refinement();
-	auto h = domain.unit() / r;
 	auto u = zeros(grid, domain);
-	auto ub = zeros(grid, domain);
-	auto rot = bases::rotate(M_PI_2, {1, 0, 0});
-	auto dx = 3.91_um * sqrt((55743711 + 7501748 * sqrt(974)) / 35) / 8750;
-	auto dy = 3.91_um;
+	auto rot1 = bases::rotate(M_PI_2, {-1, 0, 1});
+	auto rot2 = bases::rotate(M_PI_2, {-1, 0, 1});
 
 	state st = {0_s, zeros(grid, domain), vector{r*r*r, linalg::zero}};
-	bases::container rbc1{ref, rot | bases::translate({8_um, 8_um, 8_um - dx - 1.5 * h})};
-	bases::container rbc2{ref, rot | bases::translate({8_um, 8_um, 8_um + dx + 1.5 * h})};
+	auto rbc = bases::shape(ref,
+			rot1 | bases::translate({4_um, 8_um, 4_um}),
+			rot2 | bases::translate({12_um, 8_um, 12_um})
+	);
 
-	return std::make_tuple(std::move(st), std::move(ub),
-			(matrix) rbc1.x, (matrix) rbc2.x);
+	return std::make_tuple(std::move(st), std::move(rbc));
 }
 
 struct constant {
@@ -96,23 +97,27 @@ struct constant {
 
 	template <typename object_type>
 	decltype(auto)
-	operator()(const object_type& object) const
+	operator()(const object_type& object, const matrix&) const
 	{
+		constexpr auto angle = M_PI_4;
 		double c = coeff;
+		const auto& curr = object.geometry(bases::current).sample;
 		const auto& orig = object.geometry(bases::reference).sample;
-		forces::loader original{orig};
+		forces::loader<forces::measure> area{orig};
 
-		auto size = linalg::size(orig.position);
+		auto size = linalg::size(curr.position);
+		auto m = size.rows;
 		auto n = size.rows * size.cols / 3;
 		matrix f{size};
 
 		auto* fdata = f.values();
 		auto k = [=] __device__(int tid)
 		{
-			auto orig = original[tid];
-			for (int i = 0; i < 2; ++i)
-				fdata[n * i + tid] = 0;
-			fdata[n * 2 + tid] = orig.s * c;
+			auto s = area[tid];
+			auto sign = 1 - 2 * ((tid / m) & 1);
+			fdata[n * 0 + tid] = sign * sin(angle) * s * c;
+			fdata[n * 1 + tid] = 0.0;
+			fdata[n * 2 + tid] = sign * cos(angle) * s * c;
 		};
 		util::transform(k, n);
 		return f;
@@ -130,21 +135,20 @@ main(int argc, char** argv)
 	constexpr fd::dimension y{16_um, fd::boundary::dirichlet};
 	constexpr fd::dimension z{16_um, fd::boundary::periodic};
 	constexpr fd::domain domain{x, y, z};
-	constexpr fd::mac mac{96};
+	constexpr fd::mac mac{80};
 
 	constexpr auto shear_rate = 1000 / 1_s;
 	constexpr auto time_scale = 1 / shear_rate;
 	constexpr auto length_scale = domain.unit();
 	constexpr auto h = domain.unit() / mac.refinement();
-	constexpr auto kmin = 0.0000020_s * (h / 1_um) * (h / 1_um);
+	constexpr auto kmin = 50_ns;
 	constexpr ins::parameters params {kmin, time_scale, length_scale, 1_g / 1_mL, 1_cP, 1e-11};
 
 	constexpr forces::skalak rbc_tension{2.5e-3_dyn/1_cm, 2.5e-1_dyn/1_cm};
 	constexpr forces::bending rbc_bending{2e-12_erg};
-	constexpr constant rbc_pos{+(1.0e-3_dyn/1_cm)};
-	constexpr constant rbc_neg{-(1.0e-3_dyn/1_cm)};
-	constexpr forces::combine rbc_f1{rbc_tension, rbc_bending, rbc_pos};
-	constexpr forces::combine rbc_f2{rbc_tension, rbc_bending, rbc_neg};
+	constexpr forces::dissipation rbc_dissip{2.5e-7_dyn*1_s/1_cm};
+	constexpr constant rbc_constant{1e-3_dyn/1_cm};
+	constexpr forces::combine rbc_forces{rbc_tension, rbc_bending, rbc_dissip};
 
 	util::logging::info("time scale: ", params.time_scale);
 	util::logging::info("length scale: ", params.length_scale);
@@ -152,16 +156,16 @@ main(int argc, char** argv)
 	util::logging::info("μ: ", params.viscosity);
 	util::logging::info("ρ: ", params.density);
 
-	constexpr ib::delta::bspline<2> phi;
+	constexpr ib::delta::bspline<3> phi;
 	constexpr ib::novel::spread spread{mac, domain, phi};
 	constexpr ib::novel::interpolate interpolate{mac, domain, phi};
 
 	constexpr bases::polyharmonic_spline<7> sharp;
-	rbc rbc{1600, 15000, sharp};
+	rbc rbc{2500, 10000, sharp};
 
-	auto [st, ub, r1, r2] = initialize(mac, domain, rbc);
-	bases::container rbc1{rbc, std::move(r1)};
-	bases::container rbc2{rbc, std::move(r2)};
+	auto [st, r] = initialize(mac, domain, rbc);
+	auto ub = zeros(mac, domain);
+	bases::container rbcs{rbc, std::move(r)};
 
 	ins::solver step{mac, domain, params};
 
@@ -176,14 +180,16 @@ main(int argc, char** argv)
 		return r * c / dimensions;
 	};
 
+	matrix f;
 	auto forces_of = [&] (const auto& cell, const auto& forces,
 			const units::time k, const auto& u)
 	{
 		const auto& ref = bases::ref(cell);
 		auto w = interpolate(pts(cell.x), cell.x, u);
-		auto y = cell.x + (double) k * std::move(w);
+		auto y = cell.x + (double) k * w;
 		bases::container tmp{ref, std::move(y)};
-		return spread(pts(tmp.x), tmp.x, forces(tmp));
+		f = forces(tmp, w);
+		return spread(pts(tmp.x), tmp.x, f);
 	};
 
 	auto forces = [&] (units::time tn, const auto& v)
@@ -200,8 +206,8 @@ main(int argc, char** argv)
 			{ return map(plus, std::move(l), f(r)); };
 		auto m = [&] (const auto& head, const auto& ... tail)
 			{ return foldl(op, f(head), tail...); };
-		return apply(m, zip(std::forward_as_tuple(rbc1, rbc2),
-		                    std::forward_as_tuple(rbc_f1, rbc_f2)));
+		return apply(m, zip(std::forward_as_tuple(rbcs),
+		                    std::forward_as_tuple(rbc_forces)));
 	};
 
 	auto move = [&, &st=st] (auto& cell)
@@ -210,7 +216,8 @@ main(int argc, char** argv)
 		cell.x += (double) k * std::move(v);
 	};
 
-	write(st, rbc1, rbc2);
+	forces(t, st.u);
+	write(st, rbcs.x, f);
 	while (t < tmax) {
 		util::logging::info("simulation time: ", t);
 		try { st = step(std::move(st), ub, forces); }
@@ -220,8 +227,8 @@ main(int argc, char** argv)
 		}
 		k = st.t - t;
 		t = st.t;
-		move(rbc1); move(rbc2);
-		write(st, rbc1, rbc2);
+		move(rbcs);
+		write(st, rbcs.x, f);
 	}
 
 	return 0;

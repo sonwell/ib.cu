@@ -75,8 +75,8 @@ struct container {
 private:
 	using reference_tag = decltype(reference);
 	using current_tag = decltype(current);
-	using operator_type = decltype(reference_type::data_to_data);
-	using geometry_type = decltype(reference_type::data_geometry);
+	using operator_type = typename reference_type::operators_type;
+	using geometry_type = typename reference_type::geometry_type;
 
 	matrix& get_x() { return data.position; }
 

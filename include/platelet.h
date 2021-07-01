@@ -15,8 +15,8 @@ private:
 	using base = bases::shapes::sphere;
 	static constexpr bases::traits<platelet> traits;
 	static constexpr bases::polynomials<0> p;
-	static constexpr double major = 1.82_um;
-	static constexpr double minor = 0.46_um;
+	static constexpr double major = 1.55_um;
+	static constexpr double minor = 0.50_um;
 public:
 	static matrix
 	shape(const matrix& params)
@@ -28,7 +28,7 @@ public:
 			auto x = cos(t) * cos(p);
 			auto y = sin(t) * cos(p);
 			auto z = sin(p);
-			return {major * x, major * y, minor * z};
+			return {major * x, minor * y, major * z};
 		};
 		return base::shape(params, k);
 	}

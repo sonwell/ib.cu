@@ -4,12 +4,23 @@
 #include "bases/traits.h"
 #include "units.h"
 
+enum class endothelial_shape {
+	elongated = 1,
+	cobblestone = 2,
+	flat = 3
+};
+
+template <endothelial_shape shape_type>
 struct endothelium : bases::shapes::periodic_sheet {
 private:
 	using base = bases::shapes::periodic_sheet;
 	using matrix = bases::matrix;
-	static constexpr bases::traits<endothelium> traits;
+	using traits = bases::traits<endothelium>;
 public:
+	static constexpr auto elongated = endothelial_shape::elongated;
+	static constexpr auto cobblestone = endothelial_shape::cobblestone;
+	static constexpr auto flat = endothelial_shape::flat;
+
 	static matrix
 	shape(const matrix& params)
 	{
@@ -21,22 +32,26 @@ public:
 		{
 			auto u = x[0] / (2 * pi);
 			auto v = x[1] / (2 * pi);
-			auto r = 2 * (0.5 * u - v);
-			auto s = 2 * (0.5 * u + v);
-			auto w = 0.25 * (1 + cos(4 * pi * r)) * (1 + cos(4 * pi * s));
+			double w0;
+
+			if constexpr (shape_type == elongated)
+				w0 = cos(x[0] - x[1]) * sin(x[1]/2);
+			else if constexpr (shape_type == cobblestone)
+				w0 = cos((x[0] - x[1])/2) * cos((x[0] + x[1])/2);
+			else
+				w0 = 1./2.;
+
+			auto w = w0 * w0;
 			return {stretch * v, height * w + offset, stretch * u};
 		};
 		return base::shape(params, k);
 	}
 
-	template <typename interp, typename eval,
-	          typename = std::enable_if_t<bases::is_basic_function_v<interp>>,
-	          typename = std::enable_if_t<bases::is_basic_function_v<eval>>>
+	template <bases::meta::basic interp, bases::meta::basic eval>
 	endothelium(int nd, int ns, interp phi, eval psi) :
-		bases::shapes::periodic_sheet(nd, ns, traits, phi, psi) {}
+		bases::shapes::periodic_sheet(nd, ns, traits{}, phi, psi) {}
 
-	template <typename basic,
-	          typename = std::enable_if_t<bases::is_basic_function_v<basic>>>
+	template <bases::meta::basic basic>
 	endothelium(int nd, int ns, basic phi) :
 		endothelium(nd, ns, phi, phi) {}
 };

@@ -1,11 +1,13 @@
 #include "util/functional.h"
 #include "bases/types.h"
+#include "units.h"
 
 struct state {
+	units::time t;
 	bases::vector u[3];
-	bases::vector ub[3];
 	bases::vector p;
 	bases::matrix r;
+	bases::matrix s;
 	bases::matrix e;
 };
 
@@ -14,10 +16,11 @@ operator>>(std::istream& in, state& st)
 {
 	using namespace util::functional;
 	auto load = [&] (auto& v) { in >> linalg::io::binary >> v; };
+	load(st.t);
 	map(load, st.u);
-	map(load, st.ub);
 	load(st.p);
 	load(st.r);
+	load(st.s);
 	load(st.e);
 	return in;
 }
@@ -38,10 +41,11 @@ operator<<(std::ostream& out, const state& st)
 {
 	using namespace util::functional;
 	auto store = [&] (const auto& v) { out << linalg::io::binary << v; };
+	store(st.t);
 	map(store, st.u);
-	map(store, st.ub);
 	store(st.p);
 	store(st.r);
+	store(st.s);
 	store(st.e);
 	return out;
 }

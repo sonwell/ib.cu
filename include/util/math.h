@@ -11,8 +11,8 @@ namespace util {
 namespace math {
 namespace impl {
 
-template <typename value_type,
-          typename = std::enable_if_t<std::is_integral_v<value_type>>>
+template <typename value_type>
+requires std::is_integral_v<value_type>
 constexpr int
 msb(value_type v)
 {
@@ -25,9 +25,8 @@ msb(value_type v)
 	return b;
 }
 
-template <typename value_type,
-          typename = std::enable_if_t<
-			  std::numeric_limits<value_type>::is_iec559>>
+template <typename value_type>
+requires std::numeric_limits<value_type>::is_iec559
 constexpr auto
 log(value_type v)
 {
@@ -168,8 +167,8 @@ modulo(double x, double s)
 	return x - s * floor(x / s);
 }
 
-template <typename value_type,
-          typename = std::enable_if_t<std::is_integral_v<value_type>>>
+template <typename value_type>
+requires std::is_integral_v<value_type>
 constexpr double
 pow(double b, value_type e)
 {
@@ -194,6 +193,15 @@ nchoosek(int n, int k)
 	for (int i = 1; i <= k; ++i)
 		v = (v * (n - k + i)) / i;
 	return v;
+}
+
+constexpr double
+log(double v)
+{
+	if (std::is_constant_evaluated())
+		return impl::log(v);
+	else
+		return std::log(v);
 }
 
 } // namespace math

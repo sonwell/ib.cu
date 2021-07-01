@@ -11,12 +11,13 @@ gcd(T a, T b)
 {
 	// Euclid's GCD algorithm modified for floating point values
 	using limits = std::numeric_limits<T>;
-	constexpr auto eps = limits::epsilon();
+	auto eps = limits::epsilon();
 
 	while (util::math::abs(b) > eps) {
 		if (a < b) std::swap(a, b);
 		auto c = a - util::math::floor(a / b) * b;
 		a = b; b = c;
+		eps *= 2;
 	}
 	return a;
 }

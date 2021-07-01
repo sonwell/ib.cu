@@ -3,6 +3,7 @@
 #include <ratio>
 #include <ostream>
 #include "util/functional.h"
+#include "util/math.h"
 
 namespace units {
 
@@ -10,15 +11,7 @@ using tmpl_type = std::intmax_t;
 
 namespace detail {
 
-constexpr auto
-pow(double base, tmpl_type exp)
-{
-	if (exp == 0) return 1.0;
-	if (exp == 1) return base;
-	if (exp < 0) return 1 / pow(base, -exp);
-	auto r = pow(base, exp >> 1);
-	return pow(base, exp & 1) * r * r;
-}
+using util::math::pow;
 
 static constexpr auto length_scale = 1'000.     /* per cm */;
 static constexpr auto mass_scale   = 1'000'000. /* per  g */;

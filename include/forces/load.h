@@ -88,6 +88,7 @@ namespace forces {
 
 template <typename> struct loader;
 
+template <int dims> struct position { vector<dims+1> x; };
 template <int dims> struct tangents { std::array<vector<dims+1>, dims> t; };
 template <int dims> struct seconds { std::array<vector<dims+1>, nchoosek(dims+1, 2)> tt; };
 template <int dims> struct normal { vector<dims+1> n; };
@@ -128,6 +129,19 @@ struct loader<double> {
 	loader(const matrix& m) :
 		values(m.values()),
 		m(m.rows() * m.cols()) {}
+};
+
+template <int dims>
+struct loader<position<dims>> {
+	loader<vector<dims+1>> x;
+
+	constexpr auto
+	operator[](int i) const
+	{
+		return x[i];
+	}
+
+	loader(const bases::geometry<dims>& g) : x{g.position} {}
 };
 
 template <int dims>

@@ -47,9 +47,9 @@ public:
 	}
 };
 
-// This is the flat torus. It does not have a physically realizeable shape with
-// the metric above. The metric is the result of taking the Cartesian product of
-// two circles, scaled.
+// This is the flat torus. It does not have a physically realizeable shape in
+// R^3 with the metric above. The metric is the result of taking the Cartesian
+// product of two circles, scaled.
 struct torus : closed_surface<2> {
 private:
 	static constexpr bases::traits<torus> traits;

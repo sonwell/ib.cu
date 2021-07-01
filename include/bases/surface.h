@@ -11,9 +11,9 @@ template <int dims>
 struct surface {
 public:
 	static constexpr auto dimensions = dims;
+	using operators_type = bases::operators<dimensions>;
+	using geometry_type = bases::geometry<dimensions>;
 private:
-	using operators = bases::operators<dimensions>;
-	using geometry = bases::geometry<dimensions>;
 
 	typedef struct {
 		matrix sites;
@@ -84,10 +84,10 @@ protected:
 public:
 	int num_data_sites;
 	int num_sample_sites;
-	operators data_to_data;
-	operators data_to_sample;
-	geometry data_geometry;
-	geometry sample_geometry;
+	operators_type data_to_data;
+	operators_type data_to_sample;
+	geometry_type data_geometry;
+	geometry_type sample_geometry;
 
 	template <meta::traits traits, meta::basic interp, meta::basic eval,
 	          meta::metric metric, meta::polynomial poly>

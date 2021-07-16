@@ -26,6 +26,8 @@
 
 #include "ib/novel.h"
 #include "ib/bspline.h"
+#include "ib/solver.h"
+#include "ib/state.h"
 
 #include "forces/skalak.h"
 #include "forces/neohookean.h"
@@ -35,9 +37,6 @@
 #include "forces/damping.h"
 #include "forces/repelling.h"
 #include "forces/combine.h"
-
-#include "ins/solver.h"
-#include "ins/state.h"
 
 #include "units.h"
 #include "rbc.h"
@@ -65,19 +64,15 @@ struct binary_writer {
 	units::time interval = 0.1_ms;
 	std::ostream& output = std::cout;
 
-	template <std::size_t dimensions, typename ... object_types>
+	template <std::size_t dimensions, std::size_t n>
 	void
-	operator()(const ins::state<dimensions>& state,
-			const matrix& x,
-			const object_types& ... objects)
+	operator()(const ib::state<dimensions, n>& state)
 	{
 		const auto& t = state.t;
 		if (t < time) return;
 		time += interval;
 
 		output << linalg::io::binary << state;
-		((output << linalg::io::binary) << ... << (matrix&) objects.x);
-		output << linalg::io::binary << x;
 	}
 };
 
@@ -123,7 +118,6 @@ fill_flow(const grid_type& grid, fn_type fn)
 		return h(x);
 	};
 
-
 	vector v{fd::size(grid)};
 	auto* data = v.values();
 	auto f = [=] __device__ (int tid, auto g, auto h) { data[tid] = g(tid, h); };
@@ -162,9 +156,8 @@ decltype(auto)
 initialize(const grid_type& grid, const domain_type& domain,
 			const rbc& rbc, const platelet& plt, traits, const char* fname)
 {
-	ins::state<domain_type::dimensions> st;
+	using state = ib::state<domain_type::dimensions, 3>;
 	matrix rbcs, plts, endo;
-
 
 	if (fname == nullptr) {
 		rbcs = bases::shape(rbc,
@@ -184,16 +177,14 @@ initialize(const grid_type& grid, const domain_type& domain,
 		plts = bases::shape(plt, bases::translate({0_um, 1.75_um, 0_um}), bases::translate({8_um, 2.75_um, 8_um}));
 		endo = traits::shape(traits::sample(16000));
 		fd::grid g{fd::shift::diagonally(grid), domain};
-		st = {0_s, zeros(grid, domain), {fd::size(g), linalg::zero}};
-		return std::make_tuple(std::move(st), std::move(rbcs), std::move(plts), std::move(endo));
+		return state{0_s, zeros(grid, domain), {fd::size(g), linalg::zero},
+			         std::array{std::move(rbcs), std::move(plts), std::move(endo)}};
 	}
 
 	std::fstream f(fname, std::ios::in | std::ios::binary);
+	state st;
 	f >> linalg::io::binary >> st;
-	f >> linalg::io::binary >> rbcs;
-	f >> linalg::io::binary >> plts;
-	f >> linalg::io::binary >> endo;
-	return std::make_tuple(std::move(st), std::move(rbcs), std::move(plts), std::move(endo));
+	return st;
 }
 
 int
@@ -232,8 +223,7 @@ main(int argc, char** argv)
 	util::logging::info("ρ: ", params.density);
 
 	constexpr ib::delta::bspline<3> phi;
-	constexpr ib::novel::spread spread{mac, domain, phi};
-	constexpr ib::novel::interpolate interpolate{mac, domain, phi};
+	ib::solver step{mac, domain, phi, params};
 
 	constexpr bases::phs<7> sharp;
 	using endo = endothelium<setup.shape>;
@@ -241,73 +231,47 @@ main(int argc, char** argv)
 	platelet plt{900, 900, sharp};
 
 
-	auto [st, rx, px, ex] = initialize(mac, domain, rbc, plt,
+	auto st = initialize(mac, domain, rbc, plt,
 			bases::traits<endo>{}, argc > 1 ? argv[1] : nullptr);
 	auto ub = boundary_velocity(mac, domain, shear_rate);
-	bases::container rbcs{rbc, std::move(rx)};
-	bases::container plts{plt, std::move(px)};
-	auto ex0 = endo::shape(endo::sample(ex.rows()));
+	auto ex0 = endo::shape(endo::sample(st.x[2].rows()));
 
-	ins::solver step{mac, domain, params};
+	units::time tmax = 100_ms;
+	binary_writer write{st.t};
 
-	units::time t = st.t, tmax = 100_ms, k = kmin;
-	binary_writer write{t};
-
-	auto pts = [&] (const matrix& x)
-	{
-		using domain_type = decltype(domain);
-		constexpr auto dimensions = domain_type::dimensions;
-			auto [r, c] = linalg::size(x);
-		return r * c / dimensions;
-	};
-
-	auto forces_of = [&] (const auto& cell, const auto& forces,
-			const units::time k, const auto& u)
-	{
-		const auto& ref = bases::ref(cell);
-		auto w = interpolate(pts(cell.x), cell.x, u);
-		auto y = cell.x + (double) k * w;
-		bases::container tmp{ref, std::move(y)};
-		auto& z = tmp.geometry(bases::current).sample.position;
-		return spread(pts(z), z, forces(tmp, w));
-	};
-
-	auto forces_of_endothelium = [&, &ex=ex] (const units::time k, const auto& u)
+	auto spring = [&] (const matrix& ex, const matrix& eu)
 	{
 		constexpr auto spring = 2.5e+0_dyn/1_cm;
 		constexpr auto damping = 1e-7_dyn*1_s/1_cm;
-		auto w = interpolate(pts(ex), ex, u);
-		auto ey = ex + (double) k * w;
-		auto f = -((double) spring * (ey - ex0) + (double) damping * w);
-		return spread(pts(ey), ey, f);
+		auto f = -((double) spring * (ex - ex0) + (double) damping * eu);
+		return std::make_pair(ex, f);
 	};
 
-	auto forces = [&] (units::time tn, const auto& v)
+	auto forces = [&] (units::time t, const auto& x, const auto& u)
 	{
-		using namespace util::functional;
-		units::time dt = tn - t;
-		auto add = partial(map, std::plus<vector>{});
-		auto k = [&] (const auto& pair)
-		{
-			auto& [obj, fn] = pair;
-			return forces_of(obj, fn, dt, v);
+		const auto& [rx, px, ex] = x;
+		const auto& [ru, pu, eu] = u;
+
+		const bases::container rbcs{rbc, rx};
+		const bases::container plts{plt, px};
+
+		auto& ry = rbcs.geometry(bases::current).sample.position;
+		auto rf = rbc_forces(rbcs, ru);
+
+		auto& py = plts.geometry(bases::current).sample.position;
+		auto pf = plt_forces(plts, pu);
+
+		auto&& [ey, ef] = spring(ex, eu);
+
+		return std::pair{
+			std::array{ry, py, ey},
+			std::array{rf, pf, ef}
 		};
-		auto fe = forces_of_endothelium(dt, v);
-		auto op = [&] (const auto& l, const auto& r) { return add(l, k(r)); };
-		return apply(partial(foldl, op, fe),
-				zip(std::forward_as_tuple(rbcs, plts),
-					std::forward_as_tuple(rbc_forces, plt_forces)));
 	};
 
-	auto move = [&, &st=st] (auto& x)
-	{
-		auto v = interpolate(pts(x), x, st.v);
-		x += (double) k * std::move(v);
-	};
-
-	write(st, ex, rbcs, plts);
-	while (t < tmax) {
-		util::logging::info("simulation time: ", t);
+	write(st);
+	while (st.t < tmax) {
+		util::logging::info("simulation time: ", st.t);
 		try { st = step(std::move(st), ub, forces); }
 		catch (std::system_error& e) {
 			util::logging::error(e.what());
@@ -317,10 +281,7 @@ main(int argc, char** argv)
 			util::logging::error(e.what());
 			return 255;
 		}
-		k = st.t - t;
-		t = st.t;
-		move(rbcs.x); move(plts.x); move(ex);
-		write(st, ex, rbcs, plts);
+		write(st);
 	}
 	return 0;
 }

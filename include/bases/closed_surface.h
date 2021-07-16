@@ -1,4 +1,5 @@
 #pragma once
+#include "solvers/lu.h"
 #include "types.h"
 #include "polynomials.h"
 #include "phs.h"
@@ -61,7 +62,7 @@ protected:
 		constexpr polynomials<0> p;
 		rbf phi{basic, distance};
 		auto n = x.rows();
-		auto lu = algo::lu(fill<dims>(x, phi, p));
+		solvers::lu lu{fill<dims>(x, phi, p)};
 		auto f = [=] __device__ (int tid) { return tid >= n; };
 		return scale(x, solve(lu, vector{n+1, linalg::fill(f)}), w);
 	}

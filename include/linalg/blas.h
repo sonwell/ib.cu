@@ -134,7 +134,7 @@ axpy(scalar<vtype> s, const vector<sparse<vtype>>& x, vector<dense<vtype>>& y)
 	(void) (s * size(x) + size(y));
 	cusparse::handle h;
 	cusparse::axpyi(h, x.nonzero(), x.values(), x.indices(),
-			y.values(), index_base);
+			y.values(), index_offset);
 }
 
 template <template <typename> class layout, typename vtype>
@@ -156,7 +156,7 @@ dot(const vector<sparse<vtype>>& x, const vector<dense<vtype>>& y)
 	vtype result;
 	cusparse::handle h;
 	cusparse::doti(h, length(x), x.values(), x.indices(),
-			y.values(), &result, index_base);
+			y.values(), &result, index_offset);
 	return result;
 }
 
@@ -213,7 +213,7 @@ gemv(scalar<vtype> alpha, const matrix<dense<vtype>>& a, const vector<sparse<vty
 	util::memory<void> buffer(buffer_size);
 	cusparse::gemvi(h, op, a.rows(), a.cols(), &alpha,
 			a.values(), a.rows(), x.values(), x.indices(), &beta,
-			y.values(), index_base, buffer);
+			y.values(), index_offset, buffer);
 }
 
 template <typename vtype>

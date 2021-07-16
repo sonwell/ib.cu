@@ -152,7 +152,7 @@ private:
 			i(m[0][0]), iu(2 * c[0][0][0]) {}
 
 		constexpr helper(const load::payload& pt) :
-			helper(tangents{pt}, seconds{pt}) {}
+			helper((const metric&) pt, (const christoffel&) pt) {}
 	};
 protected:
 	template <typename object_type, typename constitutive_law_type>
@@ -163,8 +163,8 @@ protected:
 		using bases::current;
 		const auto& orig = object.geometry(reference).sample;
 		const auto& curr = object.geometry(current).sample;
-		loader original{orig};
-		loader deformed{curr};
+		load original{orig};
+		load deformed{curr};
 
 		auto size = linalg::size(curr.position);
 		auto n = size.rows * size.cols / 2;
@@ -193,7 +193,7 @@ protected:
 			for (int j = 0; j < 2; ++j)
 				fdata[n * j + tid] = orig.s / oi * (
 						+ phi * uu[j]
-						- 0.5 * iu / i * phi * u[j]
+						- odi / (2 * oi) * phi * u[j]
 						+ phiu * u[j]
 				);
 		};

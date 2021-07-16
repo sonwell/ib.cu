@@ -1,11 +1,11 @@
 #pragma once
 #include <utility>
-#include "util/launch.h"
 #include "util/functional.h"
 #include "algo/chebyshev.h"
 #include "types.h"
 #include "smoother.h"
 
+namespace solvers {
 namespace mg {
 
 // Chebyshev iteration as a MG smoother
@@ -27,27 +27,28 @@ private:
 
 	template <typename grid_type>
 	std::pair<double, double>
-	range(const grid_type& g, const matrix& m)
+	range(const grid_type& g, const sparse::matrix& m)
 	{
 		auto prop = proportion(g);
 		auto [a, b] = algo::gershgorin(m);
-		if (abs(a) > abs(b))
+		if (std::abs(a) > std::abs(b))
 			std::swap(a, b);
 		return {a + (b - a) * prop, b};
 	}
 
-	chebyshev(std::pair<double, double> range, const matrix& m) :
+	chebyshev(std::pair<double, double> range, const sparse::matrix& m) :
 		algo::chebyshev(std::get<0>(range), std::get<1>(range), m) {}
 public:
-	virtual vector
-	operator()(vector b) const
+	virtual dense::vector
+	operator()(dense::vector b) const
 	{
 		return algo::chebyshev::operator()(std::move(b));
 	}
 
 	template <typename grid_type>
-	chebyshev(const grid_type& grid, const matrix& m) :
+	chebyshev(const grid_type& grid, const sparse::matrix& m) :
 		chebyshev(range(grid, m), m) {}
 };
 
 } // namespace mg
+} // namespace solvers

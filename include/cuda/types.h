@@ -2,6 +2,7 @@
 #include <type_traits>
 #include <atomic>
 #include <cuda.h>
+#include <cuda_runtime.h>
 #include <cuComplex.h>
 #include <library_types.h>
 

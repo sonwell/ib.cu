@@ -70,7 +70,7 @@ operator<<(std::ostream& out, const matrix_description& descr)
 {
 	return out << "diagonal: " << (diagonal_type) descr.diagonal_type << '\n'
 	           << "fill mode: " << (fill_mode) descr.fill_mode << '\n'
-	           << "indexing base: " << (index_base) descr.index_base << '\n'
+	           << "indexing base: " << (linalg::index_base) descr.index_base << '\n'
 	           << "type: " << (matrix_type) descr.matrix_type;
 }
 

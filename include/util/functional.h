@@ -118,6 +118,14 @@ struct tuple_size<const std::integer_sequence<int_type, n...>> :
 	std::integral_constant<std::size_t, sizeof...(n)> {};
 
 template <typename tuple_type>
+struct is_tuple_like {
+	template <typename C> static auto test(int) ->
+		sfinae_pass<std::integral_constant<bool, (tuple_size<C>::value > 0)>>;
+	template <typename C> static auto test(long) -> std::false_type;
+	static constexpr auto value = decltype(test<tuple_type>(0))::value;
+};
+
+template <typename tuple_type>
 inline constexpr auto tuple_size_v = tuple_size<tuple_type>::value;
 
 template <std::size_t i, typename tuple_type>
@@ -439,5 +447,12 @@ using functional::impl::tuple_element;
 using functional::impl::tuple_element_t;
 using functional::impl::tuple_size;
 using functional::impl::tuple_size_v;
+
+namespace meta {
+
+template <typename C> concept tuple_like =
+	functional::impl::is_tuple_like<std::remove_reference_t<std::remove_cv_t<C>>>::value;
+
+}
 
 } // namespace util

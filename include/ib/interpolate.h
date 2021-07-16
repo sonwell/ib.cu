@@ -23,7 +23,7 @@ struct sorter : indexing::sorter<grid_type> {
 
 } // namespace interpolation
 
-template <typename grid_tag, typename domain_type, typename delta_type>
+template <typename domain_type, typename delta_type>
 struct interpolate {
 public:
 	static constexpr auto dimensions = domain_type::dimensions;
@@ -36,12 +36,14 @@ private:
 	static constexpr auto per_sweep = values;
 	static constexpr auto sweeps = (values + per_sweep - 1) / per_sweep;
 
+	template <typename grid_tag>
 	static constexpr auto
 	construct(const grid_tag& tag, const domain_type& domain)
 	{
 		using namespace util::functional;
-		auto k = [&] (const auto& comp) { return fd::grid{tag, domain, comp}; };
-		return map(k, fd::components(domain));
+		auto k = [&] (const auto& ... comp)
+			{ return std::array{fd::grid{tag, domain, comp}...}; };
+		return apply(k, fd::components(domain));
 	}
 
 	template <typename grid_type>
@@ -53,6 +55,7 @@ private:
 		auto* xdata = x.values();
 		auto* udata = u.values();
 
+		// Single sweep for all values.
 		ib::sweep sweep{0, values, phi, interpolation::sorter{grid}};
 		auto k = [=] __device__(int tid)
 		{
@@ -60,22 +63,29 @@ private:
 			for (int i = 0; i < dimensions; ++i)
 				z[i] = xdata[n * i + tid];
 
-			auto j = sweep.sort(z);
-			auto k = sweep.indices(j);
-			auto w = sweep.values(z);
+			auto j = sweep.sort(z);     // sort key
+			auto k = sweep.indices(j);  // grid indices
+			auto w = sweep.values(z);   // delta values
 
 			double v = 0.0;
 			for (auto [k, w]: util::iterators::zip(k, w))
-				if (k >= 0) v += w * udata[k];
+				if (k >= 0) v += w * udata[k]; // k < 0 => error state
 			vdata[tid] = v;
 		};
 		util::transform(k, n);
 	}
 
-	using grids_type = decltype(construct(std::declval<grid_tag>(),
-	                                      std::declval<domain_type>()));
+	auto
+	points(const matrix& x) const
+	{
+		return x.rows() * x.cols() / dimensions;
+	}
+
+	using grid_type = fd::grid<domain_type>;
+	using grids_type = std::array<grid_type, dimensions>;
 	grids_type grids;
 public:
+	template <typename grid_tag>
 	constexpr interpolate(const grid_tag& tag, const domain_type& domain, delta_type) :
 		grids(construct(tag, domain)) {}
 
@@ -83,6 +93,15 @@ public:
 	void
 	operator()(int n, const matrix& x, const tuple_type& ue, matrix& ul) const
 	{
+		if (n <= 0) return;
+		/*
+		 * n: number of points in x
+		 * x: matrix of positions in [ x_1 x_2 ... x_m y_1 y_2 ... y_m ... ]
+		 *    format, where each of x_i, y_i, ... are potentially vectors.
+		 * ue: a tuple-like object of (u, v[, w]) fluid velocities at Eulerian
+		 *     grid points (hence the e)
+		 * ul: the output matrix for Lagrangian velocities (hence the l)
+		 */
 		using namespace util::functional;
 		using sequence = std::make_index_sequence<dimensions>;
 
@@ -96,12 +115,26 @@ public:
 	}
 
 	template <typename tuple_type>
+	void
+	operator()(const matrix& x, const tuple_type& ue, matrix& ul) const
+	{
+		return operator()(points(x), x, ue, ul);
+	}
+
+	template <typename tuple_type>
 	matrix
 	operator()(int n, const matrix& x, const tuple_type& ue) const
 	{
-		matrix ul{linalg::size(x)};
+		matrix ul{linalg::size(x)}; // Lagrangian output matrix (hence the l)
 		operator()(n, x, ue, ul);
 		return ul;
+	}
+
+	template <typename tuple_type>
+	matrix
+	operator()(const matrix& x, const tuple_type& ue) const
+	{
+		return operator()(points(x), x, ue);
 	}
 };
 

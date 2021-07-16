@@ -62,7 +62,7 @@ copy(const dense<otype>& o)
 	auto k = [=] __device__ (int tid) { vdata[tid] = wdata[tid]; };
 	util::transform<128, 8>(k, n);
 
-	_values = move(values);
+	_values = std::move(values);
 	base::operator=(o);
 }
 

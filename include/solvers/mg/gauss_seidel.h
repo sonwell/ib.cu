@@ -3,37 +3,39 @@
 #include <limits>
 #include "algo/coloring.h"
 #include "algo/gershgorin.h"
+#include "linalg/size.h"
 #include "types.h"
 #include "smoother.h"
 
+namespace solvers {
 namespace mg {
 
 // Weighted Gauss-Seidel red-black smoother for Laplacian/Helmholtz operators
 //
-// Suppose x satisfies Ax = b. Let x_1 be a guess for x. We wish to construct an
-// improved guess, x_2. We do this by splitting A:
+// Suppose x satisfies Ax⃗ = b⃗. Let x⃗₁ be a guess for x⃗. We wish to construct an
+// improved guess, x⃗₂. We do this by splitting A:
 //
-//     Ax = [(1/ω)(D-L) + (1-1/ω)(D-L) - U]x = b,
+//     Ax⃗ = [(1/ω)(D-L) + (1-1/ω)(D-L) - U]x⃗ = b⃗,
 //
 // where A = D-L-U and D is diagonal, L is strictly lower-triangular, and U is
 // strictly upper-triangular. We construct an iteration scheme:
 //
-//     (1/ω)(D-L)x_2 = b - [(1-1/ω)(D-L) - U]x_1
-//                   = b - Ax_1 + (1/ω)(D-L)x_1
-//         =>    x_2 = x_1 + ω(D-L)^{-1}(b - Ax_1).
+//     (1/ω)(D-L)x⃗₂ = b⃗  - [(1-1/ω)(D-L) - U]x⃗₁
+//                  = b⃗  - Ax⃗₁ + (1/ω)(D-L)x⃗₁
+//         =>    x⃗₂ = x⃗₁ + ω(D-L)⁻¹(b⃗ - Ax⃗₁).
 //
 // The algorithm proceeds blockwise. Since the red-black coloring makes the
-// diagonal blocks diagonal matrices, ω(D-L)^{-1} ends up being very simple.
+// diagonal blocks diagonal matrices, ω(D-L)⁻¹ ends up being very simple.
 class gauss_seidel : public smoother {
 private:
 	using coloring_ptr = std::unique_ptr<algo::coloring>;
 
 	coloring_ptr colorer;
-	matrix op;
+	sparse::matrix op;
 	double omega;
 
 	static double
-	compute_omega(const matrix& m)
+	compute_omega(const sparse::matrix& m)
 	{
 		// A guess at the weighting parameter.
 		auto [lower, upper] = algo::gershgorin(m);
@@ -46,7 +48,7 @@ private:
 	}
 
 	void
-	iterate_block_row(int color, const vector& b, vector& x) const
+	iterate_block_row(int color, const dense::vector& b, dense::vector& x) const
 	{
 		auto* cstarts = colorer->starts();
 		auto* starts = op.starts();
@@ -82,46 +84,36 @@ private:
 		util::transform<128, 7>(k, count);
 	}
 
-	vector
-	iterate(const vector& r) const
+	dense::vector
+	iterate(const dense::vector& r) const
 	{
-		vector e{size(r)};
+		dense::vector e{linalg::size(r)};
 		auto colors = colorer->colors();
 		for (int i = 0; i < colors; ++i)
 			iterate_block_row(i, r, e);
 		return e;
 	}
 public:
-	virtual vector
-	operator()(vector b) const
+	virtual dense::vector
+	operator()(dense::vector b) const
 	{
 		auto r = colorer->permute(std::move(b));
 		auto x = iterate(std::move(r));
 		return colorer->unpermute(std::move(x));
-
-		// XXX maybe one too many vector allocations?
-		/*
-		vector x = 0 * b;
-		int iteration = 0;
-		while (iterations) {
-		for (int it = 0; it < iterations; ++it) {
-			if (it) gemv(-1.0, op, x, 1.0, r);
-			x += iterate(r);
-		}
-		return colorer->unpermute(x);
-		*/
 	}
 
-	gauss_seidel(const matrix& m, double omega, coloring_ptr co) :
+	gauss_seidel(const sparse::matrix& m, double omega, coloring_ptr co) :
 		colorer(std::move(co)), op(colorer->permute(m)), omega(omega) {}
 
-	gauss_seidel(const matrix& m, coloring_ptr co):
+	gauss_seidel(const sparse::matrix& m, coloring_ptr co):
 		gauss_seidel(m, compute_omega(m), std::move(co)) {}
 
-	gauss_seidel(const matrix& m, algo::coloring* colorer) :
+	gauss_seidel(const sparse::matrix& m, algo::coloring* colorer) :
 		gauss_seidel(m, coloring_ptr(colorer)) {}
 
-	gauss_seidel(const matrix& m, double omega, algo::coloring* colorer) :
+	gauss_seidel(const sparse::matrix& m, double omega, algo::coloring* colorer) :
 		gauss_seidel(m, omega, coloring_ptr(colorer)) {}
 };
-}
+
+} // namespace mg
+} // namespace solvers

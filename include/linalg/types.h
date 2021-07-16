@@ -1,11 +1,11 @@
 #pragma once
 #include <cstddef>
 #include "complex.h"
-#include "cusparse/index_base.h"
+#include "index_base.h"
 
 namespace linalg {
 
-static constexpr auto index_base = cusparse::index_base::zero;
+static constexpr auto index_offset = index_base::zero;
 
 template <typename> struct is_field : std::false_type {};
 template <> struct is_field<double> : std::true_type {};
@@ -38,5 +38,12 @@ struct scalar_type { using type = value_type; };
 
 template <typename value_type>
 using scalar = typename scalar_type<value_type>::type;
+
+namespace meta {
+
+template <typename value_type>
+concept scalar = is_scalar_v<value_type>;
+
+}
 
 }

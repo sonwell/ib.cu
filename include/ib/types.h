@@ -9,8 +9,10 @@
 namespace ib {
 
 using dense = linalg::dense<double>;
+using sparse = linalg::sparse<double>;
 using matrix = linalg::matrix<dense>;
 using vector = linalg::vector<dense>;
+using sparse_matrix = linalg::matrix<sparse>;
 
 template <std::size_t n>
 struct values_container {

@@ -20,9 +20,9 @@ struct traits<peskin> {
 		sizeof(offsets) / sizeof(offsets[0]);
 	using rule = detail::rule<2, calls>;
 	static constexpr std::array rules = {
-		rule{{ 0.75, -0.5}, {-1.0}},
+		rule{{ 0.75,  0.5}, {-1.0}},
 		rule{{ 0.00,  0.0}, { 1.0}},
-		rule{{-0.25,  0.5}, { 1.0}},
+		rule{{-0.25, -0.5}, { 1.0}},
 		rule{{ 0.50,  0.0}, {-1.0}}
 	};
 	static constexpr auto meshwidths =

@@ -172,17 +172,17 @@ requires std::is_integral_v<value_type>
 constexpr double
 pow(double b, value_type e)
 {
-	using limits = std::numeric_limits<value_type>;
-	constexpr auto digits = limits::digits;
-	constexpr auto mask0 = (value_type(1) << (digits-1));
-	constexpr auto mask = mask0 + (mask0 - 1); // (2 * mask0 - 1) would overflow
+	if (e < 0)
+		return 1.0 / pow(b, -e);
+
+	constexpr value_type one = 1;
 	double v = 1.0;
-	for (int i = impl::msb(e & mask); i >= 0; --i) {
+	for (int i = impl::msb(e); i >= 0; --i) {
 		v *= v;
-		if (e & (value_type(1) << i))
+		if (e & (one << i))
 			v *= b;
 	}
-	return e < 0 ? 1.0 / v : v;
+	return v;
 }
 
 constexpr int

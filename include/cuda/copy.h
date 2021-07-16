@@ -1,4 +1,6 @@
 #pragma once
+#include <cstdlib>
+#include "types.h"
 
 namespace cuda {
 

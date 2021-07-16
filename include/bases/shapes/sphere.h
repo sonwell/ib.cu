@@ -3,7 +3,6 @@
 #include <fstream>
 #include <filesystem>
 #include "util/sequences.h"
-#include "algo/lu.h"
 #include "bases/traits.h"
 #include "bases/fill.h"
 #include "bases/spherical_harmonics.h"

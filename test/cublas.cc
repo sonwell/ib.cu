@@ -40,6 +40,6 @@ main(void)
 	fill(b, [] __device__ (int, int) { return 2.0; });
 	auto&& c = a - b;
 	auto&& d = a * b;
-	std::cout << c << std::endl;
-	std::cout << d << std::endl;
+	std::cout << linalg::io::matlab << c << std::endl;
+	std::cout << linalg::io::matlab << d << std::endl;
 }

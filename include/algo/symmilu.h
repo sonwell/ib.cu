@@ -45,7 +45,7 @@ spdot(double* vl, int* il, int jl,
 //
 // The solve is performed block-wise where blocks correspond to colors.
 
-class symmilu : public preconditioner {
+class symmilu {
 private:
 	using coloring_ptr = std::unique_ptr<coloring>;
 	coloring_ptr colorer;
@@ -168,7 +168,7 @@ protected:
 		return v;
 	}
 public:
-	virtual vector
+	vector
 	operator()(vector b) const
 	{
 		auto p = colorer->permute(std::move(b));

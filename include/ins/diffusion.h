@@ -4,16 +4,15 @@
 #include "fd/identity.h"
 #include "fd/laplacian.h"
 #include "fd/correction.h"
-#include "mg/chebyshev.h"
+#include "solvers/chebpcg.h"
 #include "util/log.h"
 #include "types.h"
 #include "simulation.h"
-#include "solvers.h"
 
 namespace ins {
 // Implicitly solve diffusion equation by writing discretization as
 //
-//     (I-½λΔₕ)δu = ɣλΔₕu + kIf.
+//     (Ĩ-½λΔₕ)δu = ɣλΔₕu + kĨf.
 //
 class diffusion {
 public:
@@ -24,13 +23,6 @@ private:
 	{
 		return k * d / 2;
 	}
-
-	struct chebyshev : solvers::chebpcg {
-		using solvers::chebpcg::operator();
-
-		chebyshev(matrix m, double tolerance) :
-			chebpcg(tolerance, std::move(m)) {}
-	};
 
 	void
 	set_timestep(const units::time& step)
@@ -47,7 +39,7 @@ private:
 	double tolerance;
 	matrix identity;
 	matrix laplacian;
-	chebyshev helmholtz;
+	solvers::chebpcg helmholtz;
 public:
 	util::getset<units::time> timestep;
 
@@ -60,7 +52,7 @@ public:
 		double k = gamma * timestep;
 		gemv(1.0, laplacian, u, 1.0, rhs);
 		gemv(k, identity, f, k * mu, rhs);
-		util::logging::info("helmholtz solve ", abs(rhs) / gamma);
+		util::logging::debug("helmholtz solve ", abs(rhs) / gamma);
 		return solve(helmholtz, std::move(rhs)) + u;
 	}
 

@@ -99,8 +99,15 @@ namespace impl {
 logger*&
 logger_storage()
 {
+	static constexpr auto default_log_level =
+#ifndef NDEBUG
+	log_level::debug
+#else
+	log_level::info
+#endif
+	;
 	static stream_logfile default_logfile(std::cerr);
-	static logger default_logger(default_logfile, log_level::info);
+	static logger default_logger(default_logfile, default_log_level);
 	static logger* log_ptr = &default_logger;
 	return log_ptr;
 }

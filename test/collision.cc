@@ -25,14 +25,13 @@
 #include "ib/novel.h"
 #include "ib/bspline.h"
 #include "ib/cosine.h"
+#include "ib/solver.h"
+#include "ib/state.h"
 
 #include "forces/skalak.h"
 #include "forces/bending.h"
 #include "forces/dissipation.h"
 #include "forces/combine.h"
-
-#include "ins/solver.h"
-#include "ins/state.h"
 
 #include "units.h"
 #include "rbc.h"
@@ -45,18 +44,15 @@ struct binary_writer {
 	units::time interval = 0.01_ms;
 	std::ostream& output = std::cout;
 
-	template <std::size_t dimensions>
+	template <std::size_t dimensions, std::size_t n>
 	void
-	operator()(const ins::state<dimensions>& state,
-			const matrix& x, const matrix& f)
+	operator()(const ib::state<dimensions, n>& state)
 	{
 		const auto& t = state.t;
 		if (t < time) return;
 		time += interval;
 
-		output << linalg::io::binary << state.t;
-		output << linalg::io::binary << x;
-		output << linalg::io::binary << f;
+		output << linalg::io::binary << state;
 	}
 };
 
@@ -72,23 +68,23 @@ zeros(const tag_type& tag, const domain_type& domain)
 	return map(k, fd::components(domain));
 }
 
-template <typename grid_type, typename domain_type, typename ref_type>
+template <typename grid_type, typename domain_type>
 decltype(auto)
-initialize(const grid_type& grid, const domain_type& domain, const ref_type& ref)
+initialize(const grid_type& grid, const domain_type& domain, const rbc& ref)
 {
-	using state = ins::state<domain_type::dimensions>;
+	using state = ib::state<domain_type::dimensions, 1>;
 	auto r = grid.refinement();
 	auto u = zeros(grid, domain);
 	auto rot1 = bases::rotate(M_PI_2, {-1, 0, 1});
 	auto rot2 = bases::rotate(M_PI_2, {-1, 0, 1});
 
-	state st = {0_s, zeros(grid, domain), vector{r*r*r, linalg::zero}};
 	auto rbc = bases::shape(ref,
 			rot1 | bases::translate({4_um, 8_um, 4_um}),
 			rot2 | bases::translate({12_um, 8_um, 12_um})
 	);
-
-	return std::make_tuple(std::move(st), std::move(rbc));
+	vector p{r*r*r, linalg::zero};
+	return state{0_s, zeros(grid, domain), std::move(p),
+	             std::array{std::move(rbc)}};
 }
 
 struct constant {
@@ -135,7 +131,7 @@ main(int argc, char** argv)
 	constexpr fd::dimension y{16_um, fd::boundary::dirichlet};
 	constexpr fd::dimension z{16_um, fd::boundary::periodic};
 	constexpr fd::domain domain{x, y, z};
-	constexpr fd::mac mac{80};
+	constexpr fd::mac mac{20};
 
 	constexpr auto shear_rate = 1000 / 1_s;
 	constexpr auto time_scale = 1 / shear_rate;
@@ -148,7 +144,8 @@ main(int argc, char** argv)
 	constexpr forces::bending rbc_bending{2e-12_erg};
 	constexpr forces::dissipation rbc_dissip{2.5e-7_dyn*1_s/1_cm};
 	constexpr constant rbc_constant{1e-3_dyn/1_cm};
-	constexpr forces::combine rbc_forces{rbc_tension, rbc_bending, rbc_dissip};
+	constexpr forces::combine rbc_forces{rbc_tension, rbc_bending,
+	                                     rbc_dissip, rbc_constant};
 
 	util::logging::info("time scale: ", params.time_scale);
 	util::logging::info("length scale: ", params.length_scale);
@@ -157,78 +154,43 @@ main(int argc, char** argv)
 	util::logging::info("ρ: ", params.density);
 
 	constexpr ib::delta::bspline<3> phi;
-	constexpr ib::novel::spread spread{mac, domain, phi};
-	constexpr ib::novel::interpolate interpolate{mac, domain, phi};
+	//constexpr ib::novel::spread spread{mac, domain, phi};
+	//constexpr ib::novel::interpolate interpolate{mac, domain, phi};
 
 	constexpr bases::polyharmonic_spline<7> sharp;
-	rbc rbc{2500, 10000, sharp};
+	rbc rbc{1000, 1000, sharp};
 
-	auto [st, r] = initialize(mac, domain, rbc);
+	auto st = initialize(mac, domain, rbc);
 	auto ub = zeros(mac, domain);
-	bases::container rbcs{rbc, std::move(r)};
+	//bases::container rbcs{rbc, std::move(r)};
 
-	ins::solver step{mac, domain, params};
+	ib::solver step{mac, domain, phi, params};
 
 	binary_writer write;
-	units::time t = st.t, tmax=10_ms, k = kmin;
+	units::time tmax = 10_ms;
 
-	auto pts = [&] (const matrix& x)
+	auto forces = [&] (units::time t, const auto& x, const auto& u)
 	{
-		using domain_type = decltype(domain);
-		constexpr auto dimensions = domain_type::dimensions;
-		auto [r, c] = linalg::size(x);
-		return r * c / dimensions;
+		auto& [rx] = x;
+		auto& [ru] = u;
+
+		bases::container rbcs{rbc, rx};
+		auto rf = rbc_forces(rbcs, ru);
+		auto ry = rbcs.geometry(bases::current).sample.position;
+
+		return std::pair{std::array{std::move(ry)},
+		                 std::array{std::move(rf)}};
 	};
 
-	matrix f;
-	auto forces_of = [&] (const auto& cell, const auto& forces,
-			const units::time k, const auto& u)
-	{
-		const auto& ref = bases::ref(cell);
-		auto w = interpolate(pts(cell.x), cell.x, u);
-		auto y = cell.x + (double) k * w;
-		bases::container tmp{ref, std::move(y)};
-		f = forces(tmp, w);
-		return spread(pts(tmp.x), tmp.x, f);
-	};
-
-	auto forces = [&] (units::time tn, const auto& v)
-	{
-		using namespace util::functional;
-		static constexpr std::plus<vector> plus;
-		units::time k = tn - t;
-		auto f = [&] (const auto& pair)
-		{
-			auto& [obj, fn] = pair;
-			return forces_of(obj, fn, k, v);
-		};
-		auto op = [&] (auto l, auto r)
-			{ return map(plus, std::move(l), f(r)); };
-		auto m = [&] (const auto& head, const auto& ... tail)
-			{ return foldl(op, f(head), tail...); };
-		return apply(m, zip(std::forward_as_tuple(rbcs),
-		                    std::forward_as_tuple(rbc_forces)));
-	};
-
-	auto move = [&, &st=st] (auto& cell)
-	{
-		auto v = interpolate(pts(cell.x), cell.x, st.u);
-		cell.x += (double) k * std::move(v);
-	};
-
-	forces(t, st.u);
-	write(st, rbcs.x, f);
-	while (t < tmax) {
-		util::logging::info("simulation time: ", t);
+	write(st);
+	while (st.t < tmax) {
+		util::logging::info("simulation time: ", st.t);
 		try { st = step(std::move(st), ub, forces); }
 		catch (std::runtime_error& e) {
 			util::logging::error(e.what());
 			return 255;
 		}
-		k = st.t - t;
-		t = st.t;
-		move(rbcs);
-		write(st, rbcs.x, f);
+		write(st);
 	}
 
 	return 0;

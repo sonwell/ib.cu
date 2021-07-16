@@ -14,39 +14,34 @@
 #include "cublas/diagonal_type.h"
 #include "cublas/fill_mode.h"
 
-namespace algo {
+namespace solvers {
 
-struct qr_factorization {
-	dense_matrix m;
+struct qr {
 	util::memory<double> tau;
 	util::memory<int> info;
+	dense::matrix m;
+
+	qr(dense::matrix op) :
+		tau(std::min(op.cols(), op.rows())),
+		info(1), m(std::move(op))
+	{
+		int buffer_size;
+		cusolver::dense::handle h;
+		cuda::stream stream;
+		cusolver::set_stream(h, stream);
+
+		cusolver::geqrf_buffer_size(h, m.rows(), m.cols(),
+				m.values(), m.rows(), &buffer_size);
+		util::memory<double> buffer(buffer_size);
+
+		cusolver::geqrf(h, m.rows(), m.cols(), m.values(),
+				m.rows(), tau, buffer, buffer_size, info);
+	}
 };
-
-inline qr_factorization
-qr(dense_matrix m)
-{
-	if (!m.rows())
-		return {std::move(m), nullptr, nullptr};
-
-	int buffer_size;
-	cusolver::dense::handle h;
-	cuda::stream stream;
-	cusolver::set_stream(h, stream);
-
-	cusolver::geqrf_buffer_size(h, m.rows(), m.cols(),
-			m.values(), m.rows(), &buffer_size);
-	util::memory<int> info(1);
-	util::memory<double> tau(std::min(m.cols(), m.rows()));
-	util::memory<double> buffer(buffer_size);
-
-	cusolver::geqrf(h, m.rows(), m.cols(), m.values(),
-			m.rows(), tau, buffer, buffer_size, info);
-	return {std::move(m), std::move(tau), std::move(info)};
-}
 
 template <template <typename> typename container>
 container<linalg::dense<double>>
-solve(const qr_factorization& qr, container<linalg::dense<double>> m)
+solve(const qr& qr, container<linalg::dense<double>> m)
 {
 	static constexpr auto alpha = 1.0;
 	int buffer_size;
@@ -90,4 +85,4 @@ solve(const qr_factorization& qr, container<linalg::dense<double>> m)
 	return r;
 }
 
-} // namespace algo
+} // namespace solvers

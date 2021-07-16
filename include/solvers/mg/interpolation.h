@@ -8,8 +8,9 @@
 #include "fd/domain.h"
 #include "fd/correction.h"
 #include "fd/discretization.h"
-#include "types.h"
+#include "solvers/types.h"
 
+namespace solvers {
 namespace mg {
 
 // Full weighting restriction and prolongation (interpolation). This is
@@ -52,7 +53,7 @@ interpolation(const fd::discretization<fd::dimension<lower_type, upper_type>>& c
 	auto correction = (rows - 2 * cols);
 	auto nonzero = nw * cols - 2 + correction;
 
-	matrix result{rows, cols, nonzero};
+	sparse::matrix result{rows, cols, nonzero};
 	auto* starts = result.starts();
 	auto* indices = result.indices();
 	auto* values = result.values();
@@ -93,7 +94,7 @@ interpolation(const fd::discretization<fd::dimension<lower_type, upper_type>>& c
 	auto correction = (cols - 2 * rows);
 	auto nonzero = nw * rows - 2 + correction;
 
-	matrix result{rows, cols, nonzero};
+	sparse::matrix result{rows, cols, nonzero};
 	auto* starts = result.starts();
 	auto* indices = result.indices();
 	auto* values = result.values();
@@ -125,6 +126,7 @@ decltype(auto)
 interpolation(const grid_type& grid)
 {
 	using namespace util::functional;
+	using matrix = sparse::matrix;
 	auto k = [] (const auto& comp)
 	{
 		constexpr __1::interpolation_tag tag;
@@ -139,6 +141,7 @@ decltype(auto)
 restriction(const grid_type& grid)
 {
 	using namespace util::functional;
+	using matrix = sparse::matrix;
 	auto k = [] (const auto& comp)
 	{
 		constexpr __1::restriction_tag tag;
@@ -149,3 +152,4 @@ restriction(const grid_type& grid)
 }
 
 } // namespace mg
+} // namespace solvers

@@ -6,6 +6,10 @@
 namespace ib {
 namespace delta {
 
+/* Cardinal B-spline delta functions. See:
+ *   * Lee. PhD Thesis, UNC Chapel Hill. 2020.
+ *   * Griffith and Patankar. Ann Rev Fluid Mech 52(1):421-448. */
+
 template <std::size_t n>
 struct bspline {
 	constexpr double

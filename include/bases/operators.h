@@ -4,8 +4,7 @@
 #include "util/sequences.h"
 #include "util/functional.h"
 #include "util/debug.h"
-#include "algo/lu.h"
-#include "algo/qr.h"
+#include "solvers/lu.h"
 #include "types.h"
 #include "differentiation.h"
 #include "fill.h"
@@ -146,7 +145,7 @@ private:
 	template <typename rbf, typename poly>
 	static slice
 	compute_evaluator(const matrix& xd, const matrix& xs, rbf phi, poly p,
-			const algo::lu_factorization& lu)
+			const solvers::lu& lu)
 	{
 		static constexpr auto tr = linalg::operation::transpose;
 		if (&xd == &xs) return {};
@@ -157,7 +156,7 @@ private:
 	template <typename rbf, typename poly, int ... ns>
 	static slice
 	compute_derivative(const matrix& xd, const matrix& xs, rbf phi, poly p,
-			const algo::lu_factorization& lu, partials<ns...> d)
+			const solvers::lu& lu, partials<ns...> d)
 	{
 		static constexpr auto tr = linalg::operation::transpose;
 		auto m = solve(lu, fill<dimensions>(xs, xd, diff(phi, d), diff(p, d)));
@@ -167,7 +166,7 @@ private:
 	template <typename rbf, typename poly, int ... ns>
 	static auto
 	compute_first_derivatives(const matrix& xd, const matrix& xs, rbf phi, poly p,
-			const algo::lu_factorization& lu, util::sequence<int, ns...>)
+			const solvers::lu& lu, util::sequence<int, ns...>)
 	{
 		return std::array{compute_derivative(xd, xs, phi, p, lu, bases::d<ns>)...};
 	}
@@ -175,7 +174,7 @@ private:
 	template <typename rbf, typename poly, int n, int ... ms>
 	static auto
 	compute_second_derivative(const matrix& xd, const matrix& xs, rbf phi, poly p,
-			const algo::lu_factorization& lu, partials<n> d, util::sequence<int, ms...>)
+			const solvers::lu& lu, partials<n> d, util::sequence<int, ms...>)
 	{
 		return std::array{compute_derivative(xd, xs, phi, p, lu,
 				bases::d<n> * bases::d<n + ms>)...};
@@ -184,7 +183,7 @@ private:
 	template <typename rbf, typename poly, int ... ns>
 	static auto
 	compute_second_derivatives(const matrix& xd, const matrix& xs, rbf phi, poly p,
-			const algo::lu_factorization& lu, util::sequence<int, ns...>)
+			const solvers::lu& lu, util::sequence<int, ns...>)
 	{
 		auto ops = std::tuple_cat(compute_second_derivative(xd, xs, phi, p, lu, bases::d<ns>,
 					util::make_sequence<int, dimensions-ns>())...);
@@ -204,7 +203,7 @@ private:
 			interp phi, eval psi, poly p)
 	{
 		ops_type ops;
-		auto lu = algo::lu(fill<dimensions>(xd, phi, p));
+		solvers::lu lu{fill<dimensions>(xd, phi, p)};
 		ops.evaluator = compute_evaluator(xd, xs, phi, p, lu);
 		ops.first = compute_first_derivatives(xd, xs, phi, p, lu, seq);
 		ops.second = compute_second_derivatives(xd, xs, phi, p, lu, seq);
@@ -214,7 +213,6 @@ private:
 	operators(int nd, int ns, ops_type ops, vector weights) :
 		data_sites(nd), sample_sites(ns),
 		evaluator(std::move(ops.evaluator)),
-		restrictor(algo::qr(evaluator)),
 		first_derivatives(std::move(ops.first)),
 		second_derivatives(std::move(ops.second)),
 		weights(std::move(weights)) {}
@@ -222,7 +220,6 @@ public:
 	int data_sites;
 	int sample_sites;
 	slice evaluator;
-	algo::qr_factorization restrictor;
 	fdtype first_derivatives;
 	sdtype second_derivatives;
 	vector weights;

@@ -3,7 +3,6 @@
 #include <cmath>
 #include "types.h"
 #include "gershgorin.h"
-#include "preconditioner.h"
 
 namespace algo {
 
